@@ -361,3 +361,21 @@ export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
 		});
 	return signature(a) === signature(b);
 }
+
+/** Keep an edge when a filter matches either end, and name the other end as context. */
+export function relatedView(graph: ArchitectureGraph, matchedIds: readonly string[]) {
+	const matched = new Set(matchedIds);
+	const edges = graph.edges.filter((edge) => matched.has(edge.source) || matched.has(edge.target));
+	const context = new Set<string>();
+	for (const edge of edges) {
+		if (!matched.has(edge.source)) context.add(edge.source);
+		if (!matched.has(edge.target)) context.add(edge.target);
+	}
+	return {
+		edges,
+		contextIds: [...context],
+		nodeIds: graph.nodes
+			.filter((node) => matched.has(node.id) || context.has(node.id))
+			.map((node) => node.id)
+	};
+}

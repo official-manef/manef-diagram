@@ -31,9 +31,9 @@
 				>Reload connection</button
 			>
 		{:else}
-			<p class="text-sm font-medium">{status.data.stack}</p>
+			<p class="text-sm font-medium">The optional backend responded.</p>
 			<p class="mt-1 text-xs text-muted-foreground">
-				Backend response version: {status.data.version}
+				This status does not add or remove services on the public map.
 			</p>
 		{/if}
 	</Card.Content>

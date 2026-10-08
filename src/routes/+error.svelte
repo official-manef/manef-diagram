@@ -3,8 +3,9 @@
 	import { Button } from '$lib/components/ui/button';
 </script>
 
-<main class="grid min-h-dvh w-full place-items-center p-6">
-	<div class="w-full max-w-md space-y-4 rounded-xl border bg-card p-6 text-left">
+<main class="error-page">
+	<p class="brand">MANEF Architecture</p>
+	<div class="panel">
 		<p class="text-sm font-medium text-muted-foreground">{page.status}</p>
 		<h1 class="text-2xl font-semibold">{page.error?.message ?? 'Something went wrong'}</h1>
 		<p class="text-sm text-muted-foreground">
@@ -29,3 +30,30 @@
 		{/if}
 	</div>
 </main>
+
+<style>
+	.error-page {
+		display: flex;
+		min-height: 100dvh;
+		flex-direction: column;
+		gap: 1.25rem;
+		background: var(--background);
+		padding: 2rem 1.25rem 3rem;
+	}
+	.brand {
+		margin: 0;
+		font-size: 0.85rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.panel {
+		display: grid;
+		width: min(100%, 36rem);
+		gap: 0.85rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg, 0.75rem);
+		background: var(--card);
+		padding: 1.5rem;
+	}
+</style>

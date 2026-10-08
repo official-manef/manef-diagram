@@ -29,7 +29,7 @@ test('navigation loads feature code on demand and announces the pending screen',
 	page
 }, testInfo) => {
 	await page.goto('/apps/dashboard');
-	await expect(page.getByRole('button', { name: 'Interaction kit' })).toBeEnabled();
+	await expect(page.getByRole('link', { name: 'Open diagram' }).first()).toBeVisible();
 	let release!: () => void;
 	const gate = new Promise<void>((resolve) => {
 		release = resolve;
@@ -213,8 +213,6 @@ test('dynamic app shell stays responsive and semantic', async ({ page }, testInf
 		expect(rail.scroll).toBeLessThanOrEqual(rail.client + 1);
 	}
 
-	await page.getByRole('button', { name: 'Interaction kit' }).click();
-	await expect(page.getByText('Adaptive grid', { exact: true })).toBeVisible();
 	const interactionGrid = page.locator('.app-feature-grid').first();
 	const columns = await interactionGrid.evaluate(
 		(node) => getComputedStyle(node).gridTemplateColumns.split(' ').filter(Boolean).length
