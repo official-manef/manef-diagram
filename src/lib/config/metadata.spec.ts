@@ -57,7 +57,9 @@ test('SEO is opt-in and optional verification settings validate before rendering
 	expect(pageIndexable(live, { indexable: false })).toBe(false);
 	expect(pageIndexable(live, undefined, 404)).toBe(false);
 	expect(sitemapDocument(live)).toContain('<loc>https://site.example/</loc>');
+	expect(sitemapDocument(live)).toContain('<loc>https://site.example/products</loc>');
 	expect(sitemapDocument(live)).not.toContain('/apps/');
+	expect(sitemapDocument(live)).not.toContain('/workspace');
 	expect(robotsDocument(live)).toContain('Sitemap: https://site.example/sitemap.xml');
 	for (const env of [
 		{ PUBLIC_SEO_INDEXABLE: 'true' },

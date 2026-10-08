@@ -1,0 +1,590 @@
+.eco {
+	--bg: #f7f8f5;
+	--surface: #fff;
+	--surface2: #f0f2ed;
+	--ink: #20251f;
+	--muted: #666e63;
+	--line: #e0e4db;
+	--accent: #d6f58c;
+	--accent-ink: #344713;
+	--dark: #1c251d;
+	--shadow: 0 18px 50px #13200b0d;
+	--radius: 14px;
+	--sidebar: 216px;
+	color: var(--ink);
+	background: var(--bg);
+	font-size: 14px;
+	line-height: 1.55;
+	min-height: 100dvh;
+}
+.eco[data-theme='dark'] {
+	--bg: #161b17;
+	--surface: #202722;
+	--surface2: #2a322b;
+	--ink: #eff3e9;
+	--muted: #b2bcad;
+	--line: #3c473d;
+	--accent: #d6f58c;
+	--accent-ink: #25370a;
+	--dark: #0d130f;
+	color-scheme: dark;
+}
+.eco h1,
+.eco h2,
+.eco h3,
+.eco p {
+	margin: 0;
+}
+.eco h1,
+.eco h2,
+.eco h3 {
+	letter-spacing: -0.035em;
+	line-height: 1.16;
+}
+.eco a {
+	color: inherit;
+	text-decoration: none;
+}
+.eco button,
+.eco input,
+.eco textarea,
+.eco select {
+	font: inherit;
+	color: inherit;
+}
+.eco button {
+	cursor: pointer;
+}
+.eco .muted {
+	color: var(--muted);
+}
+.eco .eyebrow {
+	text-transform: uppercase;
+	letter-spacing: 0.16em;
+	font-size: 11px;
+	font-weight: 650;
+	color: var(--muted);
+}
+.eco .row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.eco .between {
+	justify-content: space-between;
+}
+.eco .wrap {
+	flex-wrap: wrap;
+}
+.eco .stack {
+	display: grid;
+	gap: 20px;
+}
+.eco .btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 40px;
+	padding: 9px 16px;
+	border: 1px solid var(--line);
+	background: var(--surface);
+	border-radius: 8px;
+	font-size: 13px;
+}
+.eco .btn.primary {
+	background: var(--ink);
+	color: var(--surface);
+	border-color: var(--ink);
+}
+.eco .btn.lime {
+	background: var(--accent);
+	color: var(--accent-ink);
+	border-color: transparent;
+}
+.eco .btn.small {
+	min-height: 32px;
+	padding: 6px 10px;
+	font-size: 12px;
+}
+.eco .pill {
+	display: inline-flex;
+	align-items: center;
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	font-size: 10px;
+	font-weight: 600;
+	padding: 3px 7px;
+	background: var(--surface2);
+	color: var(--muted);
+}
+.eco .pill.green {
+	background: #e7f0da;
+	color: #3c5723;
+}
+.eco .pill.orange {
+	background: #fbedd9;
+	color: #86591d;
+}
+.eco .pill.blue {
+	background: #e8eff8;
+	color: #375f85;
+}
+.eco .card {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--radius);
+	padding: 24px;
+	min-width: 0;
+}
+.eco .card p {
+	color: var(--muted);
+}
+.eco .grid2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 20px;
+}
+.eco .grid3 {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 18px;
+}
+.eco .grid4 {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 16px;
+}
+.eco .notice {
+	background: var(--surface2);
+	border: 1px solid var(--line);
+	padding: 13px 16px;
+	border-radius: 9px;
+	font-size: 12px;
+	color: var(--muted);
+}
+.eco .public-header,
+.eco .public-main,
+.eco .public-footer {
+	max-width: 1180px;
+	margin: auto;
+	padding-left: 28px;
+	padding-right: 28px;
+}
+.eco .public-header {
+	height: 74px;
+	display: flex;
+	align-items: center;
+	gap: 28px;
+	border-bottom: 1px solid var(--line);
+	padding-top: 0;
+	padding-bottom: 0;
+}
+.eco .brand {
+	font-weight: 760;
+	font-size: 20px;
+	letter-spacing: -0.05em;
+}
+.eco .public-nav {
+	display: flex;
+	gap: 22px;
+	margin-right: auto;
+	font-size: 13px;
+	color: var(--muted);
+}
+.eco .public-nav a[aria-current='page'] {
+	color: var(--ink);
+}
+.eco .hero {
+	padding: 64px 0 48px;
+	display: grid;
+	grid-template-columns: 1.05fr 1fr;
+	gap: 48px;
+	align-items: center;
+}
+.eco .hero h1 {
+	font-size: clamp(40px, 4vw, 64px);
+	line-height: 1.05;
+	letter-spacing: -0.06em;
+	margin: 18px 0;
+}
+.eco .hero h1 span {
+	color: #7d8874;
+}
+.eco .lead {
+	color: var(--muted);
+	font-size: 16px;
+	line-height: 1.75;
+	max-width: 520px;
+}
+.eco .hero-canvas {
+	border: 1px solid #ced7c6;
+	border-radius: 17px;
+	background: #ecf0e7;
+	position: relative;
+	height: 380px;
+	overflow: hidden;
+}
+.eco[data-theme='dark'] .hero-canvas {
+	background: #243028;
+	border-color: var(--line);
+}
+.eco .hero-node {
+	position: absolute;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 14px 16px;
+	min-width: 150px;
+}
+.eco .hero-node small {
+	display: block;
+	color: var(--muted);
+	font-size: 10px;
+	margin-top: 4px;
+}
+.eco .hero-node.one {
+	top: 48px;
+	left: 28px;
+}
+.eco .hero-node.two {
+	top: 150px;
+	right: 28px;
+}
+.eco .hero-node.three {
+	bottom: 36px;
+	left: 36px;
+}
+.eco .product-card {
+	display: grid;
+	gap: 14px;
+	min-height: 230px;
+}
+.eco .product-card h3 {
+	font-size: 20px;
+}
+.eco .mark {
+	width: 42px;
+	height: 42px;
+	border-radius: 10px;
+	display: grid;
+	place-items: center;
+	background: var(--surface2);
+	border: 1px solid var(--line);
+	font-size: 12px;
+	font-weight: 700;
+}
+.eco .mark.lime {
+	background: #eaf3d9;
+	color: #456126;
+}
+.eco .mark.blue {
+	background: #e9f0f8;
+	color: #4c7299;
+}
+.eco .mark.purple {
+	background: #eee8f4;
+	color: #7a6096;
+}
+.eco .mark.orange {
+	background: #faedde;
+	color: #a06d40;
+}
+.eco .mark.pink {
+	background: #f8e9f1;
+	color: #98637e;
+}
+.eco .mark.teal {
+	background: #e1efe9;
+	color: #4e8472;
+}
+.eco .public-section {
+	padding: 42px 0;
+	border-top: 1px solid var(--line);
+}
+.eco .public-footer {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	border-top: 1px solid var(--line);
+	padding-top: 22px;
+	padding-bottom: 28px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.eco .app-shell {
+	display: grid;
+	grid-template-columns: var(--sidebar) minmax(0, 1fr);
+	min-height: 100dvh;
+}
+.eco .sidebar {
+	position: sticky;
+	top: 0;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	background: var(--surface);
+	border-right: 1px solid var(--line);
+	padding: 18px 12px;
+	overflow: auto;
+}
+.eco .nav-label {
+	font-size: 9px;
+	letter-spacing: 0.12em;
+	color: var(--muted);
+	padding: 14px 10px 6px;
+}
+.eco .nav-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 7px;
+	font-size: 12px;
+	color: var(--muted);
+	min-height: 36px;
+}
+.eco .nav-item[aria-current='page'] {
+	background: var(--surface2);
+	color: var(--ink);
+	font-weight: 650;
+}
+.eco .app-main {
+	padding: 28px;
+	max-width: 1280px;
+}
+.eco .page-head {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	align-items: flex-end;
+	margin-bottom: 22px;
+}
+.eco .page-head h1 {
+	font-size: 28px;
+	margin-top: 8px;
+}
+.eco .stat .value {
+	font-size: 32px;
+	letter-spacing: -0.06em;
+	margin: 8px 0;
+}
+.eco .list-row {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	padding: 14px 0;
+	border-bottom: 1px solid var(--line);
+}
+.eco .field {
+	display: grid;
+	gap: 6px;
+	font-size: 12px;
+}
+.eco .field input,
+.eco .field textarea,
+.eco .field select {
+	border: 1px solid var(--line);
+	background: var(--surface);
+	border-radius: 7px;
+	padding: 10px;
+	width: 100%;
+}
+.eco .search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid var(--line);
+	background: var(--surface);
+	border-radius: 8px;
+	padding: 0 10px;
+	min-height: 40px;
+}
+.eco .search input {
+	border: 0;
+	background: transparent;
+	width: 100%;
+	outline: none;
+	padding: 8px 0;
+}
+.eco .demo-map {
+	position: relative;
+	min-height: 560px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--surface);
+	overflow: auto;
+}
+.eco .demo-node {
+	position: absolute;
+	width: 180px;
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 10px;
+	text-align: left;
+}
+.eco .demo-node strong {
+	display: block;
+	font-size: 13px;
+}
+.eco .demo-node small {
+	color: var(--muted);
+}
+.eco .demo-node.selected {
+	border-color: #7f9d4f;
+}
+.eco .demo-node.dim {
+	opacity: 0.4;
+}
+.eco .map-svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.eco .split {
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.7fr);
+	gap: 16px;
+}
+.eco .crumbs {
+	display: flex;
+	gap: 6px;
+	color: var(--muted);
+	font-size: 12px;
+}
+.eco .side-foot {
+	margin-top: auto;
+	display: grid;
+	gap: 8px;
+	padding-top: 12px;
+}
+.eco .support-panel {
+	position: fixed;
+	right: 16px;
+	bottom: 72px;
+	width: min(360px, calc(100vw - 24px));
+	z-index: 30;
+	display: grid;
+	gap: 10px;
+}
+.eco .checks {
+	display: grid;
+	gap: 12px;
+}
+.eco .checks label {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 10px;
+	align-items: start;
+}
+.eco dialog .commands {
+	display: grid;
+	gap: 6px;
+	max-height: 320px;
+	overflow: auto;
+}
+.eco dialog .commands a {
+	padding: 8px;
+	border-radius: 8px;
+}
+.eco dialog .commands a:hover {
+	background: var(--surface2);
+}
+.eco dialog {
+	border: 1px solid var(--line);
+	background: var(--surface);
+	color: var(--ink);
+	border-radius: 16px;
+	width: min(520px, calc(100vw - 24px));
+	padding: 0;
+}
+.eco dialog::backdrop {
+	background: #18221670;
+}
+.eco .dialog-body {
+	padding: 20px;
+	display: grid;
+	gap: 12px;
+}
+.eco .toast {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	background: var(--ink);
+	color: var(--surface);
+	padding: 12px 16px;
+	border-radius: 10px;
+	font-size: 12px;
+	z-index: 20;
+	max-width: 360px;
+}
+.eco table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+.eco th,
+.eco td {
+	text-align: left;
+	padding: 12px;
+	border-bottom: 1px solid var(--line);
+	vertical-align: top;
+}
+.eco th {
+	color: var(--muted);
+	font-size: 10px;
+	font-weight: 500;
+}
+.eco pre {
+	margin: 0;
+	white-space: pre-wrap;
+	font-size: 12px;
+}
+@media (max-width: 900px) {
+	.eco .map-svg {
+		display: none;
+	}
+	.eco .map-wrap {
+		width: auto !important;
+		height: auto !important;
+	}
+	.eco .hero,
+	.eco .grid3,
+	.eco .grid2,
+	.eco .grid4,
+	.eco .split {
+		grid-template-columns: 1fr;
+	}
+	.eco .public-header {
+		height: auto;
+		flex-wrap: wrap;
+		padding-top: 12px;
+		padding-bottom: 12px;
+	}
+	.eco .public-nav {
+		display: flex;
+		width: 100%;
+		gap: 14px;
+		overflow: auto;
+	}
+	.eco .app-shell {
+		display: block;
+	}
+	.eco .sidebar {
+		position: static;
+		height: auto;
+		border-right: 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.eco .demo-node {
+		position: static;
+		width: auto;
+		margin: 10px;
+	}
+	.eco .demo-map {
+		min-height: 0;
+	}
+}

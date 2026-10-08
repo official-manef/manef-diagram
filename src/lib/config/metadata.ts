@@ -72,7 +72,10 @@ export function robotsDocument(seo: ReturnType<typeof seoSettings>) {
 }
 
 export function sitemapDocument(seo: ReturnType<typeof seoSettings>) {
-	// Only the shipped public landing page. Add real public product URLs when those routes exist.
-	const location = seo.indexable ? `<url><loc>${seo.origin}/</loc></url>` : '';
+	// Public discovery only. The demo workspace and /apps shell stay out of the sitemap.
+	const paths = ['/', '/products', '/guide', '/audit'];
+	const location = seo.indexable
+		? paths.map((path) => `<url><loc>${seo.origin}${path}</loc></url>`).join('')
+		: '';
 	return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${location}</urlset>\n`;
 }
