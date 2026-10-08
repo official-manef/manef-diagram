@@ -74,7 +74,7 @@
 	<section class="closer">
 		<h2>The diagram is the product</h2>
 		<p>This page introduces the services. The labeled map lives at /app.</p>
-		<Button href={resolve('/app')}>Open diagram</Button>
+		<Button href={resolve('/app')}>Open the map</Button>
 	</section>
 </main>
 
