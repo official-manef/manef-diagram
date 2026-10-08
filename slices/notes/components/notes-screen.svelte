@@ -15,12 +15,12 @@
 		<Card.Content class="space-y-3">
 			{#if !page.data.auth.enabled}
 				<p class="text-sm text-muted-foreground">
-					Sign-in is not configured. Enable Google sign-in and connect a Convex deployment to use
-					this example.
+					Sign-in is not configured. MANEF sign-in and a Convex deployment are required before notes
+					can be saved.
 				</p>
 			{:else if !page.data.auth.session}
-				<p class="text-sm text-muted-foreground">Sign in with Google to open your notes.</p>
-				<Button href="/auth/login" data-sveltekit-reload>Sign in with Google</Button>
+				<p class="text-sm text-muted-foreground">Sign in with MANEF to open your notes.</p>
+				<Button href="/auth/login" data-sveltekit-reload>Sign in with MANEF</Button>
 			{:else}
 				<p class="text-sm text-muted-foreground">
 					Signed in{page.data.auth.session.email ? ` as ${page.data.auth.session.email}` : ''}.

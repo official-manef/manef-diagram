@@ -14,7 +14,7 @@
 			>Convex connection <Badge variant="secondary">Reactive</Badge></Card.Title
 		>
 		<Card.Description
-			><code>useQuery()</code> is already reactive; there is no duplicate <code>$derived</code> wrapper.</Card.Description
+			>This is the optional backend status, not the public service map.</Card.Description
 		>
 	</Card.Header>
 	<Card.Content>
@@ -33,7 +33,7 @@
 		{:else}
 			<p class="text-sm font-medium">{status.data.stack}</p>
 			<p class="mt-1 text-xs text-muted-foreground">
-				Backend template version: {status.data.version}
+				Backend response version: {status.data.version}
 			</p>
 		{/if}
 	</Card.Content>

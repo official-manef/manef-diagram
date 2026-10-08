@@ -20,8 +20,8 @@ export function materializeInventoryItem(item: InventoryItem): ArchitectureNode 
 		tags: [...item.tags],
 		group: item.group,
 		status: item.status,
-		inputs: item.inputs?.map((port) => ({ ...port })) ?? [{ id: 'in', label: 'Input' }],
-		outputs: item.outputs?.map((port) => ({ ...port })) ?? [{ id: 'out', label: 'Output' }]
+		inputs: item.inputs?.map((port) => ({ ...port })) ?? [{ id: 'in', label: 'Consumes' }],
+		outputs: item.outputs?.map((port) => ({ ...port })) ?? [{ id: 'out', label: 'Provides' }]
 	};
 }
 
