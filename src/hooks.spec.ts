@@ -51,3 +51,17 @@ test('unexpected server errors expose correlation data without provider exceptio
 	expect(logged).toContain('server-correlation');
 	expect(logged).not.toMatch(/provider-secret-key|private request payload|private-code|\?code/);
 });
+
+test('missing routes report not found without leaking the request', async () => {
+	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+	const current = event();
+	current.locals.requestId = 'missing-route';
+	const result = await handleError({
+		event: current,
+		status: 404,
+		message: 'Not Found',
+		error: new Error('private-code')
+	});
+	expect(result).toEqual({ message: 'Page not found.', id: 'missing-route' });
+	expect(JSON.stringify(log.mock.calls)).not.toMatch(/private-code/);
+});

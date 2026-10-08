@@ -162,7 +162,7 @@ export const defaultInventory: InventoryItem[] = [
 	{
 		id: 'dokploy',
 		label: 'Dokploy',
-		subtitle: 'Production Node/container deployment target',
+		subtitle: 'Optional Node/container host via adapter-node; not the current production origin',
 		tags: ['deploy', 'infra', 'platform:dokploy', 'kind:deployment'],
 		status: 'active'
 	}

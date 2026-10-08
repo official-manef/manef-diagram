@@ -20,7 +20,7 @@ Selections are OR-ed inside one namespace and AND-ed across namespaces.
 
 ## Navigable views
 
-The `/app` route accepts repeated `tag` and `seed` parameters plus `q`, `mode=flow|graph`, `trace=direct|component`, `focus=1`, and optional `graph=<JSON>` for bounded portable graphs.
+The `/app` route is canonical. `/diagram` redirects to `/app` and preserves the query string. `/app` accepts repeated `tag` and `seed` parameters plus `q`, `mode=flow|graph`, `trace=direct|component`, `focus=1`, and optional `graph=<JSON>` for bounded portable graphs.
 
 The UI can copy the current edited graph plus active view state as a portable URL.
 

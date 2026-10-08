@@ -37,5 +37,8 @@ export const handleError: HandleServerError = ({ event, status }) => {
 		method: event.request.method,
 		route: event.route.id
 	});
-	return { message: 'Something went wrong. Please try again.', id };
+	return {
+		message: status === 404 ? 'Page not found.' : 'Something went wrong. Please try again.',
+		id
+	};
 };

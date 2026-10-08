@@ -3,6 +3,11 @@
 Notable template changes follow [Semantic Versioning](https://semver.org/).
 During 0.x, minor releases may change template structure; patch releases are compatible fixes.
 
+## [Unreleased]
+
+- Align the public runtime claim with the live Vercel origin. Dokploy/adapter-node stays an optional container target, not the current production host.
+- Redirect `/diagram` to `/app` and stop the 404 page from sending people to the starter dashboard.
+
 ## [0.1.0] - 2026-09-29
 
 ### Added

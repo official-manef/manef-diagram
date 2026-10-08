@@ -11,6 +11,10 @@ Bun manages dependencies and build scripts. Production server code runs on Node.
 | VPS, container host, GCP Cloud Run | `DEPLOY_TARGET=node`             | `build/`, started with `node build`                |
 | Cloudflare Workers                 | Product integration recipe below | No supported build target in this template yet     |
 
+## Verified production origin
+
+`https://diagram.manef.dev` is the product origin. On 2026-10-08 its responses identified `server: Vercel` and `x-vercel-id`, matching the default `DEPLOY_TARGET=vercel` adapter in `svelte.config.js`. The Node adapter and [Dockerfile](../Dockerfile) (`DEPLOY_TARGET=node`) remain the path for a separately managed Dokploy or other container host. That container path is not the current origin, and a passing Node build is not evidence that Dokploy is serving production.
+
 Run the repository gates before publishing an image or deployment. Commit regenerated
 artwork, prompts and manifests first: verification checks asset freshness and does not
 create final artwork. See [assets](assets.md) and [the release checklist](../CHECKLIST.md).

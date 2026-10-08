@@ -6,7 +6,7 @@ Reusable MANEF architecture inventory and graph feature.
 - Canonical UI: Svelte 5 + SvelteKit
 - Reusable core: framework-neutral TypeScript under `slices/architecture-inventory/`
 - Backend: optional Convex Cloud; clean clones work from the bundled public seed
-- Production runtime: adapter-node on Dokploy
+- Production runtime: Vercel adapter at `https://diagram.manef.dev` (live `server: Vercel`). `DEPLOY_TARGET=node` and the Dockerfile remain available for Dokploy or another container host; they are not the current origin.
 - Package manager: Bun only
 
 ## Why this exists
