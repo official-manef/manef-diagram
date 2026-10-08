@@ -177,14 +177,16 @@ export function traceGraph(
 	return { nodeIds: [...nodeIds], edgeIds };
 }
 
+export const flowCard = { width: 210, height: 150, gapX: 120, gapY: 36 } as const;
+
 export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record<string, Point> {
 	if (mode === 'graph') {
 		const count = Math.max(1, graph.nodes.length);
 		return Object.fromEntries(
 			graph.nodes.map((node, index) => {
 				const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
-				const radius = 360 + (index % 3) * 42;
-				return [node.id, { x: 760 + Math.cos(angle) * radius, y: 610 + Math.sin(angle) * radius }];
+				const radius = 280 + count * 18;
+				return [node.id, { x: 640 + Math.cos(angle) * radius, y: 520 + Math.sin(angle) * radius }];
 			})
 		);
 	}
@@ -196,11 +198,23 @@ export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record
 		list.push(node);
 		levels.set(level, list);
 	}
+	const orderedLevels = [...levels.keys()].sort((a, b) => a - b);
+	const columnHeight = (count: number) =>
+		count * flowCard.height + Math.max(0, count - 1) * flowCard.gapY;
+	const maxHeight = Math.max(
+		...orderedLevels.map((level) => columnHeight(levels.get(level)!.length)),
+		flowCard.height
+	);
 	const points: Record<string, Point> = {};
-	for (const [level, nodes] of levels) {
+	orderedLevels.forEach((level, column) => {
+		const nodes = levels.get(level)!;
+		const startY = 48 + (maxHeight - columnHeight(nodes.length)) / 2;
 		nodes.forEach((node, index) => {
-			points[node.id] = { x: 80 + level * 320, y: 90 + index * 150 };
+			points[node.id] = {
+				x: 48 + column * (flowCard.width + flowCard.gapX),
+				y: startY + index * (flowCard.height + flowCard.gapY)
+			};
 		});
-	}
+	});
 	return points;
 }

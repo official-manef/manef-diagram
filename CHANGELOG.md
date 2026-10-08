@@ -6,7 +6,7 @@ During 0.x, minor releases may change template structure; patch releases are com
 ## [Unreleased]
 
 - Align the public runtime claim with the live Vercel origin. Dokploy/adapter-node stays an optional container target, not the current production host.
-- Redirect `/diagram` to `/app` and stop the 404 page from sending people to the starter dashboard.
+- Fit the public architecture map to the canvas, center each flow column, and show kind, platform, and project on the node instead of a truncated tag string.
 
 ## [0.1.0] - 2026-09-29
 

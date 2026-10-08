@@ -31,5 +31,6 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 - Canonical canvas is `/app`. `/diagram` must redirect there and keep the query string, instead of 404ing into the starter `/apps/dashboard` recovery link.
 - The production origin responds with the Vercel adapter. README and the public inventory must not call Dokploy or adapter-node the current runtime. `platform:vercel` on `diagram.manef.dev` matches that origin.
 - The bundled graph stays the public seed. Open Silong, Convex Cloud, and Dokploy remain inventory references, not canvas nodes. Private repository or domain inventory stays out of the seed.
+- The canvas fits that public graph on load. Flow columns are centered so cards do not stack. Node cards show kind, platform, and project facets. No node is preselected, because a connected-component highlight would mark the whole map.
 - Live sign-in redirects to WorkOS AuthKit. Direct Google OIDC stays the compatibility adapter. Consent, callback, refresh, and owner-isolated notes are still an acceptance gate.
 - `POST /api/mcp/server` is the MCP route. An unauthenticated production POST returned 401. Tool output was not exercised. The handler reads the public seed only.

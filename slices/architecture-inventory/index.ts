@@ -6,6 +6,7 @@ export {
 	cloneGraph,
 	dedupeEdges,
 	layoutGraph,
+	flowCard,
 	parseGraphJson,
 	traceGraph,
 	validateGraph

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultGraph } from '../config/default-graph';
-import { addEdge, cloneGraph, traceGraph, validateGraph } from './graph';
+import { addEdge, cloneGraph, layoutGraph, traceGraph, validateGraph } from './graph';
 import { addInventoryItem } from './inventory';
 
 describe('architecture graph core', () => {
@@ -22,6 +22,18 @@ describe('architecture graph core', () => {
 		const graph = cloneGraph(defaultGraph);
 		const duplicate = { ...graph.edges[0], id: 'another-id' };
 		expect(addEdge(graph, duplicate).edges).toHaveLength(graph.edges.length);
+	});
+
+	it('spaces and centers the flow columns so cards do not stack', () => {
+		const points = layoutGraph(defaultGraph, 'flow');
+		const levelTwo = defaultGraph.nodes
+			.filter((node) => node.level === 2)
+			.map((node) => points[node.id].y)
+			.sort((a, b) => a - b);
+		for (let index = 1; index < levelTwo.length; index += 1) {
+			expect(levelTwo[index] - levelTwo[index - 1]).toBeGreaterThanOrEqual(180);
+		}
+		expect(points['manef-dev'].y).toBe(levelTwo[Math.floor(levelTwo.length / 2)]);
 	});
 
 	it('materializes inventory once', () => {
