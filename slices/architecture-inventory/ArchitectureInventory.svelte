@@ -80,6 +80,8 @@
 		panX: number;
 		panY: number;
 	} | null>(null);
+	let filtersOpen = $state(false);
+	let detailsOpen = $state(false);
 	let viewport = $state<HTMLDivElement | null>(null);
 
 	const positions = $derived(layoutGraph(graph, diagramMode));
@@ -170,13 +172,22 @@
 			maxY = Math.max(maxY, point.y + flowCard.height);
 		}
 		if (!Number.isFinite(minX)) return;
+		for (const route of routes) {
+			if (!visibleEdges.some((edge) => edge.id === route.id)) continue;
+			for (const point of route.points) {
+				minX = Math.min(minX, point.x - 12);
+				minY = Math.min(minY, point.y - 18);
+				maxX = Math.max(maxX, point.x + 12);
+				maxY = Math.max(maxY, point.y + 8);
+			}
+		}
 		const rect = viewport.getBoundingClientRect();
 		if (rect.width < 40 || rect.height < 40) return;
-		const pad = 36;
+		const pad = 28;
 		const scale = Math.min(
 			1.05,
 			Math.max(
-				0.62,
+				0.4,
 				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
 			)
 		);
@@ -212,11 +223,13 @@
 	function selectNode(id: string) {
 		selectedNodeId = id;
 		selectedEdgeId = null;
+		detailsOpen = true;
 	}
 
 	function selectEdge(id: string) {
 		selectedEdgeId = id;
 		selectedNodeId = null;
+		detailsOpen = true;
 	}
 
 	function updateNode(id: string, patch: Partial<ArchitectureNode>) {
@@ -435,7 +448,7 @@
 	function handleWheel(event: WheelEvent) {
 		if (window.matchMedia('(max-width: 44rem)').matches) return;
 		event.preventDefault();
-		zoom = Math.min(1.4, Math.max(0.62, zoom * (event.deltaY < 0 ? 1.08 : 0.92)));
+		zoom = Math.min(1.6, Math.max(0.4, zoom * (event.deltaY < 0 ? 1.08 : 0.92)));
 	}
 </script>
 
@@ -489,111 +502,50 @@
 	{#if actionMessage}<p class="toast" role="status">{actionMessage}</p>{/if}
 
 	<div class="shell">
-		<aside class="sidebar">
-			<section>
-				<h2>Explore canvas</h2>
-				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
-				<p class="help">A group matches any selected tag. Every group must match.</p>
-				<div class="tag-groups" aria-label="Tag group filters">
-					{#each tagGroups as [group, tags] (group)}
-						<div class="tag-group">
-							<strong>{group}</strong>
-							<div class="tags">
-								{#each tags as tag (tag)}
-									<Button
-										size="sm"
-										variant={activeTags.includes(tag) ? 'default' : 'outline'}
-										onclick={() => toggleTag(tag)}
-									>
-										{tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag}
-										<span class="count">{tagCount(tag)}</span>
-									</Button>
-								{/each}
-							</div>
-						</div>
-					{/each}
-				</div>
-			</section>
-
-			<section>
-				<h2>Highlight</h2>
-				<div class="segmented full">
-					<Button
-						size="sm"
-						variant={traceMode === 'direct' ? 'default' : 'ghost'}
-						aria-pressed={traceMode === 'direct'}
-						onclick={() => (traceMode = 'direct')}>Direct</Button
-					>
-					<Button
-						size="sm"
-						variant={traceMode === 'component' ? 'default' : 'ghost'}
-						aria-pressed={traceMode === 'component'}
-						onclick={() => (traceMode = 'component')}>All connected</Button
-					>
-				</div>
-				{#if traceMode === 'component'}
-					<p class="help">
-						All connected lights the whole piece that contains the selection. This public map is one
-						piece, so Direct is the view that shows neighbors.
-					</p>
-				{/if}
-				<Button
-					class="full-button"
-					variant={focusMode ? 'default' : 'outline'}
-					aria-pressed={focusMode}
-					size="sm"
-					onclick={() => (focusMode = !focusMode)}>Focus: {focusMode ? 'On' : 'Off'}</Button
-				>
-			</section>
-
-			<section>
-				<h2>Canvas</h2>
-				<div class="metric">
-					<span>Services</span><strong
-						>{matchedNodes.length === graph.nodes.length
-							? graph.nodes.length
-							: `${matchedNodes.length} of ${graph.nodes.length}`}</strong
-					>
-				</div>
-				<div class="metric">
-					<span>Connections</span><strong
-						>{visibleEdges.length === graph.edges.length
-							? graph.edges.length
-							: `${visibleEdges.length} of ${graph.edges.length}`}</strong
-					>
-				</div>
-				{#if contextNodeIds.size > 0}
-					<p class="help">
-						A linked service stays on the map so its connection can be read. It is not included in
-						the service count.
-					</p>
-				{/if}
-				<p class="help">
-					Names stay whole. Lines are labeled. Drag empty space to pan, and use the wheel to zoom.
-					On a phone the same services are a list.
-				</p>
-			</section>
-		</aside>
-
 		<section class="canvas-shell">
 			<div class="canvas-toolbar">
-				{#if armedOutput}
-					<span>Output armed: {armedOutput.nodeId} / {armedOutput.portId}</span>
-					<Button size="sm" variant="outline" onclick={() => (armedOutput = null)}>Cancel</Button>
-				{:else}
-					<span>{diagramMode === 'flow' ? 'Flow' : 'Graph'} · {Math.round(zoom * 100)}%</span>
-				{/if}
-				<div>
-					<Button size="sm" variant="outline" onclick={() => (zoom = Math.max(0.62, zoom * 0.9))}
+				<Input
+					class="toolbar-search"
+					aria-label="Search graph"
+					placeholder="Search graph…"
+					bind:value={search}
+				/>
+				<span class="counts">
+					{matchedNodes.length === graph.nodes.length
+						? graph.nodes.length
+						: `${matchedNodes.length} of ${graph.nodes.length}`}
+					services ·
+					{visibleEdges.length === graph.edges.length
+						? graph.edges.length
+						: `${visibleEdges.length} of ${graph.edges.length}`}
+					connections
+				</span>
+				<div class="toolbar-actions">
+					{#if armedOutput}
+						<span>Output armed: {armedOutput.nodeId}</span>
+						<Button size="sm" variant="outline" onclick={() => (armedOutput = null)}>Cancel</Button>
+					{/if}
+					<Button
+						size="sm"
+						variant={filtersOpen ? 'default' : 'outline'}
+						aria-expanded={filtersOpen}
+						onclick={() => (filtersOpen = !filtersOpen)}>Filters</Button
+					>
+					<Button
+						size="sm"
+						variant={detailsOpen ? 'default' : 'outline'}
+						aria-expanded={detailsOpen}
+						onclick={() => (detailsOpen = !detailsOpen)}>Details</Button
+					>
+					<Button size="sm" variant="outline" onclick={() => (zoom = Math.max(0.4, zoom * 0.9))}
 						>−</Button
 					>
-					<Button size="sm" variant="outline" onclick={() => (zoom = Math.min(1.4, zoom * 1.1))}
+					<Button size="sm" variant="outline" onclick={() => (zoom = Math.min(1.6, zoom * 1.1))}
 						>+</Button
 					>
 					<Button size="sm" variant="outline" onclick={fitView}>Fit</Button>
 				</div>
 			</div>
-
 			<div
 				class="viewport"
 				role="application"
@@ -766,181 +718,250 @@
 					{/each}
 				</div>
 			{/if}
-		</section>
 
-		<aside class="inspector">
-			<section>
-				<h2>Off this map</h2>
-				<p class="help">
-					Open Silong, Convex, and Dokploy are not part of the public seed. Add one here if you want
-					it on this map. That does not publish it for everyone else.
-				</p>
-				<Input
-					aria-label="Search inventory"
-					placeholder="Search inventory…"
-					bind:value={inventorySearch}
-				/>
-				<div class="inventory-list">
-					{#each inventoryItems as item (item.id)}
-						<div class="inventory-item">
-							<div>
-								<strong>{item.label}</strong>
-								<small>{item.subtitle}</small>
-							</div>
-							<Button size="sm" variant="outline" onclick={() => materialize(item.id)}>
-								{graph.nodes.some((node) => node.id === item.id) ? 'Open' : 'Add'}
-							</Button>
-						</div>
-					{/each}
-				</div>
-			</section>
-
-			{#if selectedNode}
+			<aside class="sidebar" class:is-open={filtersOpen}>
 				<section>
-					<h2>Node details</h2>
-					<label>
-						<span>Label</span>
-						<Input
-							value={selectedNode.label}
-							oninput={(event) => updateNode(selectedNode.id, { label: event.currentTarget.value })}
-						/>
-					</label>
-					<label>
-						<span>Subtitle</span>
-						<Input
-							value={selectedNode.subtitle ?? ''}
-							oninput={(event) =>
-								updateNode(selectedNode.id, { subtitle: event.currentTarget.value })}
-						/>
-					</label>
-					<label>
-						<span>Tags</span>
-						<textarea
-							rows="3"
-							value={selectedNode.tags.join(', ')}
-							aria-label="Tags"
-							onchange={(event) =>
-								updateNode(selectedNode.id, {
-									tags: event.currentTarget.value
-										.split(',')
-										.map((tag) => tag.trim())
-										.filter(Boolean)
-								})}></textarea>
-					</label>
-
-					<div class="port-editor">
-						<div>
-							<div class="editor-heading">
-								<strong>Inputs</strong>
-								<Button
-									size="sm"
-									variant="outline"
-									onclick={() => addPort(selectedNode.id, 'inputs')}>+</Button
-								>
-							</div>
-							{#each selectedNode.inputs as port (port.id)}
-								<div class="port-row">
-									<Input
-										value={port.label}
-										oninput={(event) =>
-											updatePort(selectedNode.id, 'inputs', port.id, {
-												label: event.currentTarget.value
-											})}
-									/>
-									<Button
-										size="sm"
-										variant="ghost"
-										onclick={() => removePort(selectedNode.id, 'inputs', port.id)}>×</Button
-									>
+					<h2>Explore canvas</h2>
+					<p class="help">A group matches any selected tag. Every group must match.</p>
+					<div class="tag-groups" aria-label="Tag group filters">
+						{#each tagGroups as [group, tags] (group)}
+							<div class="tag-group">
+								<strong>{group}</strong>
+								<div class="tags">
+									{#each tags as tag (tag)}
+										<Button
+											size="sm"
+											variant={activeTags.includes(tag) ? 'default' : 'outline'}
+											onclick={() => toggleTag(tag)}
+										>
+											{tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag}
+											<span class="count">{tagCount(tag)}</span>
+										</Button>
+									{/each}
 								</div>
-							{/each}
-						</div>
-						<div>
-							<div class="editor-heading">
-								<strong>Outputs</strong>
-								<Button
-									size="sm"
-									variant="outline"
-									onclick={() => addPort(selectedNode.id, 'outputs')}>+</Button
-								>
 							</div>
-							{#each selectedNode.outputs as port (port.id)}
-								<div class="port-row">
-									<Input
-										value={port.label}
-										oninput={(event) =>
-											updatePort(selectedNode.id, 'outputs', port.id, {
-												label: event.currentTarget.value
-											})}
-									/>
-									<Button
-										size="sm"
-										variant="ghost"
-										onclick={() => removePort(selectedNode.id, 'outputs', port.id)}>×</Button
-									>
-								</div>
-							{/each}
-						</div>
+						{/each}
 					</div>
 				</section>
-			{:else if selectedEdge}
 				<section>
-					<h2>Connection details</h2>
-					<label>
-						<span>Label</span>
-						<Input
-							value={selectedEdge.label ?? ''}
-							oninput={(event) =>
-								(graph = {
-									...graph,
-									edges: graph.edges.map((edge) =>
-										edge.id === selectedEdge.id
-											? { ...edge, label: event.currentTarget.value }
-											: edge
-									)
-								})}
-						/>
-					</label>
+					<h2>Highlight</h2>
+					<div class="segmented full">
+						<Button
+							size="sm"
+							variant={traceMode === 'direct' ? 'default' : 'ghost'}
+							aria-pressed={traceMode === 'direct'}
+							onclick={() => (traceMode = 'direct')}>Direct</Button
+						>
+						<Button
+							size="sm"
+							variant={traceMode === 'component' ? 'default' : 'ghost'}
+							aria-pressed={traceMode === 'component'}
+							onclick={() => (traceMode = 'component')}>All connected</Button
+						>
+					</div>
+					{#if traceMode === 'component'}
+						<p class="help">
+							All connected lights the whole piece that contains the selection. This public map is
+							one piece, so Direct is the view that shows neighbors.
+						</p>
+					{/if}
+					<Button
+						class="full-button"
+						variant={focusMode ? 'default' : 'outline'}
+						aria-pressed={focusMode}
+						size="sm"
+						onclick={() => (focusMode = !focusMode)}>Focus: {focusMode ? 'On' : 'Off'}</Button
+					>
+				</section>
+				<section>
 					<p class="help">
-						{selectedEdge.source}:{selectedEdge.sourcePort} → {selectedEdge.target}:{selectedEdge.targetPort}
+						Names stay whole. Lines are labeled. Drag empty space to pan, and use the wheel to zoom.
+						On a phone the same services are a list.
 					</p>
-					<Button variant="destructive" size="sm" onclick={() => disconnectEdge(selectedEdge.id)}>
-						Disconnect
-					</Button>
+					{#if contextNodeIds.size > 0}
+						<p class="help">
+							A linked service stays on the map so its connection can be read. It is not included in
+							the service count.
+						</p>
+					{/if}
 				</section>
-			{:else}
-				<section>
-					<h2>Services</h2>
-					<ul class="service-summary">
-						{#each graph.nodes as node (node.id)}
-							<li>
-								<button type="button" onclick={() => selectNode(node.id)}>
-									<strong>{node.label}</strong>
-									<small>{node.subtitle}</small>
-								</button>
-								<span class="status" data-status={node.status ?? 'active'}
-									>{node.status ?? 'active'}</span
-								>
-							</li>
-						{/each}
-					</ul>
-				</section>
-			{/if}
+			</aside>
 
-			<details class="json-panel">
-				<summary>Graph JSON</summary>
-				<textarea
-					bind:value={jsonText}
-					rows="11"
-					spellcheck="false"
-					aria-label="Architecture graph JSON"></textarea>
-				<div class="json-actions">
-					<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
-					<Button size="sm" onclick={importJson}>Apply JSON</Button>
-				</div>
-				{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
-			</details>
-		</aside>
+			<aside class="inspector" class:is-open={detailsOpen}>
+				<section>
+					<h2>Off this map</h2>
+					<p class="help">
+						Open Silong, Convex, and Dokploy are not part of the public seed. Add one here if you
+						want it on this map. That does not publish it for everyone else.
+					</p>
+					<Input
+						aria-label="Search inventory"
+						placeholder="Search inventory…"
+						bind:value={inventorySearch}
+					/>
+					<div class="inventory-list">
+						{#each inventoryItems as item (item.id)}
+							<div class="inventory-item">
+								<div>
+									<strong>{item.label}</strong>
+									<small>{item.subtitle}</small>
+								</div>
+								<Button size="sm" variant="outline" onclick={() => materialize(item.id)}>
+									{graph.nodes.some((node) => node.id === item.id) ? 'Open' : 'Add'}
+								</Button>
+							</div>
+						{/each}
+					</div>
+				</section>
+
+				{#if selectedNode}
+					<section>
+						<h2>Node details</h2>
+						<label>
+							<span>Label</span>
+							<Input
+								value={selectedNode.label}
+								oninput={(event) =>
+									updateNode(selectedNode.id, { label: event.currentTarget.value })}
+							/>
+						</label>
+						<label>
+							<span>Subtitle</span>
+							<Input
+								value={selectedNode.subtitle ?? ''}
+								oninput={(event) =>
+									updateNode(selectedNode.id, { subtitle: event.currentTarget.value })}
+							/>
+						</label>
+						<label>
+							<span>Tags</span>
+							<textarea
+								rows="3"
+								value={selectedNode.tags.join(', ')}
+								aria-label="Tags"
+								onchange={(event) =>
+									updateNode(selectedNode.id, {
+										tags: event.currentTarget.value
+											.split(',')
+											.map((tag) => tag.trim())
+											.filter(Boolean)
+									})}></textarea>
+						</label>
+
+						<div class="port-editor">
+							<div>
+								<div class="editor-heading">
+									<strong>Inputs</strong>
+									<Button
+										size="sm"
+										variant="outline"
+										onclick={() => addPort(selectedNode.id, 'inputs')}>+</Button
+									>
+								</div>
+								{#each selectedNode.inputs as port (port.id)}
+									<div class="port-row">
+										<Input
+											value={port.label}
+											oninput={(event) =>
+												updatePort(selectedNode.id, 'inputs', port.id, {
+													label: event.currentTarget.value
+												})}
+										/>
+										<Button
+											size="sm"
+											variant="ghost"
+											onclick={() => removePort(selectedNode.id, 'inputs', port.id)}>×</Button
+										>
+									</div>
+								{/each}
+							</div>
+							<div>
+								<div class="editor-heading">
+									<strong>Outputs</strong>
+									<Button
+										size="sm"
+										variant="outline"
+										onclick={() => addPort(selectedNode.id, 'outputs')}>+</Button
+									>
+								</div>
+								{#each selectedNode.outputs as port (port.id)}
+									<div class="port-row">
+										<Input
+											value={port.label}
+											oninput={(event) =>
+												updatePort(selectedNode.id, 'outputs', port.id, {
+													label: event.currentTarget.value
+												})}
+										/>
+										<Button
+											size="sm"
+											variant="ghost"
+											onclick={() => removePort(selectedNode.id, 'outputs', port.id)}>×</Button
+										>
+									</div>
+								{/each}
+							</div>
+						</div>
+					</section>
+				{:else if selectedEdge}
+					<section>
+						<h2>Connection details</h2>
+						<label>
+							<span>Label</span>
+							<Input
+								value={selectedEdge.label ?? ''}
+								oninput={(event) =>
+									(graph = {
+										...graph,
+										edges: graph.edges.map((edge) =>
+											edge.id === selectedEdge.id
+												? { ...edge, label: event.currentTarget.value }
+												: edge
+										)
+									})}
+							/>
+						</label>
+						<p class="help">
+							{selectedEdge.source}:{selectedEdge.sourcePort} → {selectedEdge.target}:{selectedEdge.targetPort}
+						</p>
+						<Button variant="destructive" size="sm" onclick={() => disconnectEdge(selectedEdge.id)}>
+							Disconnect
+						</Button>
+					</section>
+				{:else}
+					<section>
+						<h2>Services</h2>
+						<ul class="service-summary">
+							{#each graph.nodes as node (node.id)}
+								<li>
+									<button type="button" onclick={() => selectNode(node.id)}>
+										<strong>{node.label}</strong>
+										<small>{node.subtitle}</small>
+									</button>
+									<span class="status" data-status={node.status ?? 'active'}
+										>{node.status ?? 'active'}</span
+									>
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/if}
+
+				<details class="json-panel">
+					<summary>Graph JSON</summary>
+					<textarea
+						bind:value={jsonText}
+						rows="11"
+						spellcheck="false"
+						aria-label="Architecture graph JSON"></textarea>
+					<div class="json-actions">
+						<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
+						<Button size="sm" onclick={importJson}>Apply JSON</Button>
+					</div>
+					{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
+				</details>
+			</aside>
+		</section>
 	</div>
 </main>
 
@@ -1013,22 +1034,33 @@
 		width: 100%;
 	}
 	.shell {
-		display: grid;
-		grid-template-columns: 15rem minmax(0, 1fr) 20rem;
 		height: calc(100dvh - 3.5rem);
 		min-height: 0;
 	}
 	.sidebar,
 	.inspector {
-		min-height: 0;
+		display: none;
+		position: absolute;
+		z-index: 6;
+		top: 3.25rem;
+		bottom: 0.6rem;
+		width: min(18rem, calc(100vw - 1.5rem));
 		overflow-y: auto;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg);
 		background: var(--card);
+		box-shadow: 0 18px 48px color-mix(in oklab, var(--foreground) 16%, transparent);
 	}
 	.sidebar {
-		border-right: 1px solid var(--border);
+		left: 0.6rem;
 	}
 	.inspector {
-		border-left: 1px solid var(--border);
+		right: 0.6rem;
+		width: min(22rem, calc(100vw - 1.5rem));
+	}
+	.sidebar.is-open,
+	.inspector.is-open {
+		display: block;
 	}
 	.sidebar section,
 	.inspector section {
@@ -1067,24 +1099,19 @@
 	.tags {
 		flex-wrap: wrap;
 	}
-	.metric {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.75rem;
-		border-bottom: 1px dashed var(--border);
-		padding: 0.4rem 0;
-		font-size: 0.8rem;
-	}
 	.canvas-shell {
 		position: relative;
 		display: grid;
 		grid-template-rows: auto minmax(0, 1fr) auto;
+		height: 100%;
 		min-width: 0;
 		min-height: 0;
 		background: var(--muted);
 	}
 	.canvas-toolbar {
+		flex-wrap: wrap;
 		justify-content: space-between;
+		gap: 0.6rem;
 		min-height: 2.75rem;
 		border-bottom: 1px solid var(--border);
 		background: color-mix(in oklab, var(--card) 94%, transparent);
@@ -1092,9 +1119,19 @@
 		font-size: 0.75rem;
 		color: var(--muted-foreground);
 	}
+	.toolbar-actions,
 	.canvas-toolbar > div {
 		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 		gap: 0.35rem;
+	}
+	:global(.toolbar-search) {
+		width: min(16rem, 100%);
+		flex: 1 1 12rem;
+	}
+	.counts {
+		white-space: nowrap;
 	}
 	.viewport {
 		position: relative;
@@ -1130,10 +1167,10 @@
 	.edge-label {
 		fill: var(--foreground);
 		stroke: var(--card);
-		stroke-width: 4px;
+		stroke-width: 5px;
 		paint-order: stroke;
-		font-size: 11px;
-		font-weight: 600;
+		font-size: 12px;
+		font-weight: 650;
 		pointer-events: none;
 	}
 	.edges path.hot {
@@ -1150,14 +1187,14 @@
 		position: absolute;
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		gap: 0.15rem;
 		box-sizing: border-box;
 		overflow: hidden;
 		border: 1px solid var(--border);
 		border-radius: var(--radius-lg);
 		background: var(--card);
 		box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 7%, transparent);
-		padding: 0.4rem 0.45rem 0.35rem;
+		padding: 0.35rem 0.4rem 0.3rem;
 	}
 	.node[data-status='proposed'] {
 		border-style: dashed;
@@ -1205,10 +1242,11 @@
 		line-height: 1.2;
 	}
 	:global(.node-select) strong {
-		font-size: 0.78rem;
+		font-size: 0.8rem;
 	}
 	:global(.node-select) small {
 		display: block;
+		font-size: 0.68rem;
 		white-space: normal !important;
 		overflow: visible;
 		line-height: 1.25;
@@ -1246,9 +1284,9 @@
 		margin-top: auto;
 	}
 	.ports :global(button) {
-		height: 1.75rem;
-		padding: 0 0.45rem;
-		font-size: 0.65rem;
+		height: 1.5rem;
+		padding: 0 0.4rem;
+		font-size: 0.62rem;
 	}
 	.socket {
 		width: 0.5rem;
@@ -1258,7 +1296,8 @@
 		background: var(--muted-foreground);
 	}
 	.edge-strip {
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
+		overflow-x: auto;
 		border-top: 1px solid var(--border);
 		background: var(--card);
 		padding: 0.45rem;
@@ -1447,23 +1486,6 @@
 		min-width: 0;
 	}
 
-	@media (max-width: 68rem) {
-		.shell {
-			grid-template-columns: 13rem minmax(0, 1fr);
-		}
-		.inspector {
-			position: absolute;
-			right: 0.75rem;
-			bottom: 0.75rem;
-			z-index: 10;
-			width: min(22rem, calc(100vw - 15rem));
-			max-height: 58%;
-			border: 1px solid var(--border);
-			border-radius: var(--radius-lg);
-			box-shadow: 0 16px 40px color-mix(in oklab, var(--foreground) 14%, transparent);
-		}
-	}
-
 	@media (max-width: 44rem) {
 		.workspace {
 			height: auto;
@@ -1504,6 +1526,7 @@
 		.sidebar,
 		.inspector {
 			position: static;
+			display: block;
 			width: auto;
 			max-height: none;
 			overflow: visible;
@@ -1531,7 +1554,8 @@
 		.mobile-map {
 			display: grid;
 		}
-		.canvas-toolbar,
+		.toolbar-actions,
+		.counts,
 		.edge-strip {
 			display: none;
 		}
