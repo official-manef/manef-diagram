@@ -3,7 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { ecosystem } from './store.svelte';
-	import './ecosystem.css';
+	import { workspaceNavGroups, type WorkspaceSurfaceId } from './surfaces';
+	import '$lib/styles/ecosystem.css';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 	let paletteQuery = $state('');
@@ -19,43 +20,24 @@
 	const crumb = $derived(
 		path === '/workspace' ? 'Overview' : (path.split('/').at(-1) ?? 'Workspace')
 	);
-	const go = (surface: string) => resolve('/workspace/[surface]', { surface });
-	const groups = [
-		{
-			label: 'Workspace',
-			items: [
-				['Overview', resolve('/workspace')],
-				['MSO', go('mso')],
-				['Diagram', go('diagram')],
-				['Context', go('context')]
-			]
-		},
-		{
-			label: 'Extend',
-			items: [
-				['Catalog', go('registry')],
-				['Models', go('models')],
-				['Connectors', go('connectors')]
-			]
-		},
-		{
-			label: 'Operate',
-			items: [
-				['Operations', go('ops')],
-				['Developers', go('developers')],
-				['Labs', go('labs')],
-				['Audit', resolve('/audit')],
-				['Settings', go('settings')]
-			]
+	const go = (surface: WorkspaceSurfaceId) =>
+		surface === 'overview' ? resolve('/workspace') : resolve('/workspace/[surface]', { surface });
+	const groups = workspaceNavGroups().map((group) => {
+		const items = group.items.map((item) => ({ nav: item.nav, href: go(item.id) }));
+		if (group.label === 'Operate') {
+			const settings = items.pop();
+			items.push({ nav: 'Audit', href: resolve('/audit') });
+			if (settings) items.push(settings);
 		}
-	] as const;
+		return { label: group.label, items };
+	});
 	const commands = [
 		{ label: 'Home', href: resolve('/') },
 		{ label: 'Products', href: resolve('/products') },
 		{ label: 'Guide', href: resolve('/guide') },
 		{ label: 'Audit', href: resolve('/audit') },
 		{ label: 'Public map', href: resolve('/app') },
-		...groups.flatMap((group) => group.items.map(([label, href]) => ({ label, href })))
+		...groups.flatMap((group) => group.items.map((item) => ({ label: item.nav, href: item.href })))
 	];
 	const matches = $derived(
 		commands.filter((item) => item.label.toLowerCase().includes(paletteQuery.trim().toLowerCase()))
@@ -108,8 +90,12 @@
 			</label>
 			{#each groups as group (group.label)}
 				<p class="nav-label">{group.label}</p>
-				{#each group.items as [label, href] (href)}
-					<a class="nav-item" {href} aria-current={path === href ? 'page' : undefined}>{label}</a>
+				{#each group.items as item (item.href)}
+					<a
+						class="nav-item"
+						href={item.href}
+						aria-current={path === item.href ? 'page' : undefined}>{item.nav}</a
+					>
 				{/each}
 			{/each}
 			<div class="side-foot">

@@ -2,17 +2,17 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { ecosystem } from './store.svelte';
-	import './ecosystem.css';
+	import { themePreference } from './theme.svelte';
+	import '$lib/styles/ecosystem.css';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 	const path = $derived(page.url.pathname);
 	const session = $derived(page.data.auth?.session);
 
-	onMount(() => ecosystem.init());
+	onMount(() => themePreference.init());
 </script>
 
-<div class="eco" data-theme={ecosystem.theme}>
+<div class="eco" data-theme={themePreference.theme}>
 	<header class="public-header">
 		<a class="brand" href={resolve('/')}>MANEF</a>
 		<nav class="public-nav" aria-label="Public">
@@ -28,9 +28,10 @@
 			<button
 				class="btn small"
 				type="button"
-				onclick={() => ecosystem.setTheme(ecosystem.theme === 'dark' ? 'light' : 'dark')}
+				onclick={() =>
+					themePreference.setTheme(themePreference.theme === 'dark' ? 'light' : 'dark')}
 			>
-				{ecosystem.theme === 'dark' ? 'Light' : 'Dark'}
+				{themePreference.theme === 'dark' ? 'Light' : 'Dark'}
 			</button>
 			<a class="btn" href={resolve('/app')}>Open diagram</a>
 			{#if session}

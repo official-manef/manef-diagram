@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProductScreen } from '$features/ecosystem';
+	import { ProductScreen } from '$features/directory';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();

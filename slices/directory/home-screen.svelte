@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import PublicFrame from './public-frame.svelte';
-	import { principles, products } from './data';
+	import { principles, products } from './catalog';
 </script>
 
 <PublicFrame>

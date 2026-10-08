@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { appConfig } from '$lib/config/app';
-	import { HomeScreen } from '$features/ecosystem';
+	import { HomeScreen } from '$features/directory';
 </script>
 
 <svelte:head>

@@ -184,7 +184,17 @@ export const principles = [
 	['04', 'Portable', 'A shared view is a link, not an access list and not a database.']
 ];
 
-export const auditRows: [string, string, string, string, string, string][] = [
+export type AuditRow = {
+	id: string;
+	area: string;
+	check: string;
+	level: string;
+	evidence: string;
+	source: string;
+	open: string;
+};
+
+const auditSource: [string, string, string, string, string, string][] = [
 	[
 		'MANEF',
 		'Production deployment',
@@ -266,6 +276,31 @@ export const auditRows: [string, string, string, string, string, string][] = [
 		'Needs its own audit before an install adapter is treated as real.'
 	]
 ];
+
+export const auditRows: AuditRow[] = auditSource.map(
+	([area, check, level, evidence, source, open]) => ({
+		id: `${area}-${check}`
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-|-$/g, ''),
+		area,
+		check,
+		level,
+		evidence,
+		source,
+		open
+	})
+);
+
+/** Directory product ids that are the same service as a public-map node. */
+export const productMapNodes = {
+	mso: 'mso',
+	diagram: 'architecture',
+	connectors: 'connectors',
+	models: 'models',
+	ops: 'ops',
+	docs: 'docs'
+} as const;
 
 export const roadmap = [
 	{
