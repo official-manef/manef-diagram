@@ -9,6 +9,7 @@ During 0.x, minor releases may change template structure; patch releases are com
 - Fit the public architecture map to the canvas, center each flow column, and show kind, platform, and project on the node instead of a truncated tag string.
 - Make the public map readable: full service names, labeled connections, direct-neighbor highlight, counts that follow search and focus, a real empty state, a JSON file export, and a short share link for the unedited map. Phones get a full-size list. The landing page shows the services. Surrounding app pages no longer present a starter workspace.
 - Name each public connection instead of repeating “product”, and keep the other end of a filtered connection visible without counting it as a match. Remove the interaction-kit demo from the dashboard. The optional backend status no longer prints the framework stack.
+- Add the public product directory, guide, and audit, plus a browser-local demo workspace for catalog, connectors, routing, context, and a simulated MCP playground. The public map at /app stays the bundled seed. Demo installs, connections, and graphs are not live services.
 
 ## [0.1.0] - 2026-09-29
 
