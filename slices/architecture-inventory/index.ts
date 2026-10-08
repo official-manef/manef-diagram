@@ -16,6 +16,7 @@ export {
 } from './lib/graph';
 export { addInventoryItem, materializeInventoryItem, searchInventory } from './lib/inventory';
 export type * from './types';
+export { GRAPH_TOOL_NAMES, isGraphToolName, runGraphTool, type GraphToolName } from './lib/tools';
 
 export {
 	buildDiagramViewUrl,

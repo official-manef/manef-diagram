@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { ecosystem } from './store.svelte';
-	import { auditRows, roadmap } from './data';
+	import { auditRows, roadmap } from '$features/directory';
 	import {
 		catalog,
 		connectorCatalog,
@@ -500,9 +500,9 @@
 		<section class="card stack">
 			<h2>Audit facts</h2>
 			<p class="muted">These rows are the snapshot, not a live monitor.</p>
-			{#each auditRows.filter((row) => row[0] === 'Diagram' || row[0] === 'MANEF') as row (row[1])}
-				<p><span class="pill">{row[2]}</span> {row[0]} · {row[1]}</p>
-				<p class="muted">{row[3]}</p>
+			{#each auditRows.filter((row) => row.area === 'Diagram' || row.area === 'MANEF') as row (row.id)}
+				<p><span class="pill">{row.level}</span> {row.area} · {row.check}</p>
+				<p class="muted">{row.evidence}</p>
 			{/each}
 		</section>
 		<section class="card stack">

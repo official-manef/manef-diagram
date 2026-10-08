@@ -1,3 +1,11 @@
+import {
+	GRAPH_TOOL_NAMES,
+	runGraphTool,
+	tagsMatchFacets,
+	type ArchitectureGraph,
+	type InventoryItem
+} from '$features/architecture-inventory';
+
 export type DemoNode = {
 	id: string;
 	label: string;
@@ -93,18 +101,7 @@ export const connectorCatalog = [
 	{ id: 'airin', name: 'AIRIN', category: 'External support integration' }
 ] as const;
 
-export const mcpTools = [
-	'graph_status',
-	'graph_list_nodes',
-	'graph_list_edges',
-	'graph_trace',
-	'graph_layout',
-	'graph_search_inventory',
-	'graph_adjacency',
-	'graph_query',
-	'graph_build_view',
-	'graph_create_portable_view'
-] as const;
+export const mcpTools = GRAPH_TOOL_NAMES;
 
 const note = 'Synthetic demo record. It is not production data and it is not on the public map.';
 
@@ -481,87 +478,68 @@ export function addDomainPlan(state: WorkspaceState, host: string): WorkspaceSta
 	};
 }
 
+function toArchitectureGraph(state: WorkspaceState): ArchitectureGraph {
+	return {
+		schemaVersion: 1,
+		nodes: state.graph.nodes.map((item) => ({
+			id: item.id,
+			label: item.label,
+			subtitle: item.notes,
+			tags: item.tags,
+			status: item.status === 'proposed' || item.status === 'private' ? item.status : 'active',
+			inputs: [{ id: 'in', label: 'Consumes' }],
+			outputs: [{ id: 'out', label: 'Provides' }]
+		})),
+		edges: state.graph.edges.map((edge) => ({
+			id: edge.id,
+			source: edge.source,
+			target: edge.target,
+			sourcePort: 'out',
+			targetPort: 'in',
+			label: edge.label
+		}))
+	};
+}
+
+function demoInventory(): InventoryItem[] {
+	return catalog.map((item) => ({
+		id: item.id,
+		label: item.name,
+		subtitle: item.description,
+		tags: [item.id, item.category.toLowerCase()],
+		status: 'active'
+	}));
+}
+
 export function simulateTool(state: WorkspaceState, tool: string, args: unknown) {
 	if (!args || Array.isArray(args) || typeof args !== 'object')
 		throw new Error('Arguments must be a JSON object.');
-	const input = args as Record<string, unknown>;
-	const meta = {
-		simulation: true,
-		persisted: false,
-		source: 'local demo workspace; the public map uses the bundled seed'
+	const result = runGraphTool(
+		toArchitectureGraph(state),
+		demoInventory(),
+		tool,
+		args as Record<string, unknown>
+	);
+	const body =
+		tool === 'graph_layout'
+			? { positions: result }
+			: tool === 'graph_adjacency'
+				? { adjacency: result }
+				: Array.isArray(result)
+					? tool === 'graph_list_edges'
+						? { edges: result }
+						: tool === 'graph_search_inventory'
+							? { matches: result }
+							: { nodes: result }
+					: result;
+	return {
+		simulation: true as const,
+		persisted: false as const,
+		source: 'local demo workspace; the public map uses the bundled seed',
+		workspace: state.workspace,
+		tool,
+		...(body as Record<string, unknown>)
 	};
-	const graph = state.graph;
-	if (tool === 'graph_status') {
-		return {
-			...meta,
-			tool,
-			nodeCount: graph.nodes.length,
-			edgeCount: graph.edges.length,
-			workspace: state.workspace
-		};
-	}
-	if (tool === 'graph_list_nodes') {
-		const tag = typeof input.tag === 'string' ? input.tag : '';
-		return { ...meta, tool, nodes: graph.nodes.filter((item) => !tag || item.tags.includes(tag)) };
-	}
-	if (tool === 'graph_list_edges') return { ...meta, tool, edges: graph.edges };
-	if (tool === 'graph_trace') {
-		const seeds = Array.isArray(input.seeds)
-			? input.seeds.filter((item) => typeof item === 'string')
-			: [];
-		if (!seeds.length) throw new Error('seeds must be an array of strings.');
-		const seen = new Set(seeds);
-		const queue = [...seeds];
-		while (queue.length) {
-			const id = queue.shift()!;
-			for (const edge of graph.edges) {
-				const next = edge.source === id ? edge.target : edge.target === id ? edge.source : '';
-				if (next && !seen.has(next)) {
-					seen.add(next);
-					if (input.mode !== 'direct') queue.push(next);
-				}
-			}
-		}
-		return { ...meta, tool, nodeIds: [...seen] };
-	}
-	if (tool === 'graph_layout')
-		return { ...meta, tool, mode: input.mode === 'graph' ? 'graph' : 'flow' };
-	if (tool === 'graph_search_inventory') {
-		const query = String(input.query ?? '').toLowerCase();
-		return {
-			...meta,
-			tool,
-			matches: catalog.filter(
-				(item) => item.name.toLowerCase().includes(query) || item.id.includes(query)
-			)
-		};
-	}
-	if (tool === 'graph_adjacency') {
-		return {
-			...meta,
-			tool,
-			adjacency: Object.fromEntries(
-				graph.nodes.map((item) => [
-					item.id,
-					graph.edges.filter((edge) => edge.source === item.id).map((edge) => edge.target)
-				])
-			)
-		};
-	}
-	if (tool === 'graph_query' || tool === 'graph_build_view') {
-		const tags = Array.isArray(input.tags)
-			? input.tags.filter((item) => typeof item === 'string')
-			: [];
-		return {
-			...meta,
-			tool,
-			nodes: graph.nodes.filter((item) => tags.every((tag) => item.tags.includes(tag)))
-		};
-	}
-	if (tool === 'graph_create_portable_view') {
-		return { ...meta, tool, url: '/workspace/diagram?preview=1' };
-	}
-	throw new Error('Unknown tool.');
 }
 
 export function moveDemoNode(
@@ -643,11 +621,13 @@ export function filterDemoNodes(
 	facets: Record<string, string[]>
 ): DemoNode[] {
 	const needle = query.trim().toLowerCase();
-	const groups = Object.values(facets).filter((tags) => tags.length > 0);
+	const selected = Object.values(facets)
+		.filter((tags) => tags.length > 0)
+		.flat();
 	return nodes.filter((item) => {
 		const hay = `${item.label} ${item.notes} ${item.tags.join(' ')}`.toLowerCase();
 		if (needle && !hay.includes(needle)) return false;
-		return groups.every((tags) => tags.some((tag) => item.tags.includes(tag)));
+		return tagsMatchFacets(item.tags, selected);
 	});
 }
 

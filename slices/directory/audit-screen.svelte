@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PublicFrame from './public-frame.svelte';
-	import { auditRows } from './data';
+	import { auditRows } from './catalog';
 </script>
 
 <PublicFrame>
@@ -23,14 +23,14 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each auditRows as row (row[1])}
+					{#each auditRows as row (row.id)}
 						<tr>
-							<td>{row[0]}</td>
-							<td>{row[1]}</td>
-							<td><span class="pill">{row[2]}</span></td>
-							<td>{row[3]}</td>
-							<td class="muted">{row[4]}</td>
-							<td>{row[5]}</td>
+							<td>{row.area}</td>
+							<td>{row.check}</td>
+							<td><span class="pill">{row.level}</span></td>
+							<td>{row.evidence}</td>
+							<td class="muted">{row.source}</td>
+							<td>{row.open}</td>
 						</tr>
 					{/each}
 				</tbody>

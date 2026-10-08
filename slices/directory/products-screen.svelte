@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import PublicFrame from './public-frame.svelte';
-	import { products } from './data';
+	import { products } from './catalog';
 
 	let query = $state('');
 	let level = $state('all');

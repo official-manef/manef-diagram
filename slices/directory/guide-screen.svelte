@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PublicFrame from './public-frame.svelte';
-	import { guideSections } from './data';
+	import { guideSections } from './catalog';
 
 	const section = $derived(page.url.searchParams.get('section') || 'start');
 </script>

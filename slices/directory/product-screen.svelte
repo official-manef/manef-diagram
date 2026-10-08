@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import PublicFrame from './public-frame.svelte';
-	import type { Product } from './data';
+	import type { Product } from './catalog';
 
 	let { product }: { product: Product } = $props();
 	const demo = $derived(

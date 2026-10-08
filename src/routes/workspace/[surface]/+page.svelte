@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { WorkspaceScreen } from '$features/ecosystem';
+	import { WorkspaceScreen } from '$features/workspace';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
