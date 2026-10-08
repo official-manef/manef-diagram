@@ -9,6 +9,7 @@ export {
 	flowCard,
 	routeEdges,
 	sameGraph,
+	relatedView,
 	parseGraphJson,
 	traceGraph,
 	validateGraph

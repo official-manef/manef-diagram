@@ -91,7 +91,7 @@ export const defaultGraph: ArchitectureGraph = {
 			sourcePort: 'out',
 			target: 'architecture',
 			targetPort: 'in',
-			label: 'product'
+			label: 'context graph'
 		},
 		{
 			id: 'domain-mso',
@@ -99,7 +99,7 @@ export const defaultGraph: ArchitectureGraph = {
 			sourcePort: 'out',
 			target: 'mso',
 			targetPort: 'in',
-			label: 'product'
+			label: 'shell'
 		},
 		{
 			id: 'domain-models',
@@ -107,7 +107,7 @@ export const defaultGraph: ArchitectureGraph = {
 			sourcePort: 'out',
 			target: 'models',
 			targetPort: 'in',
-			label: 'product'
+			label: 'model catalog'
 		},
 		{
 			id: 'domain-connectors',

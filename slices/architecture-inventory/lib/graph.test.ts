@@ -6,6 +6,7 @@ import {
 	flowCard,
 	layoutGraph,
 	routeEdges,
+	relatedView,
 	traceGraph,
 	validateGraph
 } from './graph';
@@ -30,6 +31,24 @@ describe('architecture graph core', () => {
 		const graph = cloneGraph(defaultGraph);
 		const duplicate = { ...graph.edges[0], id: 'another-id' };
 		expect(addEdge(graph, duplicate).edges).toHaveLength(graph.edges.length);
+	});
+
+	it('gives every public connection its own label', () => {
+		const labels = defaultGraph.edges.map((edge) => edge.label);
+		expect(new Set(labels).size).toBe(labels.length);
+		expect(labels).not.toContain('product');
+	});
+
+	it('keeps the other end of a connection when a filter matches one service', () => {
+		const view = relatedView(defaultGraph, ['ops']);
+		expect(view.edges.map((edge) => edge.id)).toEqual(['domain-ops']);
+		expect(view.contextIds).toEqual(['manef-dev']);
+		expect(view.nodeIds).toEqual(expect.arrayContaining(['ops', 'manef-dev']));
+
+		const none = relatedView(defaultGraph, []);
+		expect(none.edges).toEqual([]);
+		expect(none.contextIds).toEqual([]);
+		expect(none.nodeIds).toEqual([]);
 	});
 
 	it('spaces and centers the flow columns so cards do not stack', () => {

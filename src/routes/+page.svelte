@@ -57,7 +57,8 @@
 		<div class="card">
 			<h2>Labeled connections</h2>
 			<p>
-				Each line names the relationship, such as product, infrastructure, or private operations.
+				Each line names the relationship, such as context graph, infrastructure, or private
+				operations.
 			</p>
 		</div>
 		<div class="card">
@@ -68,6 +69,12 @@
 			<h2>MCP needs a token</h2>
 			<p>Agents can query the public map at /api/mcp/server. The route rejects anonymous calls.</p>
 		</div>
+	</section>
+
+	<section class="closer">
+		<h2>The diagram is the product</h2>
+		<p>This page introduces the services. The labeled map lives at /app.</p>
+		<Button href={resolve('/app')}>Open diagram</Button>
 	</section>
 </main>
 
@@ -178,5 +185,16 @@
 		.cards {
 			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
+	}
+	.closer {
+		display: grid;
+		gap: 0.65rem;
+		margin-top: auto;
+		border-top: 1px solid var(--border);
+		padding-top: 1.5rem;
+	}
+	.closer h2 {
+		margin: 0;
+		font-size: 1rem;
 	}
 </style>

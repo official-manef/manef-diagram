@@ -71,8 +71,8 @@
 		<FeatureGrid density="compact">
 			<Card.Root
 				><Card.Header
-					><Card.Title>Adaptive grid</Card.Title><Card.Description
-						>1 → 2 → 3+ columns emerge from minimum useful card width.</Card.Description
+					><Card.Title>Labeled lines</Card.Title><Card.Description
+						>Each connection has its own name, such as context graph, shell, or private operations.</Card.Description
 					></Card.Header
 				></Card.Root
 			>
@@ -85,16 +85,16 @@
 			>
 			<Card.Root
 				><Card.Header
-					><Card.Title>Viewport snap</Card.Title><Card.Description
-						>Proximity snap activates only for sections measured near a full content viewport.</Card.Description
+					><Card.Title>Direct neighbors</Card.Title><Card.Description
+						>Selecting a service keeps its neighbors bright and dims the rest of the map.</Card.Description
 					></Card.Header
 				></Card.Root
 			>
 			<Card.Root
 				><Card.Header
-					><Card.Title>Touch contract</Card.Title><Card.Description
-						>Primary controls target roughly 44px and spatial interactions need mouse, touch and
-						keyboard equivalents.</Card.Description
+					><Card.Title>Local name only</Card.Title><Card.Description
+						>The workspace name on the other tab stays in this browser. It does not rename the
+						public map.</Card.Description
 					></Card.Header
 				></Card.Root
 			>

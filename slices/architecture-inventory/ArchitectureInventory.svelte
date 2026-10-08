@@ -13,6 +13,7 @@
 		parseGraphJson,
 		routeEdges,
 		sameGraph,
+		relatedView,
 		searchInventory,
 		traceGraph,
 		buildDiagramViewUrl,
@@ -123,11 +124,16 @@
 		return searchMatch && tagMatch && focusMatch;
 	}
 
-	const visibleNodes = $derived(graph.nodes.filter(nodeMatches));
-	const visibleNodeIds = $derived(new Set(visibleNodes.map((node) => node.id)));
-	const visibleEdges = $derived(
-		graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target))
+	const matchedNodes = $derived(graph.nodes.filter(nodeMatches));
+	const related = $derived(
+		relatedView(
+			graph,
+			matchedNodes.map((node) => node.id)
+		)
 	);
+	const contextNodeIds = $derived(new Set(related.contextIds));
+	const visibleNodes = $derived(graph.nodes.filter((node) => related.nodeIds.includes(node.id)));
+	const visibleEdges = $derived(related.edges);
 	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
 	const emphasize = $derived(Boolean(selectedNodeId) && highlightedNodeIds.size > 1);
 	const fitKey = $derived(
@@ -184,14 +190,14 @@
 	function fitView() {
 		fitPoints(
 			basePositions,
-			graph.nodes.filter(nodeMatches).map((node) => node.id)
+			visibleNodes.map((node) => node.id)
 		);
 	}
 
 	$effect(() => {
 		if (!hydrated) return;
 		const key = fitKey;
-		const ids = untrack(() => graph.nodes.filter(nodeMatches).map((node) => node.id));
+		const ids = untrack(() => visibleNodes.map((node) => node.id));
 		void key;
 		void tick()
 			.then(() =>
@@ -544,9 +550,9 @@
 				<h2>Canvas</h2>
 				<div class="metric">
 					<span>Services</span><strong
-						>{visibleNodes.length === graph.nodes.length
+						>{matchedNodes.length === graph.nodes.length
 							? graph.nodes.length
-							: `${visibleNodes.length} of ${graph.nodes.length}`}</strong
+							: `${matchedNodes.length} of ${graph.nodes.length}`}</strong
 					>
 				</div>
 				<div class="metric">
@@ -556,6 +562,12 @@
 							: `${visibleEdges.length} of ${graph.edges.length}`}</strong
 					>
 				</div>
+				{#if contextNodeIds.size > 0}
+					<p class="help">
+						A linked service stays on the map so its connection can be read. It is not included in
+						the service count.
+					</p>
+				{/if}
 				<p class="help">
 					Names stay whole. Lines are labeled. Drag empty space to pan, and use the wheel to zoom.
 					On a phone the same services are a list.
@@ -677,6 +689,7 @@
 							class:hot={highlightedNodeIds.has(node.id)}
 							class:selected={selectedNodeId === node.id}
 							class:dim={emphasize && !highlightedNodeIds.has(node.id)}
+							class:context={contextNodeIds.has(node.id)}
 							data-status={node.status ?? 'active'}
 							style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; width: ${flowCard.width}px; height: ${flowCard.height}px;`}
 							onpointerdown={(event) => {
@@ -702,6 +715,9 @@
 								<span class="status" data-status={node.status ?? 'active'}
 									>{node.status ?? 'active'}</span
 								>
+								{#if contextNodeIds.has(node.id)}
+									<span class="chip">linked</span>
+								{/if}
 								{#each facetChips(node.tags) as chip (chip)}
 									<span class="chip">{chip}</span>
 								{/each}
@@ -1156,6 +1172,9 @@
 	}
 	.node.dim {
 		opacity: 0.18;
+	}
+	.node.context {
+		border-style: dashed;
 	}
 	.node-head {
 		display: flex;
