@@ -11,6 +11,8 @@
 		layoutGraph,
 		flowCard,
 		parseGraphJson,
+		routeEdges,
+		sameGraph,
 		searchInventory,
 		traceGraph,
 		buildDiagramViewUrl,
@@ -43,14 +45,14 @@
 				selectedNodeId = view.seeds[0];
 			}
 		} catch {
-			jsonMessage = 'This shared graph link is invalid or too large. The default graph is shown.';
+			actionMessage = 'This shared graph link is invalid or too large. The default graph is shown.';
 		}
 		jsonText = JSON.stringify(graph, null, 2);
 		hydrated = true;
 	});
 
 	let diagramMode = $state<DiagramMode>('flow');
-	let traceMode = $state<TraceMode>('component');
+	let traceMode = $state<TraceMode>('direct');
 	let focusMode = $state(false);
 	let search = $state('');
 	let inventorySearch = $state('');
@@ -60,6 +62,7 @@
 	let armedOutput = $state<{ nodeId: string; portId: string } | null>(null);
 	let jsonText = $state(JSON.stringify(defaultGraph, null, 2));
 	let jsonMessage = $state('');
+	let actionMessage = $state('');
 	let zoom = $state(0.72);
 	let pan = $state({ x: 32, y: 28 });
 	let overrides = $state<Record<string, Point>>({});
@@ -120,8 +123,17 @@
 		return searchMatch && tagMatch && focusMatch;
 	}
 
-	const layoutKey = $derived(
-		`${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}`
+	const visibleNodes = $derived(graph.nodes.filter(nodeMatches));
+	const visibleNodeIds = $derived(new Set(visibleNodes.map((node) => node.id)));
+	const visibleEdges = $derived(
+		graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target))
+	);
+	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
+	const emphasize = $derived(Boolean(selectedNodeId) && highlightedNodeIds.size > 1);
+	const fitKey = $derived(
+		`${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
+			.map((node) => node.id)
+			.join(',')}:${focusMode}`
 	);
 
 	function facetChips(tags: string[]) {
@@ -131,6 +143,10 @@
 			if (tag) chips.push(tag.slice(namespace.length + 1));
 		}
 		return chips;
+	}
+
+	function tagCount(tag: string) {
+		return graph.nodes.filter((node) => node.tags.includes(tag)).length;
 	}
 
 	function fitPoints(points: Record<string, Point>, ids: string[]) {
@@ -152,9 +168,9 @@
 		if (rect.width < 40 || rect.height < 40) return;
 		const pad = 36;
 		const scale = Math.min(
-			1.15,
+			1.05,
 			Math.max(
-				0.34,
+				0.62,
 				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
 			)
 		);
@@ -174,12 +190,16 @@
 
 	$effect(() => {
 		if (!hydrated) return;
-		const key = layoutKey;
-		const points = untrack(() => layoutGraph(graph, diagramMode));
-		const ids = untrack(() => graph.nodes.map((node) => node.id));
+		const key = fitKey;
+		const ids = untrack(() => graph.nodes.filter(nodeMatches).map((node) => node.id));
 		void key;
 		void tick()
-			.then(() => fitPoints(points, ids))
+			.then(() =>
+				fitPoints(
+					untrack(() => basePositions),
+					ids
+				)
+			)
 			.catch(() => undefined);
 	});
 
@@ -253,8 +273,8 @@
 			tags: ['custom'],
 			status: 'proposed',
 			level: 3,
-			inputs: [{ id: 'in', label: 'Input' }],
-			outputs: [{ id: 'out', label: 'Output' }]
+			inputs: [{ id: 'in', label: 'Consumes' }],
+			outputs: [{ id: 'out', label: 'Provides' }]
 		};
 		graph = { ...graph, nodes: [...graph.nodes, node] };
 		selectNode(id);
@@ -289,9 +309,23 @@
 		selectNode(item.id);
 	}
 
-	function exportJson() {
+	function syncJson() {
 		jsonText = JSON.stringify(graph, null, 2);
-		jsonMessage = 'Current graph exported to the editor.';
+		jsonMessage = 'JSON in the editor matches the map.';
+	}
+
+	function exportJson() {
+		const text = JSON.stringify(graph, null, 2);
+		jsonText = text;
+		const file = new Blob([text], { type: 'application/json' });
+		const href = URL.createObjectURL(file);
+		const link = document.createElement('a');
+		link.href = href;
+		link.download = 'manef-architecture.json';
+		link.click();
+		URL.revokeObjectURL(href);
+		actionMessage = 'Downloaded manef-architecture.json.';
+		jsonMessage = actionMessage;
 	}
 
 	function importJson() {
@@ -314,8 +348,9 @@
 
 	async function shareView() {
 		try {
+			const edited = !sameGraph(graph, defaultGraph);
 			const url = buildDiagramViewUrl({
-				graph,
+				graph: edited ? graph : undefined,
 				query: search,
 				tags: activeTags,
 				seeds: selectedNodeId ? [selectedNodeId] : [],
@@ -323,23 +358,19 @@
 				trace: traceMode,
 				focus: focusMode
 			});
-			await navigator.clipboard.writeText(url);
-			jsonMessage = 'Portable graph link copied.';
+			const parsed = new URL(url);
+			history.replaceState(history.state, '', `${parsed.pathname}${parsed.search}`);
+			try {
+				await navigator.clipboard.writeText(url);
+				actionMessage = edited ? 'Link copied. It includes this edited map.' : 'Link copied.';
+			} catch {
+				actionMessage = 'The link is in the address bar. Copy it from there.';
+			}
+			jsonMessage = actionMessage;
 		} catch (error) {
-			jsonMessage = error instanceof Error ? error.message : 'Could not create a portable link.';
+			actionMessage = error instanceof Error ? error.message : 'Could not create a portable link.';
+			jsonMessage = actionMessage;
 		}
-	}
-
-	function edgePath(edge: ArchitectureEdge) {
-		const source = basePositions[edge.source] ?? { x: 0, y: 0 };
-		const target = basePositions[edge.target] ?? { x: 0, y: 0 };
-		const x1 = source.x + flowCard.width;
-		const y1 = source.y + flowCard.height / 2;
-		const x2 = target.x;
-		const y2 = target.y + flowCard.height / 2;
-		if (diagramMode === 'graph') return `M ${x1} ${y1} L ${x2} ${y2}`;
-		const bend = Math.max(70, Math.abs(x2 - x1) * 0.42);
-		return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
 	}
 
 	function startNodeDrag(event: PointerEvent, nodeId: string) {
@@ -370,6 +401,7 @@
 	}
 
 	function startPan(event: PointerEvent) {
+		if (window.matchMedia('(max-width: 44rem)').matches) return;
 		const target = event.target as HTMLElement;
 		if (target.closest('[data-interactive]')) return;
 		viewport?.setPointerCapture(event.pointerId);
@@ -395,8 +427,9 @@
 	}
 
 	function handleWheel(event: WheelEvent) {
+		if (window.matchMedia('(max-width: 44rem)').matches) return;
 		event.preventDefault();
-		zoom = Math.min(1.4, Math.max(0.34, zoom * (event.deltaY < 0 ? 1.08 : 0.92)));
+		zoom = Math.min(1.4, Math.max(0.62, zoom * (event.deltaY < 0 ? 1.08 : 0.92)));
 	}
 </script>
 
@@ -447,12 +480,14 @@
 			<Button data-interactive variant="outline" size="sm" onclick={shareView}>Share view</Button>
 		</div>
 	</header>
+	{#if actionMessage}<p class="toast" role="status">{actionMessage}</p>{/if}
 
 	<div class="shell">
 		<aside class="sidebar">
 			<section>
 				<h2>Explore canvas</h2>
 				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
+				<p class="help">A group matches any selected tag. Every group must match.</p>
 				<div class="tag-groups" aria-label="Tag group filters">
 					{#each tagGroups as [group, tags] (group)}
 						<div class="tag-group">
@@ -465,6 +500,7 @@
 										onclick={() => toggleTag(tag)}
 									>
 										{tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag}
+										<span class="count">{tagCount(tag)}</span>
 									</Button>
 								{/each}
 							</div>
@@ -489,6 +525,12 @@
 						onclick={() => (traceMode = 'component')}>All connected</Button
 					>
 				</div>
+				{#if traceMode === 'component'}
+					<p class="help">
+						All connected lights the whole piece that contains the selection. This public map is one
+						piece, so Direct is the view that shows neighbors.
+					</p>
+				{/if}
 				<Button
 					class="full-button"
 					variant={focusMode ? 'default' : 'outline'}
@@ -500,12 +542,23 @@
 
 			<section>
 				<h2>Canvas</h2>
-				<div class="metric"><span>Graph nodes</span><strong>{graph.nodes.length}</strong></div>
-				<div class="metric"><span>Connections</span><strong>{graph.edges.length}</strong></div>
-				<div class="metric"><span>Portable core</span><strong>TypeScript</strong></div>
+				<div class="metric">
+					<span>Services</span><strong
+						>{visibleNodes.length === graph.nodes.length
+							? graph.nodes.length
+							: `${visibleNodes.length} of ${graph.nodes.length}`}</strong
+					>
+				</div>
+				<div class="metric">
+					<span>Connections</span><strong
+						>{visibleEdges.length === graph.edges.length
+							? graph.edges.length
+							: `${visibleEdges.length} of ${graph.edges.length}`}</strong
+					>
+				</div>
 				<p class="help">
-					The public map fits this panel. Drag empty space to pan. Wheel zooms. Select an output
-					port, then an input port to connect.
+					Names stay whole. Lines are labeled. Drag empty space to pan, and use the wheel to zoom.
+					On a phone the same services are a list.
 				</p>
 			</section>
 		</aside>
@@ -519,7 +572,7 @@
 					<span>{diagramMode === 'flow' ? 'Flow' : 'Graph'} · {Math.round(zoom * 100)}%</span>
 				{/if}
 				<div>
-					<Button size="sm" variant="outline" onclick={() => (zoom = Math.max(0.34, zoom * 0.9))}
+					<Button size="sm" variant="outline" onclick={() => (zoom = Math.max(0.62, zoom * 0.9))}
 						>−</Button
 					>
 					<Button size="sm" variant="outline" onclick={() => (zoom = Math.min(1.4, zoom * 1.1))}
@@ -549,118 +602,163 @@
 				}}
 				onwheel={handleWheel}
 			>
+				{#if visibleNodes.length === 0}
+					<div class="empty-map">
+						<p>
+							No services match{search.trim() ? ` “${search.trim()}”` : ' these tags'}.
+						</p>
+						<Button
+							size="sm"
+							onclick={() => {
+								search = '';
+								activeTags = [];
+							}}>Clear search and tags</Button
+						>
+					</div>
+				{/if}
+				<ol class="mobile-map">
+					{#each [...visibleNodes].sort((a, b) => (a.level ?? 3) - (b.level ?? 3) || a.label.localeCompare(b.label)) as node (node.id)}
+						<li>
+							<button
+								type="button"
+								class="mobile-card"
+								class:selected={selectedNodeId === node.id}
+								onclick={() => selectNode(node.id)}
+							>
+								<span>
+									<strong>{node.label}</strong>
+									<small>{node.subtitle}</small>
+								</span>
+								<em data-status={node.status ?? 'active'}>{node.status ?? 'active'}</em>
+							</button>
+							{#each visibleEdges.filter((edge) => edge.source === node.id) as edge (edge.id)}
+								<p class="mobile-edge">
+									{edge.label ?? 'connects'} → {graph.nodes.find((item) => item.id === edge.target)
+										?.label}
+								</p>
+							{/each}
+						</li>
+					{/each}
+				</ol>
 				<div class="world" style={worldStyle}>
 					<svg class="edges" viewBox="0 0 2400 1800" aria-hidden="true">
 						<defs>
 							<marker
 								id="arrow"
 								viewBox="0 0 10 10"
-								refX="9"
+								refX="8"
 								refY="5"
-								markerWidth="5"
-								markerHeight="5"
+								markerWidth="6"
+								markerHeight="6"
 								orient="auto-start-reverse"
 							>
 								<path d="M 0 0 L 10 5 L 0 10 z"></path>
 							</marker>
 						</defs>
-						{#each graph.edges as edge (edge.id)}
-							{#if nodeMatches(graph.nodes.find((node) => node.id === edge.source)!) && nodeMatches(graph.nodes.find((node) => node.id === edge.target)!)}
+						{#each visibleEdges as edge (edge.id)}
+							{@const route = routes.find((item) => item.id === edge.id)}
+							{#if route}
 								<path
-									d={edgePath(edge)}
+									d={route.d}
 									class:hot={highlightedEdgeIds.has(edge.id) || selectedEdgeId === edge.id}
-									class:dim={!!selectedNodeId && !highlightedEdgeIds.has(edge.id)}
+									class:dim={emphasize && !highlightedEdgeIds.has(edge.id)}
 									marker-end="url(#arrow)"
 								></path>
+								<text class="edge-label" x={route.x} y={route.y} text-anchor="middle"
+									>{route.label}</text
+								>
 							{/if}
 						{/each}
 					</svg>
 
-					{#each graph.nodes as node (node.id)}
-						{#if nodeMatches(node)}
-							<article
-								class="node"
-								class:hot={highlightedNodeIds.has(node.id)}
-								class:selected={selectedNodeId === node.id}
-								class:dim={!!selectedNodeId && !highlightedNodeIds.has(node.id)}
-								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px;`}
-								onpointerdown={(event) => {
-									if (event.target instanceof Element && event.target.closest('[data-interactive]'))
-										return;
-									startNodeDrag(event, node.id);
-								}}
-							>
-								<div class="node-head">
+					{#each visibleNodes as node (node.id)}
+						<article
+							class="node"
+							class:hot={highlightedNodeIds.has(node.id)}
+							class:selected={selectedNodeId === node.id}
+							class:dim={emphasize && !highlightedNodeIds.has(node.id)}
+							data-status={node.status ?? 'active'}
+							style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; width: ${flowCard.width}px; height: ${flowCard.height}px;`}
+							onpointerdown={(event) => {
+								if (event.target instanceof Element && event.target.closest('[data-interactive]'))
+									return;
+								startNodeDrag(event, node.id);
+							}}
+						>
+							<div class="node-head">
+								<Button
+									data-interactive
+									class="node-select"
+									variant="ghost"
+									onclick={() => selectNode(node.id)}
+								>
+									<span>
+										<strong>{node.label}</strong>
+										<small>{node.subtitle}</small>
+									</span>
+								</Button>
+							</div>
+							<div class="node-meta">
+								<span class="status" data-status={node.status ?? 'active'}
+									>{node.status ?? 'active'}</span
+								>
+								{#each facetChips(node.tags) as chip (chip)}
+									<span class="chip">{chip}</span>
+								{/each}
+							</div>
+							<div class="ports">
+								{#each node.inputs as port (port.id)}
 									<Button
 										data-interactive
-										class="node-select"
-										variant="ghost"
-										onclick={() => selectNode(node.id)}
+										size="sm"
+										variant="outline"
+										onclick={() => connectTo(node.id, port.id)}
 									>
-										<span>
-											<strong>{node.label}</strong>
-											<small>{node.subtitle}</small>
-										</span>
+										<span class="socket"></span>{port.label}
 									</Button>
-									<span class="status" data-status={node.status ?? 'active'}
-										>{node.status ?? 'active'}</span
+								{/each}
+								{#each node.outputs as port (port.id)}
+									<Button
+										data-interactive
+										size="sm"
+										variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
+											? 'default'
+											: 'outline'}
+										onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
 									>
-								</div>
-								<div class="node-tags">
-									{#each facetChips(node.tags) as chip (chip)}
-										<span class="chip">{chip}</span>
-									{/each}
-								</div>
-								<div class="ports inputs">
-									{#each node.inputs as port (port.id)}
-										<Button
-											data-interactive
-											size="sm"
-											variant="outline"
-											onclick={() => connectTo(node.id, port.id)}
-										>
-											<span class="socket"></span>{port.label}
-										</Button>
-									{/each}
-								</div>
-								<div class="ports outputs">
-									{#each node.outputs as port (port.id)}
-										<Button
-											data-interactive
-											size="sm"
-											variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
-												? 'default'
-												: 'outline'}
-											onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
-										>
-											{port.label}<span class="socket"></span>
-										</Button>
-									{/each}
-								</div>
-							</article>
-						{/if}
+										{port.label}<span class="socket"></span>
+									</Button>
+								{/each}
+							</div>
+						</article>
 					{/each}
 				</div>
 			</div>
 
-			<div class="edge-strip" aria-label="Connections">
-				{#each graph.edges as edge (edge.id)}
-					<Button
-						size="sm"
-						variant={selectedEdgeId === edge.id ? 'default' : 'outline'}
-						onclick={() => selectEdge(edge.id)}
-					>
-						{graph.nodes.find((node) => node.id === edge.source)?.label} · {edge.label ??
-							'connects'} ·
-						{graph.nodes.find((node) => node.id === edge.target)?.label}
-					</Button>
-				{/each}
-			</div>
+			{#if visibleEdges.length}
+				<div class="edge-strip" aria-label="Connections">
+					{#each visibleEdges as edge (edge.id)}
+						<Button
+							size="sm"
+							variant={selectedEdgeId === edge.id ? 'default' : 'outline'}
+							onclick={() => selectEdge(edge.id)}
+						>
+							{graph.nodes.find((node) => node.id === edge.source)?.label} · {edge.label ??
+								'connects'} ·
+							{graph.nodes.find((node) => node.id === edge.target)?.label}
+						</Button>
+					{/each}
+				</div>
+			{/if}
 		</section>
 
 		<aside class="inspector">
 			<section>
-				<h2>Inventory</h2>
+				<h2>Off this map</h2>
+				<p class="help">
+					Open Silong, Convex, and Dokploy are not part of the public seed. Add one here if you want
+					it on this map. That does not publish it for everyone else.
+				</p>
 				<Input
 					aria-label="Search inventory"
 					placeholder="Search inventory…"
@@ -701,16 +799,17 @@
 					</label>
 					<label>
 						<span>Tags</span>
-						<Input
+						<textarea
+							rows="3"
 							value={selectedNode.tags.join(', ')}
+							aria-label="Tags"
 							onchange={(event) =>
 								updateNode(selectedNode.id, {
 									tags: event.currentTarget.value
 										.split(',')
 										.map((tag) => tag.trim())
 										.filter(Boolean)
-								})}
-						/>
+								})}></textarea>
 					</label>
 
 					<div class="port-editor">
@@ -795,24 +894,36 @@
 				</section>
 			{:else}
 				<section>
-					<h2>Inspector</h2>
-					<p class="help">Select a node or connection to edit its portable contract.</p>
+					<h2>Services</h2>
+					<ul class="service-summary">
+						{#each graph.nodes as node (node.id)}
+							<li>
+								<button type="button" onclick={() => selectNode(node.id)}>
+									<strong>{node.label}</strong>
+									<small>{node.subtitle}</small>
+								</button>
+								<span class="status" data-status={node.status ?? 'active'}
+									>{node.status ?? 'active'}</span
+								>
+							</li>
+						{/each}
+					</ul>
 				</section>
 			{/if}
 
-			<section>
-				<h2>Graph JSON</h2>
+			<details class="json-panel">
+				<summary>Graph JSON</summary>
 				<textarea
 					bind:value={jsonText}
 					rows="11"
 					spellcheck="false"
 					aria-label="Architecture graph JSON"></textarea>
 				<div class="json-actions">
-					<Button size="sm" variant="outline" onclick={exportJson}>Refresh</Button>
+					<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
 					<Button size="sm" onclick={importJson}>Apply JSON</Button>
 				</div>
 				{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
-			</section>
+			</details>
 		</aside>
 	</div>
 </main>
@@ -1000,6 +1111,15 @@
 		stroke: var(--muted-foreground);
 		stroke-width: 1.6;
 	}
+	.edge-label {
+		fill: var(--foreground);
+		stroke: var(--card);
+		stroke-width: 4px;
+		paint-order: stroke;
+		font-size: 11px;
+		font-weight: 600;
+		pointer-events: none;
+	}
 	.edges path.hot {
 		stroke: var(--foreground);
 		stroke-width: 2.6;
@@ -1012,16 +1132,22 @@
 	}
 	.node {
 		position: absolute;
-		width: 210px;
-		min-height: 116px;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		box-sizing: border-box;
+		overflow: hidden;
 		border: 1px solid var(--border);
 		border-radius: var(--radius-lg);
 		background: var(--card);
-		box-shadow: 0 10px 28px color-mix(in oklab, var(--foreground) 8%, transparent);
-		padding: 0.55rem;
-		transition:
-			opacity 120ms ease,
-			border-color 120ms ease;
+		box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 7%, transparent);
+		padding: 0.4rem 0.45rem 0.35rem;
+	}
+	.node[data-status='proposed'] {
+		border-style: dashed;
+	}
+	.node[data-status='private'] {
+		border-color: var(--destructive);
 	}
 	.node.hot,
 	.node.selected {
@@ -1038,23 +1164,42 @@
 		gap: 0.4rem;
 	}
 	:global(.node-select) {
-		height: auto;
+		height: auto !important;
 		min-width: 0;
+		width: 100%;
 		flex: 1;
 		justify-content: flex-start;
-		padding: 0.2rem;
+		padding: 0.1rem 0.15rem;
+		white-space: normal !important;
 		text-align: left;
 	}
 	:global(.node-select) span {
 		display: grid;
 		min-width: 0;
-		gap: 0.15rem;
+		gap: 0.1rem;
 	}
 	:global(.node-select) strong,
 	:global(.node-select) small {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow: visible;
+		white-space: normal !important;
+		text-overflow: unset;
+		line-height: 1.2;
+	}
+	:global(.node-select) strong {
+		font-size: 0.78rem;
+	}
+	:global(.node-select) small {
+		display: block;
+		white-space: normal !important;
+		overflow: visible;
+		line-height: 1.25;
+	}
+	.node-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem;
+		min-height: 1.1rem;
 	}
 	.status {
 		border: 1px solid var(--border);
@@ -1067,13 +1212,6 @@
 	.status[data-status='private'] {
 		color: var(--destructive);
 	}
-	.node-tags {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		min-height: 1.15rem;
-		margin: 0.35rem 0.2rem;
-	}
 	.chip {
 		border: 1px solid var(--border);
 		border-radius: 999px;
@@ -1085,16 +1223,13 @@
 	.ports {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.3rem;
-		margin-top: 0.35rem;
+		gap: 0.25rem;
+		margin-top: auto;
 	}
 	.ports :global(button) {
 		height: 1.75rem;
 		padding: 0 0.45rem;
 		font-size: 0.65rem;
-	}
-	.outputs {
-		justify-content: flex-end;
 	}
 	.socket {
 		width: 0.5rem;
@@ -1104,14 +1239,16 @@
 		background: var(--muted-foreground);
 	}
 	.edge-strip {
-		overflow-x: auto;
+		flex-wrap: wrap;
 		border-top: 1px solid var(--border);
 		background: var(--card);
 		padding: 0.45rem;
-		scrollbar-width: thin;
 	}
 	.edge-strip :global(button) {
-		flex: 0 0 auto;
+		height: auto;
+		min-height: 1.75rem;
+		white-space: normal;
+		text-align: left;
 	}
 	.inventory-list,
 	.port-editor {
@@ -1168,6 +1305,129 @@
 		justify-content: flex-end;
 	}
 
+	.toast {
+		position: fixed;
+		z-index: 40;
+		right: 0.75rem;
+		bottom: 0.75rem;
+		max-width: min(28rem, calc(100% - 1.5rem));
+		border-radius: var(--radius-lg);
+		background: var(--foreground);
+		color: var(--background);
+		padding: 0.65rem 0.85rem;
+		font-size: 0.85rem;
+		box-shadow: 0 12px 32px color-mix(in oklab, var(--foreground) 24%, transparent);
+	}
+	.empty-map {
+		position: absolute;
+		z-index: 2;
+		inset: 0;
+		display: grid;
+		place-content: center;
+		justify-items: center;
+		gap: 0.75rem;
+		padding: 1.5rem;
+		text-align: center;
+		background: color-mix(in oklab, var(--muted) 88%, transparent);
+	}
+	.empty-map p {
+		margin: 0;
+		max-width: 22rem;
+	}
+	.mobile-map {
+		display: none;
+		gap: 0.65rem;
+		margin: 0;
+		padding: 0.75rem;
+		list-style: none;
+	}
+	.mobile-card {
+		display: flex;
+		width: 100%;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-lg);
+		background: var(--card);
+		padding: 0.8rem 0.85rem;
+		text-align: left;
+	}
+	.mobile-card span {
+		display: grid;
+		gap: 0.15rem;
+		min-width: 0;
+	}
+	.mobile-card strong,
+	.mobile-card small {
+		white-space: normal;
+	}
+	.mobile-card small {
+		color: var(--muted-foreground);
+	}
+	.mobile-card.selected {
+		border-color: var(--ring);
+	}
+	.mobile-card em {
+		flex: 0 0 auto;
+		border-radius: 999px;
+		background: var(--muted);
+		padding: 0.15rem 0.45rem;
+		font-size: 0.68rem;
+		font-style: normal;
+	}
+	.mobile-edge {
+		margin: 0.35rem 0 0 0.2rem;
+		color: var(--muted-foreground);
+		font-size: 0.8rem;
+	}
+	.service-summary {
+		display: grid;
+		gap: 0.45rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.service-summary li {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.4rem;
+		align-items: start;
+	}
+	.service-summary button {
+		display: grid;
+		min-width: 0;
+		gap: 0.1rem;
+		border: 0;
+		background: transparent;
+		padding: 0;
+		color: inherit;
+		text-align: left;
+	}
+	.service-summary small {
+		white-space: normal;
+	}
+	.count {
+		margin-left: 0.3rem;
+		opacity: 0.7;
+	}
+	.json-panel {
+		display: grid;
+		gap: 0.65rem;
+		padding: 0.9rem;
+	}
+	.json-panel summary {
+		cursor: pointer;
+		color: var(--muted-foreground);
+		font-size: 0.7rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+	.inspector textarea {
+		width: 100%;
+		min-width: 0;
+	}
+
 	@media (max-width: 68rem) {
 		.shell {
 			grid-template-columns: 13rem minmax(0, 1fr);
@@ -1192,21 +1452,30 @@
 			overflow: visible;
 		}
 		.topbar {
-			grid-template-columns: 1fr auto;
+			display: flex;
+			flex-wrap: wrap;
 			height: auto;
-			min-height: 4rem;
-			padding: 0.55rem;
+			align-items: center;
+			padding: 0.65rem;
 		}
-		.segmented {
-			order: 3;
-			grid-column: 1 / -1;
+		.identity {
+			flex: 1 1 100%;
+		}
+		.identity h1 {
+			font-size: 1.05rem;
+			white-space: normal;
+		}
+		.segmented,
+		.top-actions {
+			flex: 1 1 100%;
 			justify-content: stretch;
+		}
+		.top-actions {
+			justify-content: flex-start;
+			flex-wrap: wrap;
 		}
 		.segmented :global(button) {
 			flex: 1;
-		}
-		.top-actions {
-			align-self: flex-start;
 		}
 		.shell {
 			display: flex;
@@ -1225,9 +1494,27 @@
 			box-shadow: none;
 		}
 		.canvas-shell {
-			height: 66dvh;
-			min-height: 34rem;
+			height: auto;
+			min-height: 0;
 			order: -1;
+		}
+		.viewport {
+			height: auto;
+			min-height: 0;
+			overflow: visible;
+			cursor: default;
+			touch-action: pan-y;
+			background-image: none;
+		}
+		.world {
+			display: none;
+		}
+		.mobile-map {
+			display: grid;
+		}
+		.canvas-toolbar,
+		.edge-strip {
+			display: none;
 		}
 		.sidebar {
 			display: grid;

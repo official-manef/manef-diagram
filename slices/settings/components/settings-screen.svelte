@@ -2,7 +2,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
-	import { bunVersion, templateVersion } from '$lib/version';
+	import { Button } from '$lib/components/ui/button';
 	import {
 		DisclosureCard,
 		FeatureGrid,
@@ -16,7 +16,7 @@
 		{ id: 'interface', label: 'Interface' }
 	] as const satisfies readonly SegmentItem[];
 	let section = $state('workspace');
-	let workspaceName = $state('Starter workspace');
+	let workspaceName = $state('MANEF map');
 	const cleanWorkspaceName = $derived(workspaceName.trim() || 'Untitled workspace');
 </script>
 
@@ -31,7 +31,8 @@
 						>Workspace <Badge variant="secondary">{cleanWorkspaceName}</Badge></Card.Title
 					>
 					<Card.Description
-						>This name is a local preview. It resets when you leave this page or reload.</Card.Description
+						>This name stays in this browser tab. It resets when you leave or reload. It does not
+						rename the public map.</Card.Description
 					>
 				</Card.Header>
 				<Card.Content>
@@ -42,36 +43,30 @@
 
 			<Card.Root>
 				<Card.Header
-					><Card.Title>Runtime versions</Card.Title><Card.Description
-						>Bun manages packages and scripts. New Svelte code uses Runes.</Card.Description
+					><Card.Title>Public map</Card.Title><Card.Description
+						>The diagram at /app is the product. These pages are the surrounding tools.</Card.Description
 					></Card.Header
 				>
 				<Card.Content class="space-y-3 text-sm">
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-muted-foreground">Package manager</span><code
-							class="rounded-lg bg-muted px-3 py-2">Bun {bunVersion}</code
-						>
-					</div>
-					<p class="text-muted-foreground">Template version {templateVersion}</p>
-					<div class="flex items-center justify-between gap-3">
-						<span class="text-muted-foreground">Svelte syntax</span><Badge variant="outline"
-							>Runes only</Badge
-						>
-					</div>
+					<p class="text-muted-foreground">
+						Production origin is diagram.manef.dev. Sign-in on the public site is MANEF, not a
+						separate Google button.
+					</p>
+					<Button href="/app">Open diagram</Button>
 				</Card.Content>
 			</Card.Root>
 		</FeatureGrid>
 
-		<DisclosureCard summary="Advanced template rules">
+		<DisclosureCard summary="How the map stays one product">
 			<p class="text-sm leading-6 text-muted-foreground">
-				Keep user customization in data/config, keep routes thin, and register repeated page
-				families once. Do not add compatibility files only to preserve obsolete imports.
+				Keep the public service list in the diagram seed. Do not paste private inventory into that
+				seed. Repeated pages stay registered once.
 			</p>
 		</DisclosureCard>
 	{:else}
-		<SignalBanner title="Interface layout follows content, not device labels">
-			Auto-fit grids react to available space, local modes remain horizontally scrollable when
-			necessary, and mobile rails reveal continuation with partial next-card visibility.
+		<SignalBanner title="The diagram is the interface">
+			Desktop shows the labeled map. A phone shows the same services as a list with full names.
+			Settings on this page do not change that layout.
 		</SignalBanner>
 		<FeatureGrid density="compact">
 			<Card.Root
@@ -83,8 +78,8 @@
 			>
 			<Card.Root
 				><Card.Header
-					><Card.Title>App-first mobile</Card.Title><Card.Description
-						>Carousel, banner, segmented modes and disclosures replace compressed desktop rows.</Card.Description
+					><Card.Title>Readable phone map</Card.Title><Card.Description
+						>Service names stay full size. The canvas is not shrunk to fit the width.</Card.Description
 					></Card.Header
 				></Card.Root
 			>

@@ -10,26 +10,26 @@
 <div class="space-y-5">
 	{#if configured}
 		<SignalBanner title="Convex URL configured">
-			Check the query result below to confirm that your backend is reachable.
+			The public diagram does not depend on this connection. The result below only says whether this
+			optional backend responded.
 		</SignalBanner>
 		<FeatureGrid density="comfortable">
 			<LiveStatus />
 			<Card.Root>
 				<Card.Header
-					><Card.Title>Runtime behavior</Card.Title><Card.Description
-						>Realtime data is a feature capability, not a boot requirement.</Card.Description
+					><Card.Title>Optional backend</Card.Title><Card.Description
+						>Realtime data is off unless this deployment is linked. The public map still loads.</Card.Description
 					></Card.Header
 				>
 				<Card.Content class="text-sm leading-6 text-muted-foreground"
-					>A fresh clone still builds without credentials. Once linked, the generated API types keep
-					the client and backend in sync.</Card.Content
+					>Notes can use this connection later. The diagram you open from the home page does not
+					read it.</Card.Content
 				>
 			</Card.Root>
 		</FeatureGrid>
 	{:else}
-		<SignalBanner title="Connect your backend">
-			The frontend works without a backend connection. Follow the steps below when you need data
-			from Convex.
+		<SignalBanner title="No live feed on the public map">
+			The diagram works without Convex. Link a deployment only when notes or saved graphs need it.
 		</SignalBanner>
 		<ViewportSnapSection>
 			<FeatureGrid density="comfortable">
@@ -44,13 +44,11 @@
 					</Card.Header>
 					<Card.Content class="space-y-3 text-sm text-muted-foreground">
 						<p>
-							Run <code class="rounded bg-muted px-1.5 py-0.5">bunx convex dev</code>, then expose
-							its URL as <code>PUBLIC_CONVEX_URL</code>.
+							The public map stays available. To store notes, run
+							<code class="rounded bg-muted px-1.5 py-0.5">bunx convex dev</code>
+							and set <code>PUBLIC_CONVEX_URL</code>.
 						</p>
-						<p>
-							Do not reuse another project's deployment merely to make a starter screen look
-							connected.
-						</p>
+						<p>Do not point this app at another product's deployment just to fill this page.</p>
 					</Card.Content>
 				</Card.Root>
 				<Card.Root>

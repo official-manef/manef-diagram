@@ -35,7 +35,7 @@
 		`Loading ${getApp(navigating.to?.params?.slug ?? '')?.label ?? 'page'}`
 	);
 	const workspaces = [
-		{ id: 'starter', label: 'Starter workspace' },
+		{ id: 'starter', label: 'MANEF map' },
 		{ id: 'preview', label: 'Preview workspace' }
 	] as const;
 	let workspaceId = $state<(typeof workspaces)[number]['id']>('starter');
@@ -62,7 +62,10 @@
 		</a>
 		<div class="mt-4 rounded-xl border bg-muted/30 px-3 py-3">
 			<p class="text-xs font-semibold">{workspace.label}</p>
-			<p class="mt-1 text-xs text-muted-foreground">Workspace utility stays outside breadcrumbs.</p>
+			<p class="mt-1 text-xs text-muted-foreground">
+				<a class="underline" href={resolve('/app')}>Open the diagram</a>. This switcher is only a
+				local label.
+			</p>
 		</div>
 		<nav aria-label="Apps" class="mt-5 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
 			{#each APP_REGISTRY as item (item.slug)}
@@ -77,9 +80,12 @@
 				</Button>
 			{/each}
 		</nav>
-		<div class="rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground">
-			Root slices → dynamic route → registry SSOT.
-		</div>
+		<a
+			href={resolve('/app')}
+			class="rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground"
+		>
+			Public map of MANEF services.
+		</a>
 	</aside>
 
 	<main class="flex min-w-0 flex-1 flex-col overflow-hidden">

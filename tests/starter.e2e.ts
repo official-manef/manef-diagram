@@ -143,13 +143,11 @@ test('fresh clone boots, opens live-data and preserves keyboard navigation', asy
 	await page.goto('/apps/live-data');
 	await expect(page.getByText('Convex is ready to link')).toBeVisible();
 	await expect(page).toHaveTitle(`Live data · ${appConfig.name}`);
-	await page.getByRole('button', { name: 'Switch workspace: Starter workspace' }).click();
+	await page.getByRole('button', { name: 'Switch workspace: MANEF map' }).click();
 	await expect(page.getByRole('menu')).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('menu')).toBeHidden();
-	await expect(
-		page.getByRole('button', { name: 'Switch workspace: Starter workspace' })
-	).toBeFocused();
+	await expect(page.getByRole('button', { name: 'Switch workspace: MANEF map' })).toBeFocused();
 	expect(errors).toEqual([]);
 });
 
@@ -162,12 +160,12 @@ test('client controls wait for hydration', async ({ page }) => {
 	});
 	try {
 		await page.goto('/apps/settings', { waitUntil: 'commit' });
-		const menu = page.getByRole('button', { name: 'Switch workspace: Starter workspace' });
+		const menu = page.getByRole('button', { name: 'Switch workspace: MANEF map' });
 		const mode = page.getByRole('button', { name: 'Interface', exact: true });
 		await expect(menu).toBeDisabled();
 		await expect(mode).toBeDisabled();
 		await page.getByLabel('Workspace name').fill('Typed before hydration');
-		await page.getByText('Advanced template rules', { exact: true }).click();
+		await page.getByText('How the map stays one product', { exact: true }).click();
 		await expect(page.locator('details')).toHaveAttribute('open', '');
 		resumeScripts();
 		await expect(menu).toBeEnabled();
@@ -198,7 +196,7 @@ test('dynamic app shell stays responsive and semantic', async ({ page }, testInf
 	expect(await breadcrumb.locator('button, select').count()).toBe(0);
 	await expect(page.getByRole('button', { name: /Switch workspace:/ })).toBeVisible();
 
-	const stackRail = page.getByRole('region', { name: 'Stack versions' });
+	const stackRail = page.getByRole('region', { name: 'Public services' });
 	await expect(stackRail).toBeVisible();
 	const rail = await stackRail.evaluate((node) => ({
 		client: node.clientWidth,
@@ -227,7 +225,7 @@ test('dynamic app shell stays responsive and semantic', async ({ page }, testInf
 
 test('workspace utility is separate from breadcrumb state', async ({ page }) => {
 	await page.goto('/apps/dashboard');
-	await page.getByRole('button', { name: 'Switch workspace: Starter workspace' }).click();
+	await page.getByRole('button', { name: 'Switch workspace: MANEF map' }).click();
 	await page.getByRole('menuitem', { name: 'Preview workspace' }).click();
 	await expect(page.getByRole('navigation', { name: 'Feature breadcrumb' })).toContainText(
 		'Preview workspace'
@@ -240,10 +238,10 @@ test('workspace utility is separate from breadcrumb state', async ({ page }) => 
 test('settings use local modes and progressive disclosure', async ({ page }) => {
 	await page.goto('/apps/settings');
 	await page.getByRole('button', { name: 'Interface' }).click();
-	await expect(page.getByText('App-first mobile', { exact: true })).toBeVisible();
+	await expect(page.getByText('Readable phone map', { exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Workspace', exact: true }).click();
-	await page.getByText('Advanced template rules').click();
-	await expect(page.getByText(/Keep user customization in data\/config/)).toBeVisible();
+	await page.getByText('How the map stays one product').click();
+	await expect(page.getByText(/Do not paste private inventory/)).toBeVisible();
 });
 
 test('invalid registry slug is a real 404', async ({ page }) => {

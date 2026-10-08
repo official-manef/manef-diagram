@@ -177,20 +177,13 @@ export function traceGraph(
 	return { nodeIds: [...nodeIds], edgeIds };
 }
 
-export const flowCard = { width: 210, height: 150, gapX: 120, gapY: 36 } as const;
+export const flowCard = { width: 200, height: 148, gapX: 64, gapY: 18 } as const;
 
-export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record<string, Point> {
-	if (mode === 'graph') {
-		const count = Math.max(1, graph.nodes.length);
-		return Object.fromEntries(
-			graph.nodes.map((node, index) => {
-				const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
-				const radius = 280 + count * 18;
-				return [node.id, { x: 640 + Math.cos(angle) * radius, y: 520 + Math.sin(angle) * radius }];
-			})
-		);
-	}
+function columnHeight(count: number) {
+	return count * flowCard.height + Math.max(0, count - 1) * flowCard.gapY;
+}
 
+function layoutFlow(graph: ArchitectureGraph): Record<string, Point> {
 	const levels = new Map<number, ArchitectureNode[]>();
 	for (const node of graph.nodes) {
 		const level = node.level ?? 3;
@@ -198,23 +191,173 @@ export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record
 		list.push(node);
 		levels.set(level, list);
 	}
-	const orderedLevels = [...levels.keys()].sort((a, b) => a - b);
-	const columnHeight = (count: number) =>
-		count * flowCard.height + Math.max(0, count - 1) * flowCard.gapY;
+	const columns = [...levels.keys()].sort((a, b) => a - b).map((level) => levels.get(level)!);
 	const maxHeight = Math.max(
-		...orderedLevels.map((level) => columnHeight(levels.get(level)!.length)),
+		...columns.map((nodes) => columnHeight(nodes.length)),
 		flowCard.height
 	);
 	const points: Record<string, Point> = {};
-	orderedLevels.forEach((level, column) => {
-		const nodes = levels.get(level)!;
-		const startY = 48 + (maxHeight - columnHeight(nodes.length)) / 2;
+	columns.forEach((nodes, column) => {
+		const startY = 36 + (maxHeight - columnHeight(nodes.length)) / 2;
 		nodes.forEach((node, index) => {
 			points[node.id] = {
-				x: 48 + column * (flowCard.width + flowCard.gapX),
+				x: 36 + column * (flowCard.width + flowCard.gapX),
 				y: startY + index * (flowCard.height + flowCard.gapY)
 			};
 		});
 	});
 	return points;
+}
+
+function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
+	const degree = new Map(graph.nodes.map((node) => [node.id, 0]));
+	for (const edge of graph.edges) {
+		degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
+		degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
+	}
+	const hub =
+		[...graph.nodes].sort(
+			(a, b) =>
+				(degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) ||
+				(a.level ?? 3) - (b.level ?? 3) ||
+				a.label.localeCompare(b.label)
+		)[0] ?? graph.nodes[0];
+	const others = graph.nodes.filter((node) => node.id !== hub?.id);
+	const count = Math.max(others.length, 1);
+	const radius = Math.max(360, flowCard.width + 96 + count * 16);
+	const center = { x: 980, y: 760 };
+	const points: Record<string, Point> = {};
+	if (hub) {
+		points[hub.id] = {
+			x: center.x - flowCard.width / 2,
+			y: center.y - flowCard.height / 2
+		};
+	}
+	others.forEach((node, index) => {
+		const angle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
+		points[node.id] = {
+			x: center.x + Math.cos(angle) * radius - flowCard.width / 2,
+			y: center.y + Math.sin(angle) * radius - flowCard.height / 2
+		};
+	});
+	return points;
+}
+
+export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record<string, Point> {
+	if (graph.nodes.length === 0) return {};
+	return mode === 'graph' ? layoutRadial(graph) : layoutFlow(graph);
+}
+
+export type EdgeRoute = {
+	id: string;
+	d: string;
+	label: string;
+	x: number;
+	y: number;
+	points: Point[];
+};
+
+function borderToward(from: Point, to: Point): Point {
+	const cx = from.x + flowCard.width / 2;
+	const cy = from.y + flowCard.height / 2;
+	const tx = to.x + flowCard.width / 2;
+	const ty = to.y + flowCard.height / 2;
+	const dx = tx - cx;
+	const dy = ty - cy;
+	const scale =
+		1 / Math.max(Math.abs(dx) / (flowCard.width / 2), Math.abs(dy) / (flowCard.height / 2), 0.0001);
+	return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+function flowPoints(source: Point, target: Point, index: number, total: number): Point[] {
+	const usable = flowCard.height - 24;
+	const y1 = source.y + 12 + ((index + 0.5) * usable) / Math.max(total, 1);
+	const y2 = target.y + flowCard.height / 2;
+	const x1 = source.x + flowCard.width;
+	const x2 = target.x;
+	if (x2 - x1 < 24) {
+		const above = Math.min(source.y, target.y) - 28;
+		return [
+			{ x: x1, y: y1 },
+			{ x: x1, y: above },
+			{ x: x2, y: above },
+			{ x: x2, y: y2 }
+		];
+	}
+	const bus = x1 + Math.max(28, Math.min(46, (x2 - x1) / 2));
+	return [
+		{ x: x1, y: y1 },
+		{ x: bus, y: y1 },
+		{ x: bus, y: y2 },
+		{ x: x2, y: y2 }
+	];
+}
+
+function pathFrom(points: Point[]): string {
+	return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+}
+
+export function routeEdges(
+	graph: ArchitectureGraph,
+	positions: Record<string, Point>,
+	mode: DiagramMode
+): EdgeRoute[] {
+	const bySource = new Map<string, ArchitectureEdge[]>();
+	for (const edge of graph.edges) {
+		const list = bySource.get(edge.source) ?? [];
+		list.push(edge);
+		bySource.set(edge.source, list);
+	}
+	return graph.edges.flatMap((edge) => {
+		const source = positions[edge.source];
+		const target = positions[edge.target];
+		if (!source || !target) return [];
+		const siblings = bySource.get(edge.source) ?? [edge];
+		const index = Math.max(
+			0,
+			siblings.findIndex((item) => item.id === edge.id)
+		);
+		const points =
+			mode === 'graph'
+				? [borderToward(source, target), borderToward(target, source)]
+				: flowPoints(source, target, index, siblings.length);
+		const labelAt = points[Math.min(points.length - 1, mode === 'graph' ? 0 : 2)];
+		const end = points[points.length - 1];
+		const labelX =
+			mode === 'graph' ? points[0].x + (end.x - points[0].x) * 0.68 : (labelAt.x + end.x) / 2;
+		const labelY = mode === 'graph' ? points[0].y + (end.y - points[0].y) * 0.68 - 8 : end.y - 8;
+		return [
+			{
+				id: edge.id,
+				d: pathFrom(points),
+				label: edge.label?.trim() || 'connects',
+				x: labelX,
+				y: labelY,
+				points
+			}
+		];
+	});
+}
+
+export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
+	const signature = (graph: ArchitectureGraph) =>
+		JSON.stringify({
+			nodes: graph.nodes.map((node) => ({
+				id: node.id,
+				label: node.label,
+				subtitle: node.subtitle ?? '',
+				level: node.level ?? null,
+				status: node.status ?? null,
+				tags: node.tags,
+				inputs: node.inputs.map((port) => port.label),
+				outputs: node.outputs.map((port) => port.label)
+			})),
+			edges: graph.edges.map((edge) => ({
+				id: edge.id,
+				source: edge.source,
+				target: edge.target,
+				label: edge.label ?? ''
+			}))
+		});
+	return signature(a) === signature(b);
 }

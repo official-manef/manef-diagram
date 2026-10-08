@@ -7,6 +7,7 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 - Align the public runtime claim with the live Vercel origin. Dokploy/adapter-node stays an optional container target, not the current production host.
 - Fit the public architecture map to the canvas, center each flow column, and show kind, platform, and project on the node instead of a truncated tag string.
+- Make the public map readable: full service names, labeled connections, direct-neighbor highlight, counts that follow search and focus, a real empty state, a JSON file export, and a short share link for the unedited map. Phones get a full-size list. The landing page shows the services. Surrounding app pages no longer present a starter workspace.
 
 ## [0.1.0] - 2026-09-29
 

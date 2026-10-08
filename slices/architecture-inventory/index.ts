@@ -7,6 +7,8 @@ export {
 	dedupeEdges,
 	layoutGraph,
 	flowCard,
+	routeEdges,
+	sameGraph,
 	parseGraphJson,
 	traceGraph,
 	validateGraph

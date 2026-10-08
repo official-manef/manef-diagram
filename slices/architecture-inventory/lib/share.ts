@@ -68,7 +68,7 @@ export function parseDiagramView(search: string): DiagramView {
 		tags: params.getAll('tag'),
 		seeds: params.getAll('seed'),
 		mode: mode === 'graph' ? 'graph' : 'flow',
-		trace: trace === 'direct' ? 'direct' : 'component',
+		trace: trace === 'component' ? 'component' : 'direct',
 		focus: params.get('focus') === '1'
 	};
 }

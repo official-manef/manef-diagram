@@ -3,8 +3,10 @@
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import { resolve } from '$app/paths';
+	import { defaultGraph } from '$features/architecture-inventory';
 
 	const session = $derived(page.data.auth?.session);
+	const services = defaultGraph.nodes;
 </script>
 
 <svelte:head>
@@ -31,40 +33,63 @@
 		</div>
 	</div>
 
+	<section class="preview" aria-label="Public services">
+		<div class="preview-copy">
+			<h2>Public services</h2>
+			<p>
+				{services.length} services are on the map. Selecting one opens it with its direct neighbors.
+			</p>
+		</div>
+		<ol>
+			{#each services as node (node.id)}
+				<li>
+					<Button class="service-link" variant="outline" href={`/app?seed=${node.id}&trace=direct`}>
+						<strong>{node.label}</strong>
+						<span>{node.subtitle}</span>
+						<em data-status={node.status ?? 'active'}>{node.status ?? 'active'}</em>
+					</Button>
+				</li>
+			{/each}
+		</ol>
+	</section>
+
 	<section class="cards">
 		<div class="card">
-			<h2>Interactive graph</h2>
-			<p>Drag nodes, trace connections, and edit the MANEF service architecture.</p>
+			<h2>Labeled connections</h2>
+			<p>
+				Each line names the relationship, such as product, infrastructure, or private operations.
+			</p>
 		</div>
 		<div class="card">
-			<h2>Portable core</h2>
-			<p>Framework-neutral TypeScript graph core, reusable across MANEF products.</p>
+			<h2>Same map on a phone</h2>
+			<p>Narrow screens show the full service names in a list instead of a shrunken canvas.</p>
 		</div>
 		<div class="card">
-			<h2>MCP-ready</h2>
-			<p>Query the graph over an authenticated MCP endpoint for agents and clients.</p>
+			<h2>MCP needs a token</h2>
+			<p>Agents can query the public map at /api/mcp/server. The route rejects anonymous calls.</p>
 		</div>
 	</section>
 </main>
 
 <style>
 	.landing {
-		display: grid;
-		place-items: center;
+		display: flex;
 		min-height: 100dvh;
-		gap: 3rem;
-		padding: 2rem;
+		flex-direction: column;
+		gap: 2.5rem;
+		margin: 0 auto;
+		max-width: 68rem;
+		padding: 2.5rem 1.25rem 3rem;
 		background: var(--background);
 		color: var(--foreground);
 	}
 	.hero {
 		display: grid;
-		gap: 1.25rem;
-		max-width: 44rem;
-		text-align: center;
+		gap: 1rem;
+		max-width: 40rem;
 	}
 	.badge {
-		justify-self: center;
+		justify-self: start;
 		border: 1px solid var(--border);
 		border-radius: 999px;
 		background: var(--muted);
@@ -78,15 +103,16 @@
 		line-height: 1.1;
 		letter-spacing: -0.02em;
 	}
-	.lead {
+	.lead,
+	.preview-copy p,
+	.card p {
 		margin: 0;
 		color: var(--muted-foreground);
-		font-size: 1.05rem;
+		font-size: 1rem;
 	}
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: center;
 		align-items: center;
 		gap: 0.75rem;
 	}
@@ -94,26 +120,63 @@
 		font-size: 0.85rem;
 		color: var(--muted-foreground);
 	}
+	.preview {
+		display: grid;
+		gap: 1rem;
+	}
+	.preview-copy h2,
+	.card h2 {
+		margin: 0 0 0.35rem;
+		font-size: 1rem;
+	}
+	.preview ol {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+		gap: 0.75rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.preview :global(.service-link) {
+		display: grid;
+		height: 100%;
+		align-content: start;
+		justify-items: start;
+		gap: 0.2rem;
+		white-space: normal;
+		text-align: left;
+	}
+	.preview span {
+		color: var(--muted-foreground);
+		font-size: 0.85rem;
+		font-weight: 400;
+	}
+	.preview em {
+		justify-self: start;
+		margin-top: 0.35rem;
+		border-radius: 999px;
+		background: var(--muted);
+		padding: 0.1rem 0.45rem;
+		font-size: 0.72rem;
+		font-style: normal;
+	}
+	.preview em[data-status='private'] {
+		color: var(--destructive);
+	}
 	.cards {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-		gap: 1rem;
-		width: 100%;
-		max-width: 52rem;
+		grid-template-columns: 1fr;
+		gap: 0.75rem;
 	}
 	.card {
 		border: 1px solid var(--border);
 		border-radius: var(--radius-lg);
 		background: var(--card);
-		padding: 1.25rem;
+		padding: 1rem 1.1rem;
 	}
-	.card h2 {
-		margin: 0 0 0.5rem;
-		font-size: 1rem;
-	}
-	.card p {
-		margin: 0;
-		color: var(--muted-foreground);
-		font-size: 0.88rem;
+	@media (min-width: 800px) {
+		.cards {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
 	}
 </style>
