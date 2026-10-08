@@ -177,7 +177,8 @@ export function traceGraph(
 	return { nodeIds: [...nodeIds], edgeIds };
 }
 
-export const flowCard = { width: 200, height: 148, gapX: 64, gapY: 18 } as const;
+export const flowCard = { width: 204, height: 138, gapX: 176, gapY: 18 } as const;
+const flowRows = 4;
 
 function columnHeight(count: number) {
 	return count * flowCard.height + Math.max(0, count - 1) * flowCard.gapY;
@@ -191,17 +192,22 @@ function layoutFlow(graph: ArchitectureGraph): Record<string, Point> {
 		list.push(node);
 		levels.set(level, list);
 	}
-	const columns = [...levels.keys()].sort((a, b) => a - b).map((level) => levels.get(level)!);
-	const maxHeight = Math.max(
-		...columns.map((nodes) => columnHeight(nodes.length)),
-		flowCard.height
-	);
+	const lanes: ArchitectureNode[][] = [];
+	for (const level of [...levels.keys()].sort((a, b) => a - b)) {
+		const nodes = levels.get(level)!;
+		const rows = Math.min(flowRows, Math.max(nodes.length, 1));
+		for (let index = 0; index < nodes.length; index += rows) {
+			lanes.push(nodes.slice(index, index + rows));
+		}
+	}
+	const maxHeight = Math.max(...lanes.map((nodes) => columnHeight(nodes.length)), flowCard.height);
 	const points: Record<string, Point> = {};
-	columns.forEach((nodes, column) => {
-		const startY = 36 + (maxHeight - columnHeight(nodes.length)) / 2;
+	lanes.forEach((nodes, lane) => {
+		const startY = 32 + (maxHeight - columnHeight(nodes.length)) / 2;
+		const x = 24 + lane * (flowCard.width + flowCard.gapX);
 		nodes.forEach((node, index) => {
 			points[node.id] = {
-				x: 36 + column * (flowCard.width + flowCard.gapX),
+				x,
 				y: startY + index * (flowCard.height + flowCard.gapY)
 			};
 		});
@@ -224,7 +230,7 @@ function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
 		)[0] ?? graph.nodes[0];
 	const others = graph.nodes.filter((node) => node.id !== hub?.id);
 	const count = Math.max(others.length, 1);
-	const radius = Math.max(360, flowCard.width + 96 + count * 16);
+	const radius = Math.max(360, flowCard.width + 120 + count * 28);
 	const center = { x: 980, y: 760 };
 	const points: Record<string, Point> = {};
 	if (hub) {
@@ -269,26 +275,83 @@ function borderToward(from: Point, to: Point): Point {
 	return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
-function flowPoints(source: Point, target: Point, index: number, total: number): Point[] {
+function segmentHitsBox(start: Point, end: Point, box: Point): boolean {
+	const left = box.x + 6;
+	const right = box.x + flowCard.width - 6;
+	const top = box.y + 6;
+	const bottom = box.y + flowCard.height - 6;
+	const horizontal = Math.abs(start.y - end.y) < 0.5;
+	const vertical = Math.abs(start.x - end.x) < 0.5;
+	if (horizontal) {
+		if (start.y <= top || start.y >= bottom) return false;
+		const x0 = Math.min(start.x, end.x);
+		const x1 = Math.max(start.x, end.x);
+		return x1 > left && x0 < right;
+	}
+	if (vertical) {
+		if (start.x <= left || start.x >= right) return false;
+		const y0 = Math.min(start.y, end.y);
+		const y1 = Math.max(start.y, end.y);
+		return y1 > top && y0 < bottom;
+	}
+	for (let step = 0; step <= 12; step += 1) {
+		const t = step / 12;
+		const x = start.x + (end.x - start.x) * t;
+		const y = start.y + (end.y - start.y) * t;
+		if (x > left && x < right && y > top && y < bottom) return true;
+	}
+	return false;
+}
+
+function pathHits(points: Point[], boxes: Point[]) {
+	for (let segment = 1; segment < points.length; segment += 1) {
+		for (const box of boxes) {
+			if (segmentHitsBox(points[segment - 1], points[segment], box)) return true;
+		}
+	}
+	return false;
+}
+
+function flowPoints(
+	source: Point,
+	target: Point,
+	index: number,
+	total: number,
+	obstacles: Point[]
+): Point[] {
 	const usable = flowCard.height - 24;
 	const y1 = source.y + 12 + ((index + 0.5) * usable) / Math.max(total, 1);
 	const y2 = target.y + flowCard.height / 2;
 	const x1 = source.x + flowCard.width;
 	const x2 = target.x;
-	if (x2 - x1 < 24) {
-		const above = Math.min(source.y, target.y) - 28;
+	const above = () => {
+		const y = Math.min(source.y, target.y) - 28;
 		return [
 			{ x: x1, y: y1 },
-			{ x: x1, y: above },
-			{ x: x2, y: above },
+			{ x: x1, y },
+			{ x: x2, y },
 			{ x: x2, y: y2 }
 		];
-	}
+	};
+	if (x2 - x1 < 24) return above();
 	const bus = x1 + Math.max(28, Math.min(46, (x2 - x1) / 2));
-	return [
+	const direct = [
 		{ x: x1, y: y1 },
 		{ x: bus, y: y1 },
 		{ x: bus, y: y2 },
+		{ x: x2, y: y2 }
+	];
+	const blockers = obstacles.filter((box) => box.x + flowCard.width > x1 + 4 && box.x < x2 - 4);
+	if (blockers.length === 0 || !pathHits(direct, blockers)) return direct;
+	const top = Math.min(...blockers.map((box) => box.y)) - 22;
+	const gapLeft = Math.max(...blockers.map((box) => box.x + flowCard.width));
+	const channel = gapLeft + 10;
+	return [
+		{ x: x1, y: y1 },
+		{ x: x1 + 28, y: y1 },
+		{ x: x1 + 28, y: top },
+		{ x: channel, y: top },
+		{ x: channel, y: y2 },
 		{ x: x2, y: y2 }
 	];
 }
@@ -317,15 +380,18 @@ export function routeEdges(
 			0,
 			siblings.findIndex((item) => item.id === edge.id)
 		);
+		const obstacles = graph.nodes
+			.filter((node) => node.id !== edge.source && node.id !== edge.target)
+			.map((node) => positions[node.id])
+			.filter((point): point is Point => Boolean(point));
 		const points =
 			mode === 'graph'
 				? [borderToward(source, target), borderToward(target, source)]
-				: flowPoints(source, target, index, siblings.length);
-		const labelAt = points[Math.min(points.length - 1, mode === 'graph' ? 0 : 2)];
+				: flowPoints(source, target, index, siblings.length, obstacles);
 		const end = points[points.length - 1];
-		const labelX =
-			mode === 'graph' ? points[0].x + (end.x - points[0].x) * 0.68 : (labelAt.x + end.x) / 2;
-		const labelY = mode === 'graph' ? points[0].y + (end.y - points[0].y) * 0.68 - 8 : end.y - 8;
+		const labelX = mode === 'graph' ? (points[0].x + end.x) / 2 : target.x - flowCard.gapX / 2;
+		const labelY =
+			mode === 'graph' ? (points[0].y + end.y) / 2 - 10 : target.y + flowCard.height / 2;
 		return [
 			{
 				id: edge.id,

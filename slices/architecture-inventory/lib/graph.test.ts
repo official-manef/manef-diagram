@@ -68,17 +68,31 @@ describe('architecture graph core', () => {
 		}
 		const levelTwo = defaultGraph.nodes
 			.filter((node) => node.level === 2)
-			.map((node) => points[node.id].y)
-			.sort((a, b) => a - b);
-		for (let index = 1; index < levelTwo.length; index += 1) {
-			expect(levelTwo[index] - levelTwo[index - 1]).toBeGreaterThanOrEqual(
-				flowCard.height + flowCard.gapY
-			);
+			.map((node) => points[node.id]);
+		const lanes = new Map<number, number[]>();
+		for (const point of levelTwo) {
+			const column = lanes.get(point.x) ?? [];
+			column.push(point.y);
+			lanes.set(point.x, column);
 		}
-		expect(points['manef-dev'].y).toBe(levelTwo[Math.floor(levelTwo.length / 2)]);
+		expect(lanes.size).toBeGreaterThan(1);
+		for (const column of lanes.values()) {
+			const ys = [...column].sort((a, b) => a - b);
+			for (let index = 1; index < ys.length; index += 1) {
+				expect(ys[index] - ys[index - 1]).toBeGreaterThanOrEqual(flowCard.height + flowCard.gapY);
+			}
+		}
+		const top = Math.min(...levelTwo.map((point) => point.y));
+		const bottom = Math.max(...levelTwo.map((point) => point.y)) + flowCard.height;
+		expect(points['manef-dev'].y + flowCard.height / 2).toBeCloseTo((top + bottom) / 2, 0);
 		for (const node of defaultGraph.nodes.filter((item) => item.level === 2)) {
 			expect(points[node.id].x).toBeGreaterThan(points['manef-dev'].x);
 		}
+		const xs = nodes.map((node) => points[node.id].x);
+		const ys = nodes.map((node) => points[node.id].y);
+		const width = Math.max(...xs) + flowCard.width - Math.min(...xs);
+		const height = Math.max(...ys) + flowCard.height - Math.min(...ys);
+		expect(Math.min(1360 / width, 760 / height)).toBeGreaterThanOrEqual(0.9);
 	});
 
 	it('labels every public connection and keeps those lines out of other cards', () => {
@@ -88,6 +102,24 @@ describe('architecture graph core', () => {
 			expect(routes.map((route) => route.label).filter(Boolean)).toHaveLength(
 				defaultGraph.edges.length
 			);
+			for (const route of routes) {
+				const textWidth = route.label.length * 7.2;
+				const box = {
+					left: route.x - textWidth / 2,
+					right: route.x + textWidth / 2,
+					top: route.y - 14,
+					bottom: route.y + 2
+				};
+				for (const node of defaultGraph.nodes) {
+					const card = points[node.id];
+					const hits =
+						box.right > card.x + 2 &&
+						box.left < card.x + flowCard.width - 2 &&
+						box.bottom > card.y + 2 &&
+						box.top < card.y + flowCard.height - 2;
+					expect(hits, `${mode} ${route.label} overlaps ${node.id}`).toBe(false);
+				}
+			}
 			for (const route of routes) {
 				const edge = defaultGraph.edges.find((item) => item.id === route.id)!;
 				for (let segment = 1; segment < route.points.length; segment += 1) {
