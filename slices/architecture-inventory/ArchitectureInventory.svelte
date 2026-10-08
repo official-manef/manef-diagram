@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -9,6 +9,7 @@
 		defaultGraph,
 		defaultInventory,
 		layoutGraph,
+		flowCard,
 		parseGraphJson,
 		searchInventory,
 		traceGraph,
@@ -47,13 +48,14 @@
 		jsonText = JSON.stringify(graph, null, 2);
 		hydrated = true;
 	});
+
 	let diagramMode = $state<DiagramMode>('flow');
 	let traceMode = $state<TraceMode>('component');
 	let focusMode = $state(false);
 	let search = $state('');
 	let inventorySearch = $state('');
 	let activeTags = $state<string[]>([]);
-	let selectedNodeId = $state<string | null>('architecture');
+	let selectedNodeId = $state<string | null>(null);
 	let selectedEdgeId = $state<string | null>(null);
 	let armedOutput = $state<{ nodeId: string; portId: string } | null>(null);
 	let jsonText = $state(JSON.stringify(defaultGraph, null, 2));
@@ -117,6 +119,69 @@
 		const focusMatch = !focusMode || !selectedNodeId || highlightedNodeIds.has(node.id);
 		return searchMatch && tagMatch && focusMatch;
 	}
+
+	const layoutKey = $derived(
+		`${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}`
+	);
+
+	function facetChips(tags: string[]) {
+		const chips: string[] = [];
+		for (const namespace of ['kind', 'platform', 'project']) {
+			const tag = tags.find((item) => item.startsWith(`${namespace}:`));
+			if (tag) chips.push(tag.slice(namespace.length + 1));
+		}
+		return chips;
+	}
+
+	function fitPoints(points: Record<string, Point>, ids: string[]) {
+		if (!viewport) return;
+		let minX = Infinity;
+		let minY = Infinity;
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+		for (const id of ids) {
+			const point = points[id];
+			if (!point) continue;
+			minX = Math.min(minX, point.x);
+			minY = Math.min(minY, point.y);
+			maxX = Math.max(maxX, point.x + flowCard.width);
+			maxY = Math.max(maxY, point.y + flowCard.height);
+		}
+		if (!Number.isFinite(minX)) return;
+		const rect = viewport.getBoundingClientRect();
+		if (rect.width < 40 || rect.height < 40) return;
+		const pad = 36;
+		const scale = Math.min(
+			1.15,
+			Math.max(
+				0.34,
+				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
+			)
+		);
+		zoom = scale;
+		pan = {
+			x: (rect.width - (maxX - minX) * scale) / 2 - minX * scale,
+			y: (rect.height - (maxY - minY) * scale) / 2 - minY * scale
+		};
+	}
+
+	function fitView() {
+		fitPoints(
+			basePositions,
+			graph.nodes.filter(nodeMatches).map((node) => node.id)
+		);
+	}
+
+	$effect(() => {
+		if (!hydrated) return;
+		const key = layoutKey;
+		const points = untrack(() => layoutGraph(graph, diagramMode));
+		const ids = untrack(() => graph.nodes.map((node) => node.id));
+		void key;
+		void tick()
+			.then(() => fitPoints(points, ids))
+			.catch(() => undefined);
+	});
 
 	function selectNode(id: string) {
 		selectedNodeId = id;
@@ -268,10 +333,10 @@
 	function edgePath(edge: ArchitectureEdge) {
 		const source = basePositions[edge.source] ?? { x: 0, y: 0 };
 		const target = basePositions[edge.target] ?? { x: 0, y: 0 };
-		const x1 = source.x + 210;
-		const y1 = source.y + 58;
+		const x1 = source.x + flowCard.width;
+		const y1 = source.y + flowCard.height / 2;
 		const x2 = target.x;
-		const y2 = target.y + 58;
+		const y2 = target.y + flowCard.height / 2;
 		if (diagramMode === 'graph') return `M ${x1} ${y1} L ${x2} ${y2}`;
 		const bend = Math.max(70, Math.abs(x2 - x1) * 0.42);
 		return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
@@ -349,7 +414,7 @@
 			<div class="logo" aria-hidden="true">M</div>
 			<div>
 				<h1>MANEF Architecture</h1>
-				<span>inventory + modular graph</span>
+				<span>public service map</span>
 			</div>
 		</div>
 		<div class="segmented" aria-label="Diagram mode">
@@ -359,7 +424,10 @@
 				aria-pressed={diagramMode === 'flow'}
 				disabled={!hydrated}
 				size="sm"
-				onclick={() => (diagramMode = 'flow')}>Flow</Button
+				onclick={() => {
+					overrides = {};
+					diagramMode = 'flow';
+				}}>Flow</Button
 			>
 			<Button
 				data-interactive
@@ -367,7 +435,10 @@
 				aria-pressed={diagramMode === 'graph'}
 				disabled={!hydrated}
 				size="sm"
-				onclick={() => (diagramMode = 'graph')}>Graph</Button
+				onclick={() => {
+					overrides = {};
+					diagramMode = 'graph';
+				}}>Graph</Button
 			>
 		</div>
 		<div class="top-actions">
@@ -428,13 +499,13 @@
 			</section>
 
 			<section>
-				<h2>Inventory</h2>
+				<h2>Canvas</h2>
 				<div class="metric"><span>Graph nodes</span><strong>{graph.nodes.length}</strong></div>
 				<div class="metric"><span>Connections</span><strong>{graph.edges.length}</strong></div>
 				<div class="metric"><span>Portable core</span><strong>TypeScript</strong></div>
 				<p class="help">
-					Drag empty canvas space to pan. Wheel zooms. Select an output port, then one or more input
-					ports to connect.
+					The public map fits this panel. Drag empty space to pan. Wheel zooms. Select an output
+					port, then an input port to connect.
 				</p>
 			</section>
 		</aside>
@@ -454,6 +525,7 @@
 					<Button size="sm" variant="outline" onclick={() => (zoom = Math.min(1.4, zoom * 1.1))}
 						>+</Button
 					>
+					<Button size="sm" variant="outline" onclick={fitView}>Fit</Button>
 				</div>
 			</div>
 
@@ -478,7 +550,7 @@
 				onwheel={handleWheel}
 			>
 				<div class="world" style={worldStyle}>
-					<svg class="edges" viewBox="0 0 2200 1400" aria-hidden="true">
+					<svg class="edges" viewBox="0 0 2400 1800" aria-hidden="true">
 						<defs>
 							<marker
 								id="arrow"
@@ -534,7 +606,11 @@
 										>{node.status ?? 'active'}</span
 									>
 								</div>
-								<div class="node-tags">{node.tags.join(' · ')}</div>
+								<div class="node-tags">
+									{#each facetChips(node.tags) as chip (chip)}
+										<span class="chip">{chip}</span>
+									{/each}
+								</div>
 								<div class="ports inputs">
 									{#each node.inputs as port (port.id)}
 										<Button
@@ -908,15 +984,15 @@
 	.world {
 		position: absolute;
 		inset: 0 auto auto 0;
-		width: 2200px;
-		height: 1400px;
+		width: 2400px;
+		height: 1800px;
 		transform-origin: 0 0;
 	}
 	.edges {
 		position: absolute;
 		inset: 0;
-		width: 2200px;
-		height: 1400px;
+		width: 2400px;
+		height: 1800px;
 		overflow: visible;
 	}
 	.edges path:not([d^='M 0 0 L']) {
@@ -992,12 +1068,19 @@
 		color: var(--destructive);
 	}
 	.node-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		min-height: 1.15rem;
 		margin: 0.35rem 0.2rem;
-		overflow: hidden;
+	}
+	.chip {
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--muted);
+		padding: 0.05rem 0.4rem;
 		color: var(--muted-foreground);
-		font-size: 0.65rem;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		font-size: 0.62rem;
 	}
 	.ports {
 		display: flex;
