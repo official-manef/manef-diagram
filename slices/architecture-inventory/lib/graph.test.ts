@@ -3,18 +3,104 @@ import { defaultGraph } from '../config/default-graph';
 import {
 	addEdge,
 	cloneGraph,
+	diagramAt,
 	flowCard,
 	layoutGraph,
 	routeEdges,
 	relatedView,
+	sameGraph,
 	traceGraph,
-	validateGraph
+	validateGraph,
+	writeDiagram,
+	MAX_DIAGRAM_DEPTH
 } from './graph';
 import { addInventoryItem } from './inventory';
 
 describe('architecture graph core', () => {
 	it('validates the bundled graph', () => {
 		expect(validateGraph(defaultGraph)).toBe(true);
+		expect(defaultGraph.nodes).toHaveLength(9);
+		expect(defaultGraph.edges).toHaveLength(8);
+		expect(JSON.stringify(defaultGraph).length).toBeLessThanOrEqual(6_000);
+		const text = JSON.stringify(defaultGraph);
+		expect(text).not.toContain('Open Silong');
+		expect(text).not.toContain('Convex Cloud');
+		expect(text).not.toContain('Dokploy');
+	});
+
+	it('opens the diagram product into its own component diagram', () => {
+		const product = diagramAt(defaultGraph, ['architecture']);
+		expect(product?.nodes.map((node) => node.id)).toEqual([
+			'directory',
+			'canvas',
+			'workspace',
+			'contract',
+			'mcp'
+		]);
+		expect(product?.edges.map((edge) => edge.label)).toEqual([
+			'opens',
+			'opens demo',
+			'renders',
+			'simulates',
+			'reads'
+		]);
+		expect(diagramAt(defaultGraph, ['mso'])).toBeNull();
+		expect(diagramAt(defaultGraph, ['architecture', 'contract'])).toBeNull();
+
+		const points = layoutGraph(product!, 'flow');
+		for (let i = 0; i < product!.nodes.length; i += 1) {
+			for (let j = i + 1; j < product!.nodes.length; j += 1) {
+				const a = points[product!.nodes[i].id];
+				const b = points[product!.nodes[j].id];
+				const overlaps =
+					a.x < b.x + flowCard.width &&
+					a.x + flowCard.width > b.x &&
+					a.y < b.y + flowCard.height &&
+					a.y + flowCard.height > b.y;
+				expect(overlaps).toBe(false);
+			}
+		}
+	});
+
+	it('keeps a child edit on the parent and rejects a diagram that is too deep', () => {
+		const opened = diagramAt(defaultGraph, ['architecture']);
+		expect(opened).toBeTruthy();
+		const renamed = {
+			...opened!,
+			nodes: opened!.nodes.map((node) =>
+				node.id === 'canvas' ? { ...node, label: 'Renamed map' } : node
+			)
+		};
+		const written = writeDiagram(defaultGraph, ['architecture'], renamed);
+		expect(
+			diagramAt(written, ['architecture'])?.nodes.find((node) => node.id === 'canvas')?.label
+		).toBe('Renamed map');
+		expect(sameGraph(written, defaultGraph)).toBe(false);
+		expect(writeDiagram(defaultGraph, ['missing'], renamed)).toBe(defaultGraph);
+
+		const clone = cloneGraph(defaultGraph);
+		const child = diagramAt(clone, ['architecture']);
+		child!.nodes[0].label = 'Mutated';
+		expect(diagramAt(defaultGraph, ['architecture'])?.nodes[0].label).not.toBe('Mutated');
+
+		let deep = cloneGraph(defaultGraph);
+		for (let level = 0; level <= MAX_DIAGRAM_DEPTH; level += 1) {
+			deep = {
+				schemaVersion: 1,
+				nodes: [
+					{
+						id: `d${level}`,
+						label: 'Deep',
+						tags: [],
+						inputs: [{ id: 'in', label: 'In' }],
+						outputs: [{ id: 'out', label: 'Out' }],
+						child: deep
+					}
+				],
+				edges: []
+			};
+		}
+		expect(validateGraph(deep)).toBe(false);
 	});
 
 	it('traces direct neighbors and the whole connected component', () => {

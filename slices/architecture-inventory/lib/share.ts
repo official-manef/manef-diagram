@@ -9,6 +9,7 @@ export type DiagramView = {
 	query: string;
 	tags: string[];
 	seeds: string[];
+	open: string[];
 	mode: DiagramMode;
 	trace: TraceMode;
 	focus: boolean;
@@ -40,6 +41,7 @@ export function buildDiagramViewUrl(
 	if (view.mode) url.searchParams.set('mode', view.mode);
 	if (view.trace) url.searchParams.set('trace', view.trace);
 	if (view.focus) url.searchParams.set('focus', '1');
+	for (const id of view.open ?? []) url.searchParams.append('open', id);
 	if (view.graph) {
 		if (!validateGraph(view.graph))
 			throw new Error('Graph does not match the MANEF graph contract.');
@@ -67,6 +69,7 @@ export function parseDiagramView(search: string): DiagramView {
 		query: params.get('q') ?? '',
 		tags: params.getAll('tag'),
 		seeds: params.getAll('seed'),
+		open: params.getAll('open'),
 		mode: mode === 'graph' ? 'graph' : 'flow',
 		trace: trace === 'component' ? 'component' : 'direct',
 		focus: params.get('focus') === '1'

@@ -5,6 +5,7 @@ export {
 	adjacency,
 	cloneGraph,
 	dedupeEdges,
+	diagramAt,
 	layoutGraph,
 	flowCard,
 	routeEdges,
@@ -12,7 +13,10 @@ export {
 	relatedView,
 	parseGraphJson,
 	traceGraph,
-	validateGraph
+	validateGraph,
+	writeDiagram,
+	blankChild,
+	MAX_DIAGRAM_DEPTH
 } from './lib/graph';
 export { addInventoryItem, materializeInventoryItem, searchInventory } from './lib/inventory';
 export type * from './types';

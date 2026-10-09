@@ -20,7 +20,7 @@ Selections are OR-ed inside one namespace and AND-ed across namespaces.
 
 ## Navigable views
 
-The `/app` route is canonical. `/diagram` redirects to `/app` and preserves the query string. `/app` accepts repeated `tag` and `seed` parameters plus `q`, `mode=flow|graph`, `trace=direct|component`, `focus=1`, and optional `graph=<JSON>` for bounded portable graphs.
+The `/app` route is canonical. `/diagram` redirects to `/app` and preserves the query string. `/app` accepts repeated `tag`, `seed`, and `open` parameters plus `q`, `mode=flow|graph`, `trace=direct|component`, `focus=1`, and optional `graph=<JSON>` for bounded portable graphs. Each `open` value is a node id. The second click on a selected node that has a child, or Open component diagram, shows that child. Repeating `open` walks the same path, for example `open=architecture`. An unknown id leaves the public map in place. Component diagrams use the same contract and stop at three levels below the root. The public seed only fills the first level, on `diagram.manef.dev`. Convex snapshots still store the flat graph; the canvas does not save them.
 
 The UI copies a portable URL and puts that same URL in the address bar. An unedited public map omits the graph payload so the link stays short. An edited map still includes bounded `graph` JSON. Direct neighbor highlighting is the default; `trace=component` still selects the whole connected piece.
 

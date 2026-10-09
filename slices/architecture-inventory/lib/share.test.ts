@@ -25,6 +25,11 @@ describe('portable context graph views', () => {
 		expect(parsed.mode).toBe('graph');
 		expect(parsed.trace).toBe('direct');
 		expect(parsed.focus).toBe(true);
+		expect(parsed.open).toEqual([]);
+		const nested = buildDiagramViewUrl({ open: ['architecture', 'contract'], mode: 'flow' });
+		expect(new URL(nested).searchParams.getAll('open')).toEqual(['architecture', 'contract']);
+		expect(parseDiagramView(new URL(nested).search).open).toEqual(['architecture', 'contract']);
+		expect(new URL(nested).searchParams.has('graph')).toBe(false);
 	});
 
 	test('ORs tags inside one facet and ANDs across facets', () => {

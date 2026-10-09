@@ -47,3 +47,22 @@ test('malformed shared graphs leave a usable default canvas', async ({ page }) =
 	).toBeVisible();
 	expect(errors).toEqual([]);
 });
+
+test('the second activation opens the component diagram and can return', async ({ page }) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await page.goto('/app');
+	const diagram = page.getByRole('button', {
+		name: 'diagram.manef.dev Interactive architecture + agent context graph',
+		exact: true
+	});
+	await diagram.click();
+	await page.getByRole('button', { name: 'Open component diagram', exact: true }).click();
+	await expect(page.getByRole('navigation', { name: 'Diagram level' })).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Public directory/ }).first()).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Demo workspace/ }).first()).toBeVisible();
+	await page.getByRole('button', { name: 'Public map', exact: true }).click();
+	await expect(page.getByRole('navigation', { name: 'Diagram level' })).toHaveCount(0);
+	await expect(diagram).toBeVisible();
+	expect(errors).toEqual([]);
+});

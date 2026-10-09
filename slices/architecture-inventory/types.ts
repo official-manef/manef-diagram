@@ -16,6 +16,8 @@ export type ArchitectureNode = {
 	level?: number;
 	inputs: ArchitecturePort[];
 	outputs: ArchitecturePort[];
+	/** Another diagram of this same contract. Absent when the node has no components. */
+	child?: ArchitectureGraph;
 };
 
 export type ArchitectureEdge = {

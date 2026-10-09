@@ -25,6 +25,13 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 8. Release gates include Bun frozen install, check, lint, unit tests, production build and browser smoke when available.
 9. Portable links restore validated graph data and view filters; invalid or oversized links show a recoverable error with the default graph.
 10. Namespaced tag facets combine alternatives within a namespace and intersect namespaces, including arbitrary user-supplied namespace names.
+11. A node may contain a child diagram of the same contract. Selecting that node again opens it, up to three levels deep. The public seed stays nine services and eight edges. A seeded child describes this product and does not add private infrastructure.
+
+## Revision evidence — 2026-10-09
+
+- `diagram.manef.dev` on the public map has a component diagram: public directory, public map, demo workspace, graph contract, and the MCP read API. Other public services do not invent an inner diagram. A component diagram can contain another one, up to three levels, but the seed only fills the first.
+- The second click on a selected node with a child opens that diagram. The mobile list uses the same gesture. A breadcrumb returns to an ancestor. Add component diagram creates a local child and does not write the seed, Convex, DNS, or a live tool.
+- Share of an unedited map stays a short link and can include repeated `open` parameters. Export downloads the whole map. Anonymous MCP POST behavior is unchanged. Convex snapshots remain a flat graph.
 
 ## Revision evidence — 2026-10-08
 
