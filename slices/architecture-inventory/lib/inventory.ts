@@ -1,19 +1,35 @@
-import type { ArchitectureGraph, ArchitectureNode, InventoryItem } from '../types';
+import type { ArchitectureGraph, ArchitectureNode, InventoryItem, InventoryKind } from '../types';
 
 export function searchInventory(
 	items: InventoryItem[],
 	query: string,
-	activeTags: string[] = []
+	activeTags: string[] = [],
+	kind?: InventoryKind
 ): InventoryItem[] {
 	const needle = query.trim().toLowerCase();
 	return items.filter((item) => {
 		const text = [item.id, item.label, item.subtitle ?? '', ...item.tags].join(' ').toLowerCase();
-		return (!needle || text.includes(needle)) && activeTags.every((tag) => item.tags.includes(tag));
+		return (
+			(!kind || item.kind === kind) &&
+			(!needle || text.includes(needle)) &&
+			activeTags.every((tag) => item.tags.includes(tag))
+		);
 	});
 }
 
+export function inventoryCount(items: InventoryItem[], kind: InventoryKind): number {
+	return items.filter((item) => item.kind === kind).length;
+}
+
+function sameInventory(node: ArchitectureNode, item: InventoryItem) {
+	if (node.id === item.id) return true;
+	return Boolean(
+		item.kind && node.inventoryRef?.kind === item.kind && node.inventoryRef.key === item.id
+	);
+}
+
 export function materializeInventoryItem(item: InventoryItem): ArchitectureNode {
-	return {
+	const node: ArchitectureNode = {
 		id: item.id,
 		label: item.label,
 		subtitle: item.subtitle,
@@ -23,9 +39,11 @@ export function materializeInventoryItem(item: InventoryItem): ArchitectureNode 
 		inputs: item.inputs?.map((port) => ({ ...port })) ?? [{ id: 'in', label: 'Consumes' }],
 		outputs: item.outputs?.map((port) => ({ ...port })) ?? [{ id: 'out', label: 'Provides' }]
 	};
+	if (item.kind) node.inventoryRef = { kind: item.kind, key: item.id };
+	return node;
 }
 
 export function addInventoryItem(graph: ArchitectureGraph, item: InventoryItem): ArchitectureGraph {
-	if (graph.nodes.some((node) => node.id === item.id)) return graph;
+	if (graph.nodes.some((node) => sameInventory(node, item))) return graph;
 	return { ...graph, nodes: [...graph.nodes, materializeInventoryItem(item)] };
 }

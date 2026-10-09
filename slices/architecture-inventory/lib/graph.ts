@@ -108,6 +108,20 @@ export function parseGraphJson(json: string): ArchitectureGraph {
 	return cloneGraph(value);
 }
 
+/** Accept a bare graph or a document that wraps one in `graph`. The graph contract stays version 1. */
+export function parseImportedGraph(json: string): ArchitectureGraph {
+	const value: unknown = JSON.parse(json);
+	if (isRecord(value) && 'graph' in value) {
+		if (!validateGraph(value.graph)) {
+			throw new Error('JSON does not match the MANEF architecture graph contract.');
+		}
+		return cloneGraph(value.graph);
+	}
+	if (!validateGraph(value))
+		throw new Error('JSON does not match the MANEF architecture graph contract.');
+	return cloneGraph(value);
+}
+
 export function cloneGraph(graph: ArchitectureGraph): ArchitectureGraph {
 	return {
 		schemaVersion: 1,
@@ -317,6 +331,68 @@ function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
 export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record<string, Point> {
 	if (graph.nodes.length === 0) return {};
 	return mode === 'graph' ? layoutRadial(graph) : layoutFlow(graph);
+}
+
+/** One step of the graph-mode force layout used by Settle. */
+export function settleTick(
+	graph: ArchitectureGraph,
+	positions: Record<string, Point>,
+	velocity: Record<string, Point> = {}
+): { positions: Record<string, Point>; velocity: Record<string, Point> } {
+	const ids = graph.nodes.map((node) => node.id).filter((id) => positions[id]);
+	const force = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
+	for (let left = 0; left < ids.length; left += 1) {
+		for (let right = left + 1; right < ids.length; right += 1) {
+			const a = positions[ids[left]];
+			const b = positions[ids[right]];
+			let dx = a.x - b.x;
+			let dy = a.y - b.y;
+			let distanceSquared = dx * dx + dy * dy;
+			if (distanceSquared < 1) distanceSquared = 1;
+			const distance = Math.sqrt(distanceSquared);
+			const push = 110000 / distanceSquared;
+			dx /= distance;
+			dy /= distance;
+			const forceA = force.get(ids[left]);
+			const forceB = force.get(ids[right]);
+			if (!forceA || !forceB) continue;
+			forceA.x += dx * push;
+			forceA.y += dy * push;
+			forceB.x -= dx * push;
+			forceB.y -= dy * push;
+		}
+	}
+	for (const edge of graph.edges) {
+		const a = positions[edge.source];
+		const b = positions[edge.target];
+		const forceA = force.get(edge.source);
+		const forceB = force.get(edge.target);
+		if (!a || !b || !forceA || !forceB) continue;
+		let dx = b.x - a.x;
+		let dy = b.y - a.y;
+		const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+		const pull = (distance - 260) * 0.011;
+		dx /= distance;
+		dy /= distance;
+		forceA.x += dx * pull;
+		forceA.y += dy * pull;
+		forceB.x -= dx * pull;
+		forceB.y -= dy * pull;
+	}
+	const nextPositions = { ...positions };
+	const nextVelocity: Record<string, Point> = { ...velocity };
+	for (const id of ids) {
+		const current = positions[id];
+		const motion = velocity[id] ?? { x: 0, y: 0 };
+		const applied = force.get(id) ?? { x: 0, y: 0 };
+		const next = {
+			x: Math.max(-28, Math.min(28, (motion.x + applied.x) * 0.82)),
+			y: Math.max(-28, Math.min(28, (motion.y + applied.y) * 0.82))
+		};
+		nextVelocity[id] = next;
+		nextPositions[id] = { x: current.x + next.x, y: current.y + next.y };
+	}
+	return { positions: nextPositions, velocity: nextVelocity };
 }
 
 export type EdgeRoute = {
@@ -533,7 +609,8 @@ export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
 				tags: node.tags,
 				inputs: node.inputs.map((port) => port.label),
 				outputs: node.outputs.map((port) => port.label),
-				child: node.child ? signature(node.child) : ''
+				child: node.child ? signature(node.child) : '',
+				inventoryRef: node.inventoryRef ? `${node.inventoryRef.kind}:${node.inventoryRef.key}` : ''
 			})),
 			edges: graph.edges.map((edge) => ({
 				id: edge.id,

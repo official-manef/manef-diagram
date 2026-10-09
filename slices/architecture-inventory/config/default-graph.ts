@@ -187,6 +187,7 @@ export const defaultInventory: InventoryItem[] = [
 		label: 'Open Silong',
 		subtitle: 'Knowledge graph patterns reused as a framework-neutral reference',
 		tags: ['reference', 'graph', 'knowledge', 'kind:reference', 'source:github'],
+		kind: 'reference',
 		status: 'active'
 	},
 	{
@@ -194,6 +195,7 @@ export const defaultInventory: InventoryItem[] = [
 		label: 'Convex Cloud',
 		subtitle: 'Optional managed realtime persistence adapter',
 		tags: ['backend', 'convex', 'cloud', 'platform:convex', 'kind:backend'],
+		kind: 'reference',
 		status: 'active'
 	},
 	{
@@ -201,6 +203,7 @@ export const defaultInventory: InventoryItem[] = [
 		label: 'Dokploy',
 		subtitle: 'Optional Node/container host via adapter-node; not the current production origin',
 		tags: ['deploy', 'infra', 'platform:dokploy', 'kind:deployment'],
+		kind: 'reference',
 		status: 'active'
 	}
 ];

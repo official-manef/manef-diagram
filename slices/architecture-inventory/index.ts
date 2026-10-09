@@ -7,18 +7,25 @@ export {
 	dedupeEdges,
 	diagramAt,
 	layoutGraph,
+	settleTick,
 	flowCard,
 	routeEdges,
 	sameGraph,
 	relatedView,
 	parseGraphJson,
+	parseImportedGraph,
 	traceGraph,
 	validateGraph,
 	writeDiagram,
 	blankChild,
 	MAX_DIAGRAM_DEPTH
 } from './lib/graph';
-export { addInventoryItem, materializeInventoryItem, searchInventory } from './lib/inventory';
+export {
+	addInventoryItem,
+	inventoryCount,
+	materializeInventoryItem,
+	searchInventory
+} from './lib/inventory';
 export type * from './types';
 export { GRAPH_TOOL_NAMES, isGraphToolName, runGraphTool, type GraphToolName } from './lib/tools';
 
