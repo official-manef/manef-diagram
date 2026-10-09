@@ -340,89 +340,106 @@ function borderToward(from: Point, to: Point): Point {
 	return { x: cx + dx * scale, y: cy + dy * scale };
 }
 
-function segmentHitsBox(start: Point, end: Point, box: Point): boolean {
-	const left = box.x + 6;
-	const right = box.x + flowCard.width - 6;
-	const top = box.y + 6;
-	const bottom = box.y + flowCard.height - 6;
-	const horizontal = Math.abs(start.y - end.y) < 0.5;
-	const vertical = Math.abs(start.x - end.x) < 0.5;
-	if (horizontal) {
-		if (start.y <= top || start.y >= bottom) return false;
-		const x0 = Math.min(start.x, end.x);
-		const x1 = Math.max(start.x, end.x);
-		return x1 > left && x0 < right;
-	}
-	if (vertical) {
-		if (start.x <= left || start.x >= right) return false;
-		const y0 = Math.min(start.y, end.y);
-		const y1 = Math.max(start.y, end.y);
-		return y1 > top && y0 < bottom;
-	}
-	for (let step = 0; step <= 12; step += 1) {
-		const t = step / 12;
-		const x = start.x + (end.x - start.x) * t;
-		const y = start.y + (end.y - start.y) * t;
-		if (x > left && x < right && y > top && y < bottom) return true;
-	}
-	return false;
+function pathFrom(points: Point[]): string {
+	return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
 }
 
-function pathHits(points: Point[], boxes: Point[]) {
+function cubicPoint(start: Point, control1: Point, control2: Point, end: Point, t: number): Point {
+	const rest = 1 - t;
+	return {
+		x:
+			rest * rest * rest * start.x +
+			3 * rest * rest * t * control1.x +
+			3 * rest * t * t * control2.x +
+			t * t * t * end.x,
+		y:
+			rest * rest * rest * start.y +
+			3 * rest * rest * t * control1.y +
+			3 * rest * t * t * control2.y +
+			t * t * t * end.y
+	};
+}
+
+function portAnchor(
+	origin: Point,
+	direction: 'inputs' | 'outputs',
+	index: number,
+	count: number
+): Point {
+	const safeCount = Math.max(count, 1);
+	return {
+		x: origin.x + (direction === 'outputs' ? flowCard.width : 0),
+		y: origin.y + 18 + ((index + 1) / (safeCount + 1)) * (flowCard.height - 36)
+	};
+}
+
+function samplesHit(points: Point[], obstacles: Point[]) {
 	for (let segment = 1; segment < points.length; segment += 1) {
-		for (const box of boxes) {
-			if (segmentHitsBox(points[segment - 1], points[segment], box)) return true;
+		const start = points[segment - 1];
+		const end = points[segment];
+		for (let step = 0; step <= 12; step += 1) {
+			const t = step / 12;
+			const point = {
+				x: start.x + (end.x - start.x) * t,
+				y: start.y + (end.y - start.y) * t
+			};
+			if (obstacles.some((box) => pointInsideCard(point, box))) return true;
 		}
 	}
 	return false;
 }
 
-function flowPoints(
-	source: Point,
-	target: Point,
-	index: number,
-	total: number,
-	obstacles: Point[]
-): Point[] {
-	const usable = flowCard.height - 24;
-	const y1 = source.y + 12 + ((index + 0.5) * usable) / Math.max(total, 1);
-	const y2 = target.y + flowCard.height / 2;
-	const x1 = source.x + flowCard.width;
-	const x2 = target.x;
-	const above = () => {
-		const y = Math.min(source.y, target.y) - 28;
-		return [
-			{ x: x1, y: y1 },
-			{ x: x1, y },
-			{ x: x2, y },
-			{ x: x2, y: y2 }
-		];
-	};
-	if (x2 - x1 < 24) return above();
-	const bus = x1 + Math.max(28, Math.min(46, (x2 - x1) / 2));
-	const direct = [
-		{ x: x1, y: y1 },
-		{ x: bus, y: y1 },
-		{ x: bus, y: y2 },
-		{ x: x2, y: y2 }
-	];
-	const blockers = obstacles.filter((box) => box.x + flowCard.width > x1 + 4 && box.x < x2 - 4);
-	if (blockers.length === 0 || !pathHits(direct, blockers)) return direct;
-	const top = Math.min(...blockers.map((box) => box.y)) - 22;
-	const gapLeft = Math.max(...blockers.map((box) => box.x + flowCard.width));
-	const channel = gapLeft + 10;
-	return [
-		{ x: x1, y: y1 },
-		{ x: x1 + 28, y: y1 },
-		{ x: x1 + 28, y: top },
-		{ x: channel, y: top },
-		{ x: channel, y: y2 },
-		{ x: x2, y: y2 }
-	];
+function pointInsideCard(point: Point, box: Point) {
+	return (
+		point.x > box.x + 6 &&
+		point.x < box.x + flowCard.width - 6 &&
+		point.y > box.y + 6 &&
+		point.y < box.y + flowCard.height - 6
+	);
 }
 
-function pathFrom(points: Point[]): string {
-	return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+function curveThrough(
+	start: Point,
+	end: Point,
+	bend: number,
+	controlY: { start: number; end: number } | null
+): { d: string; points: Point[] } {
+	const control1 = { x: start.x + bend, y: controlY?.start ?? start.y };
+	const control2 = { x: end.x - bend, y: controlY?.end ?? end.y };
+	const points = Array.from({ length: 13 }, (_, step) =>
+		cubicPoint(start, control1, control2, end, step / 12)
+	);
+	return {
+		d: `M ${start.x} ${start.y} C ${control1.x} ${control1.y}, ${control2.x} ${control2.y}, ${end.x} ${end.y}`,
+		points
+	};
+}
+
+/** Flow curves match the inventory HTML: a cubic bend from the output side to the input side. */
+function flowCurve(
+	source: Point,
+	target: Point,
+	sourceIndex: number,
+	sourceCount: number,
+	targetIndex: number,
+	targetCount: number,
+	obstacles: Point[]
+): { d: string; points: Point[] } {
+	const start = portAnchor(source, 'outputs', sourceIndex, sourceCount);
+	const end = portAnchor(target, 'inputs', targetIndex, targetCount);
+	const bend = Math.max(60, Math.abs(end.x - start.x) * 0.42);
+	const direct = curveThrough(start, end, bend, null);
+	if (!samplesHit(direct.points, obstacles)) return direct;
+	const left = Math.min(start.x, end.x);
+	const right = Math.max(start.x, end.x);
+	const crossed = obstacles.filter((box) => box.x + flowCard.width > left && box.x < right);
+	const roof = Math.min(...crossed.map((box) => box.y), start.y, end.y);
+	for (const extra of [72, 120, 180, 260]) {
+		const clearance = roof - extra;
+		const tucked = curveThrough(start, end, 72, { start: clearance, end: clearance });
+		if (!samplesHit(tucked.points, obstacles)) return tucked;
+	}
+	return curveThrough(start, end, 72, { start: roof - 320, end: roof - 320 });
 }
 
 export function routeEdges(
@@ -430,37 +447,71 @@ export function routeEdges(
 	positions: Record<string, Point>,
 	mode: DiagramMode
 ): EdgeRoute[] {
-	const bySource = new Map<string, ArchitectureEdge[]>();
-	for (const edge of graph.edges) {
-		const list = bySource.get(edge.source) ?? [];
-		list.push(edge);
-		bySource.set(edge.source, list);
-	}
 	return graph.edges.flatMap((edge) => {
 		const source = positions[edge.source];
 		const target = positions[edge.target];
 		if (!source || !target) return [];
-		const siblings = bySource.get(edge.source) ?? [edge];
-		const index = Math.max(
-			0,
-			siblings.findIndex((item) => item.id === edge.id)
-		);
 		const obstacles = graph.nodes
 			.filter((node) => node.id !== edge.source && node.id !== edge.target)
 			.map((node) => positions[node.id])
 			.filter((point): point is Point => Boolean(point));
-		const points =
-			mode === 'graph'
-				? [borderToward(source, target), borderToward(target, source)]
-				: flowPoints(source, target, index, siblings.length, obstacles);
+		const sourceNode = graph.nodes.find((node) => node.id === edge.source);
+		const targetNode = graph.nodes.find((node) => node.id === edge.target);
+		const sourcePorts = sourceNode?.outputs ?? [];
+		const targetPorts = targetNode?.inputs ?? [];
+		const sourceIndex = Math.max(
+			0,
+			sourcePorts.findIndex((port) => port.id === edge.sourcePort)
+		);
+		const targetIndex = Math.max(
+			0,
+			targetPorts.findIndex((port) => port.id === edge.targetPort)
+		);
+		const curved =
+			mode === 'flow'
+				? flowCurve(
+						source,
+						target,
+						sourceIndex,
+						Math.max(sourcePorts.length, 1),
+						targetIndex,
+						Math.max(targetPorts.length, 1),
+						obstacles
+					)
+				: null;
+		const points = curved
+			? curved.points
+			: [borderToward(source, target), borderToward(target, source)];
 		const end = points[points.length - 1];
-		const labelX = mode === 'graph' ? (points[0].x + end.x) / 2 : target.x - flowCard.gapX / 2;
-		const labelY =
-			mode === 'graph' ? (points[0].y + end.y) / 2 - 10 : target.y + flowCard.height / 2;
+		const midpoint = points[Math.floor(points.length / 2)] ?? points[0];
+		const cards = graph.nodes
+			.map((node) => positions[node.id])
+			.filter((point): point is Point => Boolean(point));
+		const labelHits = (point: Point) => {
+			const textWidth = (edge.label?.trim() || 'connects').length * 7.2;
+			const box = {
+				left: point.x - textWidth / 2,
+				right: point.x + textWidth / 2,
+				top: point.y - 14,
+				bottom: point.y + 2
+			};
+			return cards.some(
+				(card) =>
+					box.right > card.x + 2 &&
+					box.left < card.x + flowCard.width - 2 &&
+					box.bottom > card.y + 2 &&
+					box.top < card.y + flowCard.height - 2
+			);
+		};
+		const labelPoint = [midpoint, ...[...points].sort((a, b) => a.y - b.y)].find(
+			(point) => !labelHits(point)
+		) ?? { x: (points[0].x + end.x) / 2, y: Math.min(...points.map((point) => point.y)) - 16 };
+		const labelX = labelPoint.x;
+		const labelY = labelPoint.y - (mode === 'graph' ? 10 : 0);
 		return [
 			{
 				id: edge.id,
-				d: pathFrom(points),
+				d: curved ? curved.d : pathFrom(points),
 				label: edge.label?.trim() || 'connects',
 				x: labelX,
 				y: labelY,

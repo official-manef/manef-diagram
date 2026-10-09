@@ -189,6 +189,9 @@ describe('architecture graph core', () => {
 				defaultGraph.edges.length
 			);
 			for (const route of routes) {
+				expect(route.d.includes(' C ')).toBe(mode === 'flow');
+			}
+			for (const route of routes) {
 				const textWidth = route.label.length * 7.2;
 				const box = {
 					left: route.x - textWidth / 2,
