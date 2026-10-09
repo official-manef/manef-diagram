@@ -18,6 +18,8 @@ export type ArchitectureNode = {
 	outputs: ArchitecturePort[];
 	/** Another diagram of this same contract. Absent when the node has no components. */
 	child?: ArchitectureGraph;
+	/** Set when this node was added from the inventory, so the same record is not added twice. */
+	inventoryRef?: InventoryRef;
 };
 
 export type ArchitectureEdge = {
@@ -36,6 +38,13 @@ export type ArchitectureGraph = {
 	edges: ArchitectureEdge[];
 };
 
+export type InventoryKind = 'reference' | 'repo' | 'domain' | 'hostname' | 'convex';
+
+export type InventoryRef = {
+	kind: InventoryKind;
+	key: string;
+};
+
 export type InventoryItem = {
 	id: string;
 	label: string;
@@ -43,6 +52,7 @@ export type InventoryItem = {
 	tags: string[];
 	group?: string;
 	status?: NodeStatus;
+	kind?: InventoryKind;
 	inputs?: ArchitecturePort[];
 	outputs?: ArchitecturePort[];
 };

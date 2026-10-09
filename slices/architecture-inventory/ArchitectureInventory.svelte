@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -13,11 +13,15 @@
 		layoutGraph,
 		flowCard,
 		parseGraphJson,
+		parseImportedGraph,
 		routeEdges,
 		sameGraph,
 		relatedView,
 		searchInventory,
+		inventoryCount,
+		settleTick,
 		traceGraph,
+		validateGraph,
 		buildDiagramViewUrl,
 		parseDiagramView,
 		tagGroup,
@@ -31,6 +35,7 @@
 		ArchitectureNode,
 		ArchitecturePort,
 		DiagramMode,
+		InventoryKind,
 		Point,
 		TraceMode
 	} from './types';
@@ -76,6 +81,7 @@
 	let focusMode = $state(false);
 	let search = $state('');
 	let inventorySearch = $state('');
+	let inventoryKind = $state<'all' | InventoryKind>('all');
 	let activeTags = $state<string[]>([]);
 	let selectedNodeId = $state<string | null>(null);
 	let selectedEdgeId = $state<string | null>(null);
@@ -103,6 +109,17 @@
 		panY: number;
 	} | null>(null);
 	let viewport = $state<HTMLDivElement | null>(null);
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let settleVelocity: Record<string, Point> = {};
+	let settleFrame = 0;
+	let settleHandle = 0;
+
+	function stopSettle() {
+		if (settleHandle) cancelAnimationFrame(settleHandle);
+		settleHandle = 0;
+	}
+
+	onDestroy(stopSettle);
 
 	function applyEditorTheme(next: 'composio-dark' | 'composio-light' | 'system') {
 		editorTheme = next;
@@ -144,7 +161,14 @@
 			)
 		).sort(([a], [b]) => a.localeCompare(b))
 	);
-	const inventoryItems = $derived(searchInventory(defaultInventory, inventorySearch));
+	const inventoryItems = $derived(
+		searchInventory(
+			defaultInventory,
+			inventorySearch,
+			[],
+			inventoryKind === 'all' ? undefined : inventoryKind
+		)
+	);
 	const worldStyle = $derived(`transform: translate(${pan.x}px, ${pan.y}px) scale(${zoom});`);
 
 	function nodeMatches(node: ArchitectureNode) {
@@ -267,6 +291,7 @@
 	}
 
 	function resetLevel() {
+		stopSettle();
 		selectedNodeId = null;
 		selectedEdgeId = null;
 		armedOutput = null;
@@ -356,6 +381,17 @@
 	function removePort(nodeId: string, direction: 'inputs' | 'outputs', portId: string) {
 		const node = graph.nodes.find((item) => item.id === nodeId);
 		if (!node) return;
+		const connected = graph.edges.some((edge) =>
+			direction === 'inputs'
+				? edge.target === nodeId && edge.targetPort === portId
+				: edge.source === nodeId && edge.sourcePort === portId
+		);
+		if (
+			connected &&
+			!confirm('This port has connections. Remove the port and those connections?')
+		) {
+			return;
+		}
 		commitVisible({
 			...graph,
 			nodes: graph.nodes.map((item) =>
@@ -416,6 +452,18 @@
 	function materialize(id: string) {
 		const item = defaultInventory.find((candidate) => candidate.id === id);
 		if (!item) return;
+		const existing = graph.nodes.find(
+			(node) =>
+				node.id === item.id ||
+				(item.kind !== undefined &&
+					node.inventoryRef?.kind === item.kind &&
+					node.inventoryRef.key === item.id)
+		);
+		if (existing) {
+			selectNode(existing.id);
+			inspectorTab = 'details';
+			return;
+		}
 		commitVisible(addInventoryItem(graph, item));
 		selectNode(item.id);
 	}
@@ -425,8 +473,22 @@
 		jsonMessage = 'JSON in the editor matches the map.';
 	}
 
+	function documentSnapshot() {
+		return {
+			schemaVersion: 1,
+			title: 'MANEF Architecture',
+			graph: root,
+			ui: {
+				themePreset: editorTheme,
+				diagramMode,
+				traceMode,
+				focusMode
+			}
+		};
+	}
+
 	function exportJson() {
-		const text = JSON.stringify(root, null, 2);
+		const text = JSON.stringify(documentSnapshot(), null, 2);
 		const file = new Blob([text], { type: 'application/json' });
 		const href = URL.createObjectURL(file);
 		const link = document.createElement('a');
@@ -434,23 +496,83 @@
 		link.download = 'manef-architecture.json';
 		link.click();
 		URL.revokeObjectURL(href);
-		actionMessage = diagramPath.length
-			? 'Downloaded the whole map, including component diagrams.'
-			: 'Downloaded manef-architecture.json.';
+		actionMessage = 'Downloaded the map, its component diagrams, and the current view settings.';
 		jsonMessage = actionMessage;
+	}
+
+	function applyImported(next: ArchitectureGraph) {
+		root = next;
+		diagramPath = [];
+		resetLevel();
+		jsonText = JSON.stringify(documentSnapshot(), null, 2);
+		jsonMessage = 'JSON applied.';
 	}
 
 	function importJson() {
 		try {
+			const value: unknown = JSON.parse(jsonText);
+			if (typeof value === 'object' && value !== null && 'graph' in value) {
+				applyImported(parseImportedGraph(jsonText));
+				return;
+			}
 			const next = parseGraphJson(jsonText);
 			commitVisible(next);
-			selectedNodeId = graph.nodes[0]?.id ?? null;
+			selectedNodeId = null;
 			selectedEdgeId = null;
 			armedOutput = null;
 			jsonMessage = 'JSON applied.';
 		} catch (error) {
 			jsonMessage = error instanceof Error ? error.message : 'Invalid graph JSON.';
 		}
+	}
+
+	function formatJson() {
+		try {
+			jsonText = JSON.stringify(JSON.parse(jsonText), null, 2);
+			jsonMessage = 'Formatted.';
+		} catch (error) {
+			jsonMessage = error instanceof Error ? error.message : 'JSON error.';
+		}
+	}
+
+	async function importFile(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		try {
+			applyImported(parseImportedGraph(await file.text()));
+			actionMessage = `Imported ${file.name}.`;
+		} catch (error) {
+			actionMessage = error instanceof Error ? error.message : 'Import failed.';
+			jsonMessage = actionMessage;
+		}
+	}
+
+	function retargetEdge(patch: Partial<ArchitectureEdge>) {
+		if (!selectedEdge) return;
+		const nextEdge = { ...selectedEdge, ...patch };
+		if (patch.source) {
+			const source = graph.nodes.find((node) => node.id === nextEdge.source);
+			if (!source?.outputs.some((port) => port.id === nextEdge.sourcePort)) {
+				nextEdge.sourcePort = source?.outputs[0]?.id ?? nextEdge.sourcePort;
+			}
+		}
+		if (patch.target) {
+			const target = graph.nodes.find((node) => node.id === nextEdge.target);
+			if (!target?.inputs.some((port) => port.id === nextEdge.targetPort)) {
+				nextEdge.targetPort = target?.inputs[0]?.id ?? nextEdge.targetPort;
+			}
+		}
+		const next = {
+			...graph,
+			edges: graph.edges.map((edge) => (edge.id === nextEdge.id ? nextEdge : edge))
+		};
+		if (!validateGraph(next)) {
+			jsonMessage = 'That connection already exists or the port does not match.';
+			return;
+		}
+		commitVisible(next);
 	}
 
 	function toggleTag(tag: string) {
@@ -514,18 +636,55 @@
 		if (nodeDrag?.pointerId === event.pointerId) nodeDrag = null;
 	}
 
+	function startSettle() {
+		stopSettle();
+		diagramMode = 'graph';
+		overrides = { ...layoutGraph(graph, 'graph') };
+		settleVelocity = {};
+		settleFrame = 0;
+		const step = () => {
+			if (settleFrame >= 90) {
+				settleHandle = 0;
+				return;
+			}
+			const next = settleTick(graph, overrides, settleVelocity);
+			overrides = next.positions;
+			settleVelocity = next.velocity;
+			settleFrame += 1;
+			settleHandle = requestAnimationFrame(step);
+		};
+		settleHandle = requestAnimationFrame(step);
+	}
+
+	function onKeydown(event: KeyboardEvent) {
+		const tag = (event.target as HTMLElement | null)?.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+		if (event.key === 'Escape') armedOutput = null;
+		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEdgeId) {
+			event.preventDefault();
+			disconnectEdge(selectedEdgeId);
+		}
+	}
+
 	function startPan(event: PointerEvent) {
 		if (window.matchMedia('(max-width: 44rem)').matches) return;
+		if (event.button === 1) {
+			event.preventDefault();
+			viewport?.setPointerCapture(event.pointerId);
+			panStart = {
+				pointerId: event.pointerId,
+				x: event.clientX,
+				y: event.clientY,
+				panX: pan.x,
+				panY: pan.y
+			};
+			return;
+		}
+		if (event.button !== 0) return;
 		const target = event.target as HTMLElement;
-		if (target.closest('[data-interactive]')) return;
-		viewport?.setPointerCapture(event.pointerId);
-		panStart = {
-			pointerId: event.pointerId,
-			x: event.clientX,
-			y: event.clientY,
-			panX: pan.x,
-			panY: pan.y
-		};
+		if (target.closest('[data-interactive], .node, .edge-hit')) return;
+		selectedNodeId = null;
+		selectedEdgeId = null;
 	}
 
 	function movePan(event: PointerEvent) {
@@ -546,6 +705,8 @@
 		zoom = Math.min(1.6, Math.max(0.4, zoom * (event.deltaY < 0 ? 1.08 : 0.92)));
 	}
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <svelte:head>
 	<title>MANEF Architecture</title>
@@ -576,6 +737,7 @@
 				disabled={!hydrated}
 				size="sm"
 				onclick={() => {
+					stopSettle();
 					overrides = {};
 					diagramMode = 'flow';
 				}}>Flow</Button
@@ -586,10 +748,7 @@
 				aria-pressed={diagramMode === 'graph'}
 				disabled={!hydrated}
 				size="sm"
-				onclick={() => {
-					overrides = {};
-					diagramMode = 'graph';
-				}}>Graph</Button
+				onclick={startSettle}>Graph</Button
 			>
 		</div>
 		{#if diagramPath.length > 0}
@@ -625,6 +784,16 @@
 		<div class="top-actions">
 			<Button data-interactive variant="outline" size="sm" onclick={addNode}>+ Node</Button>
 			<Button data-interactive variant="outline" size="sm" onclick={exportJson}>Export</Button>
+			<Button data-interactive variant="outline" size="sm" onclick={() => fileInput?.click()}
+				>Import</Button
+			>
+			<input
+				bind:this={fileInput}
+				type="file"
+				accept="application/json"
+				hidden
+				onchange={importFile}
+			/>
 			<Button data-interactive variant="outline" size="sm" onclick={shareView}>Share view</Button>
 		</div>
 	</header>
@@ -644,14 +813,15 @@
 							<strong>{group}</strong>
 							<div class="tags">
 								{#each tags as tag (tag)}
-									<Button
-										size="sm"
-										variant={activeTags.includes(tag) ? 'default' : 'outline'}
-										onclick={() => toggleTag(tag)}
-									>
+									<label class="tag-check">
+										<input
+											type="checkbox"
+											checked={activeTags.includes(tag)}
+											onchange={() => toggleTag(tag)}
+										/>
 										{tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag}
 										<span class="count">{tagCount(tag)}</span>
-									</Button>
+									</label>
 								{/each}
 							</div>
 						</div>
@@ -706,9 +876,25 @@
 							: `${visibleEdges.length} of ${graph.edges.length}`}
 					</span>
 				</div>
+				<div class="metric">
+					<span>References</span><span>{inventoryCount(defaultInventory, 'reference')}</span>
+				</div>
+				<div class="metric">
+					<span>GitHub repos</span><span>{inventoryCount(defaultInventory, 'repo')}</span>
+				</div>
+				<div class="metric">
+					<span>Root domains</span><span>{inventoryCount(defaultInventory, 'domain')}</span>
+				</div>
+				<div class="metric">
+					<span>Hostnames</span><span>{inventoryCount(defaultInventory, 'hostname')}</span>
+				</div>
+				<div class="metric">
+					<span>Convex DNS</span><span>{inventoryCount(defaultInventory, 'convex')}</span>
+				</div>
 				<p class="help">
-					Drag a service to move it. Drag empty space to pan, and use the wheel to zoom. Click an
-					output, then an input. On a phone the same services are a list.
+					Middle-click empty space to pan. Click a curve to select it. Escape cancels an armed
+					output, and Delete removes the selected connection. Private repository and domain records
+					are not bundled; the counts above are only what this public app ships.
 				</p>
 			</section>
 		</aside>
@@ -720,6 +906,7 @@
 				aria-label="MANEF architecture graph canvas"
 				bind:this={viewport}
 				onpointerdown={startPan}
+				onauxclick={(event) => event.preventDefault()}
 				onpointermove={(event) => {
 					moveNodeDrag(event);
 					movePan(event);
@@ -793,9 +980,24 @@
 							{#if route}
 								<path
 									d={route.d}
+									class="edge-line"
 									class:hot={highlightedEdgeIds.has(edge.id) || selectedEdgeId === edge.id}
 									class:dim={emphasize && !highlightedEdgeIds.has(edge.id)}
 									marker-end="url(#arrow)"
+								></path>
+								<path
+									d={route.d}
+									class="edge-hit"
+									role="button"
+									tabindex="0"
+									aria-label={route.label}
+									onclick={() => selectEdge(edge.id)}
+									onkeydown={(event) => {
+										if (event.key === 'Enter' || event.key === ' ') {
+											event.preventDefault();
+											selectEdge(edge.id);
+										}
+									}}
 								></path>
 								<text class="edge-label" x={route.x} y={route.y} text-anchor="middle"
 									>{route.label}</text
@@ -815,6 +1017,7 @@
 							data-status={node.status ?? 'active'}
 							style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; width: ${flowCard.width}px; height: ${flowCard.height}px;`}
 							onpointerdown={(event) => {
+								if (event.button !== 0) return;
 								if (event.target instanceof Element && event.target.closest('[data-interactive]'))
 									return;
 								startNodeDrag(event, node.id);
@@ -839,17 +1042,20 @@
 									<span class="chip">{chip}</span>
 								{/each}
 							</div>
-							<div class="port-list">
+							<div class="port-side inputs">
 								{#each node.inputs as port (port.id)}
 									<Button
 										data-interactive
 										size="sm"
 										variant="outline"
+										class="port-button"
 										onclick={() => connectTo(node.id, port.id)}
 									>
-										<span class="socket"></span>{port.label}
+										<span class="socket"></span><span class="port-label">{port.label}</span>
 									</Button>
 								{/each}
+							</div>
+							<div class="port-side outputs">
 								{#each node.outputs as port (port.id)}
 									<Button
 										data-interactive
@@ -857,9 +1063,10 @@
 										variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
 											? 'default'
 											: 'outline'}
+										class="port-button"
 										onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
 									>
-										{port.label}<span class="socket"></span>
+										<span class="port-label">{port.label}</span><span class="socket"></span>
 									</Button>
 								{/each}
 							</div>
@@ -867,7 +1074,9 @@
 					{/each}
 				</div>
 				<div class="floating">
+					<Button size="sm" variant="default" aria-pressed="true">Select</Button>
 					<Button size="sm" variant="outline" onclick={fitView}>Fit</Button>
+					<Button size="sm" variant="outline" onclick={startSettle}>Settle</Button>
 					{#if armedOutput}
 						<Button size="sm" variant="outline" onclick={() => (armedOutput = null)}>Cancel</Button>
 					{/if}
@@ -936,9 +1145,34 @@
 			{#if inspectorTab === 'inventory'}
 				<div class="panel">
 					<p class="help">
-						Open Silong, Convex, and Dokploy are not part of the public seed. Add one here if you
-						want it on this map. That does not publish it for everyone else.
+						These three references are not on the public map until you add one. Repository, domain,
+						hostname, and Convex records stay out of the public seed.
 					</p>
+					<select
+						class="theme-select"
+						aria-label="Inventory type"
+						value={inventoryKind}
+						onchange={(event) => {
+							const value = event.currentTarget.value;
+							if (
+								value === 'all' ||
+								value === 'reference' ||
+								value === 'repo' ||
+								value === 'domain' ||
+								value === 'hostname' ||
+								value === 'convex'
+							) {
+								inventoryKind = value;
+							}
+						}}
+					>
+						<option value="all">All</option>
+						<option value="reference">References</option>
+						<option value="repo">GitHub repos</option>
+						<option value="domain">Root domains</option>
+						<option value="hostname">Hostnames</option>
+						<option value="convex">Convex DNS</option>
+					</select>
 					<Input
 						aria-label="Search inventory"
 						placeholder="Search inventory…"
@@ -967,6 +1201,7 @@
 						aria-label="Architecture graph JSON"></textarea>
 					<div class="json-actions">
 						<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
+						<Button size="sm" variant="outline" onclick={formatJson}>Format</Button>
 						<Button size="sm" onclick={importJson}>Apply JSON</Button>
 					</div>
 					{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
@@ -1091,6 +1326,58 @@
 					<p class="help">
 						{selectedEdge.source}:{selectedEdge.sourcePort} → {selectedEdge.target}:{selectedEdge.targetPort}
 					</p>
+					<label>
+						<span>Source node</span>
+						<select
+							class="theme-select"
+							aria-label="Source node"
+							value={selectedEdge.source}
+							onchange={(event) => retargetEdge({ source: event.currentTarget.value })}
+						>
+							{#each graph.nodes as node (node.id)}
+								<option value={node.id}>{node.label}</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						<span>Source output</span>
+						<select
+							class="theme-select"
+							aria-label="Source output"
+							value={selectedEdge.sourcePort}
+							onchange={(event) => retargetEdge({ sourcePort: event.currentTarget.value })}
+						>
+							{#each graph.nodes.find((node) => node.id === selectedEdge.source)?.outputs ?? [] as port (port.id)}
+								<option value={port.id}>{port.label}</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						<span>Target node</span>
+						<select
+							class="theme-select"
+							aria-label="Target node"
+							value={selectedEdge.target}
+							onchange={(event) => retargetEdge({ target: event.currentTarget.value })}
+						>
+							{#each graph.nodes as node (node.id)}
+								<option value={node.id}>{node.label}</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						<span>Target input</span>
+						<select
+							class="theme-select"
+							aria-label="Target input"
+							value={selectedEdge.targetPort}
+							onchange={(event) => retargetEdge({ targetPort: event.currentTarget.value })}
+						>
+							{#each graph.nodes.find((node) => node.id === selectedEdge.target)?.inputs ?? [] as port (port.id)}
+								<option value={port.id}>{port.label}</option>
+							{/each}
+						</select>
+					</label>
 					<Button variant="destructive" size="sm" onclick={() => disconnectEdge(selectedEdge.id)}>
 						Disconnect
 					</Button>
@@ -1377,10 +1664,17 @@
 		overflow: visible;
 		color: var(--muted-foreground);
 	}
-	.edges path:not([d^='M 0 0 L']) {
+	.edges path.edge-line {
 		fill: none;
 		stroke: var(--muted-foreground);
 		stroke-width: 1.7;
+		pointer-events: none;
+	}
+	.edges path.edge-hit {
+		fill: none;
+		stroke: transparent;
+		stroke-width: 14;
+		cursor: pointer;
 	}
 	.edge-label {
 		fill: var(--muted-foreground);
@@ -1390,11 +1684,11 @@
 		font-size: 9px;
 		pointer-events: none;
 	}
-	.edges path.hot {
+	.edges path.edge-line.hot {
 		stroke: var(--primary);
 		stroke-width: 2.8;
 	}
-	.edges path.dim {
+	.edges path.edge-line.dim {
 		opacity: 0.08;
 	}
 	.edges marker path {
@@ -1404,7 +1698,7 @@
 		position: absolute;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
+		overflow: visible;
 		border: 1px solid var(--border);
 		border-radius: 10px;
 		background: var(--card);
@@ -1475,17 +1769,49 @@
 		font-size: 8.5px;
 		font-style: normal;
 	}
-	.port-list {
+	.port-side {
+		position: absolute;
+		z-index: 2;
+		top: 28px;
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: column;
 		gap: 4px;
-		margin-top: auto;
 	}
-	.port-list :global(button) {
-		height: 20px;
-		max-width: 6.2rem;
-		padding: 0 0.28rem;
-		font-size: 8px;
+	.port-side.inputs {
+		left: 0;
+		transform: translateX(-8px);
+		align-items: flex-start;
+	}
+	.port-side.outputs {
+		right: 0;
+		transform: translateX(8px);
+		align-items: flex-end;
+	}
+	:global(.port-button) {
+		height: 18px !important;
+		max-width: 7.2rem;
+		padding: 0 0.2rem !important;
+		font-size: 8px !important;
+	}
+	.port-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.tag-check {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--surface-2);
+		padding: 0.12rem 0.4rem;
+		font-size: 9px;
+	}
+	.tag-check input {
+		margin: 0;
+	}
+	.panel .theme-select {
+		width: 100%;
 	}
 	.socket {
 		width: 8px;

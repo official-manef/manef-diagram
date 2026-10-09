@@ -6,9 +6,11 @@ import {
 	diagramAt,
 	flowCard,
 	layoutGraph,
+	parseImportedGraph,
 	routeEdges,
 	relatedView,
 	sameGraph,
+	settleTick,
 	traceGraph,
 	validateGraph,
 	writeDiagram,
@@ -237,10 +239,44 @@ describe('architecture graph core', () => {
 	});
 
 	it('materializes inventory once', () => {
-		const item = { id: 'sample', label: 'Sample', tags: ['sample'] };
+		const item = { id: 'sample', label: 'Sample', tags: ['sample'], kind: 'reference' as const };
 		const once = addInventoryItem(defaultGraph, item);
 		const twice = addInventoryItem(once, item);
 		expect(once.nodes.some((node) => node.id === 'sample')).toBe(true);
+		expect(once.nodes.find((node) => node.id === 'sample')?.inventoryRef).toEqual({
+			kind: 'reference',
+			key: 'sample'
+		});
 		expect(twice.nodes).toHaveLength(once.nodes.length);
+	});
+
+	it('imports a bare graph or a document that wraps one', () => {
+		const bare = JSON.stringify(defaultGraph);
+		expect(parseImportedGraph(bare).nodes).toHaveLength(defaultGraph.nodes.length);
+		const wrapped = JSON.stringify({
+			schemaVersion: 1,
+			title: 'MANEF Architecture',
+			graph: defaultGraph,
+			ui: { diagramMode: 'flow' }
+		});
+		expect(sameGraph(parseImportedGraph(wrapped), defaultGraph)).toBe(true);
+		expect(() => parseImportedGraph('{"graph":{"nodes":[]}}')).toThrow(/contract/);
+	});
+
+	it('settles graph positions without dropping a node', () => {
+		let positions = layoutGraph(defaultGraph, 'graph');
+		let velocity = {};
+		const before = JSON.stringify(positions);
+		for (let step = 0; step < 12; step += 1) {
+			const next = settleTick(defaultGraph, positions, velocity);
+			positions = next.positions;
+			velocity = next.velocity;
+		}
+		expect(Object.keys(positions).sort()).toEqual(defaultGraph.nodes.map((node) => node.id).sort());
+		for (const point of Object.values(positions)) {
+			expect(Number.isFinite(point.x)).toBe(true);
+			expect(Number.isFinite(point.y)).toBe(true);
+		}
+		expect(JSON.stringify(positions)).not.toBe(before);
 	});
 });
