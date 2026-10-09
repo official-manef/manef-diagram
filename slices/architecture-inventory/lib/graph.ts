@@ -8,6 +8,8 @@ import type {
 	TraceResult
 } from '../types';
 
+export const MAX_DIAGRAM_DEPTH = 3;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
@@ -26,6 +28,11 @@ function connectionKey(edge: ArchitectureEdge): string {
 }
 
 export function validateGraph(value: unknown): value is ArchitectureGraph {
+	return validateGraphAt(value, 0);
+}
+
+function validateGraphAt(value: unknown, depth: number): value is ArchitectureGraph {
+	if (depth > MAX_DIAGRAM_DEPTH) return false;
 	if (
 		!isRecord(value) ||
 		value.schemaVersion !== 1 ||
@@ -52,7 +59,8 @@ export function validateGraph(value: unknown): value is ArchitectureGraph {
 			!Array.isArray(raw.inputs) ||
 			!raw.inputs.every(isPort) ||
 			!Array.isArray(raw.outputs) ||
-			!raw.outputs.every(isPort)
+			!raw.outputs.every(isPort) ||
+			(raw.child !== undefined && !validateGraphAt(raw.child, depth + 1))
 		) {
 			return false;
 		}
@@ -103,13 +111,70 @@ export function parseGraphJson(json: string): ArchitectureGraph {
 export function cloneGraph(graph: ArchitectureGraph): ArchitectureGraph {
 	return {
 		schemaVersion: 1,
-		nodes: graph.nodes.map((node) => ({
-			...node,
-			tags: [...node.tags],
-			inputs: node.inputs.map((port) => ({ ...port })),
-			outputs: node.outputs.map((port) => ({ ...port }))
-		})),
+		nodes: graph.nodes.map((node) => {
+			const copy: ArchitectureNode = {
+				...node,
+				tags: [...node.tags],
+				inputs: node.inputs.map((port) => ({ ...port })),
+				outputs: node.outputs.map((port) => ({ ...port }))
+			};
+			if (node.child) copy.child = cloneGraph(node.child);
+			else delete copy.child;
+			return copy;
+		}),
 		edges: graph.edges.map((edge) => ({ ...edge, tags: edge.tags ? [...edge.tags] : undefined }))
+	};
+}
+
+/** The diagram reached by opening each id, or null when any step has no child. */
+export function diagramAt(
+	graph: ArchitectureGraph,
+	path: readonly string[]
+): ArchitectureGraph | null {
+	let current = graph;
+	for (const id of path) {
+		const next = current.nodes.find((node) => node.id === id)?.child;
+		if (!next) return null;
+		current = next;
+	}
+	return current;
+}
+
+/** Replace the diagram at path. Returns the same graph when the path or the next diagram is invalid. */
+export function writeDiagram(
+	graph: ArchitectureGraph,
+	path: readonly string[],
+	next: ArchitectureGraph
+): ArchitectureGraph {
+	if (!validateGraph(next)) return graph;
+	if (path.length === 0) return cloneGraph(next);
+	const [id, ...rest] = path;
+	if (!graph.nodes.some((node) => node.id === id && node.child)) return graph;
+	return cloneGraph({
+		...graph,
+		nodes: graph.nodes.map((node) =>
+			node.id === id && node.child ? { ...node, child: writeDiagram(node.child, rest, next) } : node
+		)
+	});
+}
+
+export function blankChild(label: string): ArchitectureGraph {
+	const name = label.trim() || 'this node';
+	return {
+		schemaVersion: 1,
+		nodes: [
+			{
+				id: 'component',
+				label: 'Component',
+				subtitle: `Part of ${name}`.slice(0, 160),
+				tags: ['kind:component'],
+				status: 'proposed',
+				level: 1,
+				inputs: [{ id: 'in', label: 'Consumes' }],
+				outputs: [{ id: 'out', label: 'Provides' }]
+			}
+		],
+		edges: []
 	};
 }
 
@@ -406,7 +471,7 @@ export function routeEdges(
 }
 
 export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
-	const signature = (graph: ArchitectureGraph) =>
+	const signature = (graph: ArchitectureGraph): string =>
 		JSON.stringify({
 			nodes: graph.nodes.map((node) => ({
 				id: node.id,
@@ -416,7 +481,8 @@ export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
 				status: node.status ?? null,
 				tags: node.tags,
 				inputs: node.inputs.map((port) => port.label),
-				outputs: node.outputs.map((port) => port.label)
+				outputs: node.outputs.map((port) => port.label),
+				child: node.child ? signature(node.child) : ''
 			})),
 			edges: graph.edges.map((edge) => ({
 				id: edge.id,

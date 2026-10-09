@@ -1,4 +1,9 @@
-import type { ArchitectureGraph, ArchitectureNode, InventoryItem } from '../types';
+import type {
+	ArchitectureEdge,
+	ArchitectureGraph,
+	ArchitectureNode,
+	InventoryItem
+} from '../types';
 
 const ports = () => ({
 	inputs: [{ id: 'in', label: 'Consumes' }],
@@ -16,6 +21,52 @@ function node(
 	return { id, label, subtitle, level, status, tags, ...ports() };
 }
 
+function link(id: string, source: string, target: string, label: string): ArchitectureEdge {
+	return { id, source, sourcePort: 'out', target, targetPort: 'in', label };
+}
+
+function part(id: string, label: string, subtitle: string, level: number): ArchitectureNode {
+	return node(id, label, subtitle, level, 'active', ['kind:component']);
+}
+
+/** What this repository actually ships. Not a map of private infrastructure. */
+function diagramProduct(): ArchitectureGraph {
+	return {
+		schemaVersion: 1,
+		nodes: [
+			part('directory', 'Public directory', 'Home, products, guide, audit', 0),
+			part('canvas', 'Public map', 'The /app canvas', 1),
+			part('workspace', 'Demo workspace', 'Local simulation only', 1),
+			part('contract', 'Graph contract', 'Nodes, ports, edges, ten tools', 2),
+			part('mcp', 'MCP read API', 'Rejects anonymous calls', 2)
+		],
+		edges: [
+			link('directory-canvas', 'directory', 'canvas', 'opens'),
+			link('directory-workspace', 'directory', 'workspace', 'opens demo'),
+			link('canvas-contract', 'canvas', 'contract', 'renders'),
+			link('workspace-contract', 'workspace', 'contract', 'simulates'),
+			link('mcp-contract', 'mcp', 'contract', 'reads')
+		]
+	};
+}
+
+const architectureNode = node(
+	'architecture',
+	'diagram.manef.dev',
+	'Interactive architecture + agent context graph',
+	2,
+	'active',
+	[
+		'manef',
+		'architecture',
+		'product',
+		'project:manef-diagram',
+		'platform:vercel',
+		'kind:context-graph'
+	]
+);
+architectureNode.child = diagramProduct();
+
 export const defaultGraph: ArchitectureGraph = {
 	schemaVersion: 1,
 	nodes: [
@@ -27,21 +78,7 @@ export const defaultGraph: ArchitectureGraph = {
 			'manef',
 			'domain'
 		]),
-		node(
-			'architecture',
-			'diagram.manef.dev',
-			'Interactive architecture + agent context graph',
-			2,
-			'active',
-			[
-				'manef',
-				'architecture',
-				'product',
-				'project:manef-diagram',
-				'platform:vercel',
-				'kind:context-graph'
-			]
-		),
+		architectureNode,
 		node('mso', 'mso.manef.dev', 'Manef Shell OS', 2, 'active', [
 			'manef',
 			'product',

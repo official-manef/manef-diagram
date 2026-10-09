@@ -5,9 +5,11 @@
 	import {
 		addEdge,
 		addInventoryItem,
+		blankChild,
 		cloneGraph,
 		defaultGraph,
 		defaultInventory,
+		diagramAt,
 		layoutGraph,
 		flowCard,
 		parseGraphJson,
@@ -19,7 +21,9 @@
 		buildDiagramViewUrl,
 		parseDiagramView,
 		tagGroup,
-		tagsMatchFacets
+		tagsMatchFacets,
+		writeDiagram,
+		MAX_DIAGRAM_DEPTH
 	} from './index';
 	import type {
 		ArchitectureEdge,
@@ -31,12 +35,19 @@
 		TraceMode
 	} from './types';
 
-	let graph = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
+	let root = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
+	let diagramPath = $state<string[]>([]);
+	const graph = $derived(diagramAt(root, diagramPath) ?? root);
 	let hydrated = $state(false);
 	onMount(() => {
 		try {
 			const view = parseDiagramView(window.location.search);
-			if (view.graph) graph = view.graph;
+			if (view.graph) root = view.graph;
+			const opened = diagramAt(root, view.open);
+			if (view.open.length > 0 && opened) diagramPath = [...view.open];
+			else if (view.open.length > 0) {
+				actionMessage = 'That component diagram is not in this map. The public map is shown.';
+			}
 			search = view.query;
 			activeTags = view.tags;
 			diagramMode = view.mode;
@@ -48,7 +59,7 @@
 		} catch {
 			actionMessage = 'This shared graph link is invalid or too large. The default graph is shown.';
 		}
-		jsonText = JSON.stringify(graph, null, 2);
+		jsonText = JSON.stringify(diagramAt(root, diagramPath) ?? root, null, 2);
 		hydrated = true;
 	});
 
@@ -139,10 +150,21 @@
 	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
 	const emphasize = $derived(Boolean(selectedNodeId) && highlightedNodeIds.size > 1);
 	const fitKey = $derived(
-		`${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
+		`${diagramPath.join('/')}:${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
 			.map((node) => node.id)
 			.join(',')}:${focusMode}`
 	);
+	const crumbs = $derived.by(() => {
+		const items: { depth: number; label: string }[] = [{ depth: 0, label: 'Public map' }];
+		let current: ArchitectureGraph | undefined = root;
+		for (let index = 0; index < diagramPath.length; index += 1) {
+			const id = diagramPath[index];
+			const node: ArchitectureNode | undefined = current?.nodes.find((item) => item.id === id);
+			items.push({ depth: index + 1, label: node?.label || id });
+			current = node?.child;
+		}
+		return items;
+	});
 
 	function facetChips(tags: string[]) {
 		const chips: string[] = [];
@@ -220,7 +242,55 @@
 			.catch(() => undefined);
 	});
 
+	function commitVisible(next: ArchitectureGraph) {
+		root = writeDiagram(root, diagramPath, next);
+	}
+
+	function resetLevel() {
+		selectedNodeId = null;
+		selectedEdgeId = null;
+		armedOutput = null;
+		overrides = {};
+		search = '';
+		activeTags = [];
+		focusMode = false;
+		detailsOpen = false;
+	}
+
+	function showDiagram(depth: number) {
+		const nextPath = diagramPath.slice(0, depth);
+		diagramPath = nextPath;
+		resetLevel();
+		jsonText = JSON.stringify(diagramAt(root, nextPath) ?? root, null, 2);
+	}
+
+	function openDiagram(id: string) {
+		const visible = diagramAt(root, diagramPath) ?? root;
+		const node = visible.nodes.find((item) => item.id === id);
+		if (!node?.child) return;
+		diagramPath = [...diagramPath, id];
+		resetLevel();
+		jsonText = JSON.stringify(node.child, null, 2);
+	}
+
+	function addComponentDiagram(id: string) {
+		const node = graph.nodes.find((item) => item.id === id);
+		if (!node || node.child || diagramPath.length >= MAX_DIAGRAM_DEPTH) return;
+		commitVisible({
+			...graph,
+			nodes: graph.nodes.map((item) =>
+				item.id === id ? { ...item, child: blankChild(item.label) } : item
+			)
+		});
+		openDiagram(id);
+	}
+
 	function selectNode(id: string) {
+		const node = graph.nodes.find((item) => item.id === id);
+		if (selectedNodeId === id && node?.child) {
+			openDiagram(id);
+			return;
+		}
 		selectedNodeId = id;
 		selectedEdgeId = null;
 		detailsOpen = true;
@@ -233,10 +303,10 @@
 	}
 
 	function updateNode(id: string, patch: Partial<ArchitectureNode>) {
-		graph = {
+		commitVisible({
 			...graph,
 			nodes: graph.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node))
-		};
+		});
 	}
 
 	function updatePort(
@@ -267,17 +337,19 @@
 	function removePort(nodeId: string, direction: 'inputs' | 'outputs', portId: string) {
 		const node = graph.nodes.find((item) => item.id === nodeId);
 		if (!node) return;
-		updateNode(nodeId, {
-			[direction]: node[direction].filter((port) => port.id !== portId)
-		} as Partial<ArchitectureNode>);
-		graph = {
+		commitVisible({
 			...graph,
+			nodes: graph.nodes.map((item) =>
+				item.id === nodeId
+					? { ...item, [direction]: item[direction].filter((port) => port.id !== portId) }
+					: item
+			),
 			edges: graph.edges.filter((edge) =>
 				direction === 'inputs'
 					? !(edge.target === nodeId && edge.targetPort === portId)
 					: !(edge.source === nodeId && edge.sourcePort === portId)
 			)
-		};
+		});
 	}
 
 	function addNode() {
@@ -295,7 +367,7 @@
 			inputs: [{ id: 'in', label: 'Consumes' }],
 			outputs: [{ id: 'out', label: 'Provides' }]
 		};
-		graph = { ...graph, nodes: [...graph.nodes, node] };
+		commitVisible({ ...graph, nodes: [...graph.nodes, node] });
 		selectNode(id);
 	}
 
@@ -310,21 +382,22 @@
 			label: 'connects to',
 			tags: ['custom']
 		};
-		graph = addEdge(graph, edge);
+		const next = addEdge(graph, edge);
+		commitVisible(next);
 		jsonMessage = graph.edges.some((item) => item.id === edge.id)
 			? 'Connection added. Output remains armed for another target.'
 			: 'That connection already exists or is invalid.';
 	}
 
 	function disconnectEdge(id: string) {
-		graph = { ...graph, edges: graph.edges.filter((edge) => edge.id !== id) };
+		commitVisible({ ...graph, edges: graph.edges.filter((edge) => edge.id !== id) });
 		selectedEdgeId = null;
 	}
 
 	function materialize(id: string) {
 		const item = defaultInventory.find((candidate) => candidate.id === id);
 		if (!item) return;
-		graph = addInventoryItem(graph, item);
+		commitVisible(addInventoryItem(graph, item));
 		selectNode(item.id);
 	}
 
@@ -334,8 +407,7 @@
 	}
 
 	function exportJson() {
-		const text = JSON.stringify(graph, null, 2);
-		jsonText = text;
+		const text = JSON.stringify(root, null, 2);
 		const file = new Blob([text], { type: 'application/json' });
 		const href = URL.createObjectURL(file);
 		const link = document.createElement('a');
@@ -343,13 +415,16 @@
 		link.download = 'manef-architecture.json';
 		link.click();
 		URL.revokeObjectURL(href);
-		actionMessage = 'Downloaded manef-architecture.json.';
+		actionMessage = diagramPath.length
+			? 'Downloaded the whole map, including component diagrams.'
+			: 'Downloaded manef-architecture.json.';
 		jsonMessage = actionMessage;
 	}
 
 	function importJson() {
 		try {
-			graph = parseGraphJson(jsonText);
+			const next = parseGraphJson(jsonText);
+			commitVisible(next);
 			selectedNodeId = graph.nodes[0]?.id ?? null;
 			selectedEdgeId = null;
 			armedOutput = null;
@@ -367,12 +442,13 @@
 
 	async function shareView() {
 		try {
-			const edited = !sameGraph(graph, defaultGraph);
+			const edited = !sameGraph(root, defaultGraph);
 			const url = buildDiagramViewUrl({
-				graph: edited ? graph : undefined,
+				graph: edited ? root : undefined,
 				query: search,
 				tags: activeTags,
 				seeds: selectedNodeId ? [selectedNodeId] : [],
+				open: diagramPath,
 				mode: diagramMode,
 				trace: traceMode,
 				focus: focusMode
@@ -466,7 +542,11 @@
 			<div class="logo" aria-hidden="true">M</div>
 			<div>
 				<h1>MANEF Architecture</h1>
-				<span>public service map</span>
+				<span
+					>{diagramPath.length === 0
+						? 'public service map'
+						: (crumbs.at(-1)?.label ?? 'component diagram')}</span
+				>
 			</div>
 		</div>
 		<div class="segmented" aria-label="Diagram mode">
@@ -504,6 +584,20 @@
 	<div class="shell">
 		<section class="canvas-shell">
 			<div class="canvas-toolbar">
+				{#if diagramPath.length > 0}
+					<nav class="diagram-path" aria-label="Diagram level">
+						{#each crumbs as crumb (crumb.depth)}
+							{#if crumb.depth < diagramPath.length}
+								<Button size="sm" variant="ghost" onclick={() => showDiagram(crumb.depth)}
+									>{crumb.label}</Button
+								>
+								<span aria-hidden="true">/</span>
+							{:else}
+								<span aria-current="page">{crumb.label}</span>
+							{/if}
+						{/each}
+					</nav>
+				{/if}
 				<Input
 					class="toolbar-search"
 					aria-label="Search graph"
@@ -594,6 +688,7 @@
 									<small>{node.subtitle}</small>
 								</span>
 								<em data-status={node.status ?? 'active'}>{node.status ?? 'active'}</em>
+								{#if node.child}<span class="chip">components</span>{/if}
 							</button>
 							{#each visibleEdges.filter((edge) => edge.source === node.id) as edge (edge.id)}
 								<p class="mobile-edge">
@@ -670,6 +765,7 @@
 								{#if contextNodeIds.has(node.id)}
 									<span class="chip">linked</span>
 								{/if}
+								{#if node.child}<span class="chip">components</span>{/if}
 								{#each facetChips(node.tags) as chip (chip)}
 									<span class="chip">{chip}</span>
 								{/each}
@@ -817,6 +913,20 @@
 				{#if selectedNode}
 					<section>
 						<h2>Node details</h2>
+						{#if selectedNode.child}
+							<Button size="sm" onclick={() => openDiagram(selectedNode.id)}
+								>Open component diagram</Button
+							>
+							<p>Click the selected service again to open its components.</p>
+						{:else if diagramPath.length >= MAX_DIAGRAM_DEPTH}
+							<p>This is as deep as a diagram can go.</p>
+						{:else}
+							<Button
+								size="sm"
+								variant="outline"
+								onclick={() => addComponentDiagram(selectedNode.id)}>Add component diagram</Button
+							>
+						{/if}
 						<label>
 							<span>Label</span>
 							<Input
@@ -911,7 +1021,7 @@
 							<Input
 								value={selectedEdge.label ?? ''}
 								oninput={(event) =>
-									(graph = {
+									commitVisible({
 										...graph,
 										edges: graph.edges.map((edge) =>
 											edge.id === selectedEdge.id
@@ -1118,6 +1228,13 @@
 		padding: 0.4rem 0.7rem;
 		font-size: 0.75rem;
 		color: var(--muted-foreground);
+	}
+	.diagram-path {
+		display: flex;
+		flex: 1 1 100%;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem;
 	}
 	.toolbar-actions,
 	.canvas-toolbar > div {

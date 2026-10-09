@@ -47,6 +47,7 @@ export const products: Product[] = [
 		live: 'https://diagram.manef.dev/app',
 		features: [
 			'Flow and graph editing',
+			'Component diagrams',
 			'Project, platform, and kind facets',
 			'MCP tools in source',
 			'Portable views'
