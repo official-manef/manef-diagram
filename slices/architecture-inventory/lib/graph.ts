@@ -257,6 +257,8 @@ export function traceGraph(
 }
 
 export const flowCard = { width: 204, height: 138, gapX: 176, gapY: 18 } as const;
+/** Graph mode draws an Obsidian-style dot. Positions in that mode are the dot center. */
+export const graphDot = { radius: 12 } as const;
 const flowRows = 4;
 
 function columnHeight(count: number) {
@@ -312,17 +314,12 @@ function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
 	const radius = Math.max(360, flowCard.width + 120 + count * 28);
 	const center = { x: 980, y: 760 };
 	const points: Record<string, Point> = {};
-	if (hub) {
-		points[hub.id] = {
-			x: center.x - flowCard.width / 2,
-			y: center.y - flowCard.height / 2
-		};
-	}
+	if (hub) points[hub.id] = { x: center.x, y: center.y };
 	others.forEach((node, index) => {
 		const angle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
 		points[node.id] = {
-			x: center.x + Math.cos(angle) * radius - flowCard.width / 2,
-			y: center.y + Math.sin(angle) * radius - flowCard.height / 2
+			x: center.x + Math.cos(angle) * radius,
+			y: center.y + Math.sin(angle) * radius
 		};
 	});
 	return points;
@@ -404,16 +401,37 @@ export type EdgeRoute = {
 	points: Point[];
 };
 
-function borderToward(from: Point, to: Point): Point {
-	const cx = from.x + flowCard.width / 2;
-	const cy = from.y + flowCard.height / 2;
-	const tx = to.x + flowCard.width / 2;
-	const ty = to.y + flowCard.height / 2;
-	const dx = tx - cx;
-	const dy = ty - cy;
-	const scale =
-		1 / Math.max(Math.abs(dx) / (flowCard.width / 2), Math.abs(dy) / (flowCard.height / 2), 0.0001);
-	return { x: cx + dx * scale, y: cy + dy * scale };
+function graphLine(source: Point, target: Point): Point[] {
+	const dx = target.x - source.x;
+	const dy = target.y - source.y;
+	const distance = Math.hypot(dx, dy) || 1;
+	const inset = Math.min(graphDot.radius + 3, Math.max(0, distance / 2 - 1));
+	return [
+		{ x: source.x + (dx / distance) * inset, y: source.y + (dy / distance) * inset },
+		{ x: target.x - (dx / distance) * inset, y: target.y - (dy / distance) * inset }
+	];
+}
+
+function labelHitsNode(
+	box: { left: number; right: number; top: number; bottom: number },
+	origin: Point,
+	mode: DiagramMode
+) {
+	if (mode === 'graph') {
+		const pad = graphDot.radius + 6;
+		return (
+			box.right > origin.x - pad &&
+			box.left < origin.x + pad &&
+			box.bottom > origin.y - pad &&
+			box.top < origin.y + pad
+		);
+	}
+	return (
+		box.right > origin.x + 2 &&
+		box.left < origin.x + flowCard.width - 2 &&
+		box.bottom > origin.y + 2 &&
+		box.top < origin.y + flowCard.height - 2
+	);
 }
 
 function pathFrom(points: Point[]): string {
@@ -555,10 +573,23 @@ export function routeEdges(
 						obstacles
 					)
 				: null;
-		const points = curved
-			? curved.points
-			: [borderToward(source, target), borderToward(target, source)];
+		const points = curved ? curved.points : graphLine(source, target);
 		const end = points[points.length - 1];
+		if (mode === 'graph') {
+			const dx = end.x - points[0].x;
+			const dy = end.y - points[0].y;
+			const length = Math.hypot(dx, dy) || 1;
+			return [
+				{
+					id: edge.id,
+					d: pathFrom(points),
+					label: edge.label?.trim() || 'connects',
+					x: (points[0].x + end.x) / 2 + (-dy / length) * 14,
+					y: (points[0].y + end.y) / 2 + (dx / length) * 14,
+					points
+				}
+			];
+		}
 		const midpoint = points[Math.floor(points.length / 2)] ?? points[0];
 		const cards = graph.nodes
 			.map((node) => positions[node.id])
@@ -571,19 +602,13 @@ export function routeEdges(
 				top: point.y - 14,
 				bottom: point.y + 2
 			};
-			return cards.some(
-				(card) =>
-					box.right > card.x + 2 &&
-					box.left < card.x + flowCard.width - 2 &&
-					box.bottom > card.y + 2 &&
-					box.top < card.y + flowCard.height - 2
-			);
+			return cards.some((card) => labelHitsNode(box, card, mode));
 		};
 		const labelPoint = [midpoint, ...[...points].sort((a, b) => a.y - b.y)].find(
 			(point) => !labelHits(point)
 		) ?? { x: (points[0].x + end.x) / 2, y: Math.min(...points.map((point) => point.y)) - 16 };
 		const labelX = labelPoint.x;
-		const labelY = labelPoint.y - (mode === 'graph' ? 10 : 0);
+		const labelY = labelPoint.y;
 		return [
 			{
 				id: edge.id,

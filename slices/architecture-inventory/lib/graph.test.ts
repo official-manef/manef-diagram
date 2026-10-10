@@ -5,6 +5,7 @@ import {
 	cloneGraph,
 	diagramAt,
 	flowCard,
+	graphDot,
 	layoutGraph,
 	parseImportedGraph,
 	routeEdges,
@@ -204,10 +205,15 @@ describe('architecture graph core', () => {
 				for (const node of defaultGraph.nodes) {
 					const card = points[node.id];
 					const hits =
-						box.right > card.x + 2 &&
-						box.left < card.x + flowCard.width - 2 &&
-						box.bottom > card.y + 2 &&
-						box.top < card.y + flowCard.height - 2;
+						mode === 'graph'
+							? box.right > card.x - graphDot.radius - 6 &&
+								box.left < card.x + graphDot.radius + 6 &&
+								box.bottom > card.y - graphDot.radius - 6 &&
+								box.top < card.y + graphDot.radius + 6
+							: box.right > card.x + 2 &&
+								box.left < card.x + flowCard.width - 2 &&
+								box.bottom > card.y + 2 &&
+								box.top < card.y + flowCard.height - 2;
 					expect(hits, `${mode} ${route.label} overlaps ${node.id}`).toBe(false);
 				}
 			}
@@ -226,10 +232,12 @@ describe('architecture graph core', () => {
 							if (node.id === edge.source || node.id === edge.target) continue;
 							const box = points[node.id];
 							const inside =
-								point.x > box.x + 6 &&
-								point.x < box.x + flowCard.width - 6 &&
-								point.y > box.y + 6 &&
-								point.y < box.y + flowCard.height - 6;
+								mode === 'graph'
+									? (point.x - box.x) ** 2 + (point.y - box.y) ** 2 < (graphDot.radius + 2) ** 2
+									: point.x > box.x + 6 &&
+										point.x < box.x + flowCard.width - 6 &&
+										point.y > box.y + 6 &&
+										point.y < box.y + flowCard.height - 6;
 							expect(inside).toBe(false);
 						}
 					}

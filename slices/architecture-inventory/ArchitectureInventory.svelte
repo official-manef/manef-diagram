@@ -12,6 +12,7 @@
 		diagramAt,
 		layoutGraph,
 		flowCard,
+		graphDot,
 		parseGraphJson,
 		parseImportedGraph,
 		routeEdges,
@@ -80,6 +81,9 @@
 	let traceMode = $state<TraceMode>('direct');
 	let focusMode = $state(false);
 	let search = $state('');
+	let tagQuery = $state('');
+	let tagSort = $state<'name' | 'count'>('name');
+	let filtersOpen = $state(false);
 	let inventorySearch = $state('');
 	let inventoryKind = $state<'all' | InventoryKind>('all');
 	let activeTags = $state<string[]>([]);
@@ -98,9 +102,12 @@
 	let nodeDrag = $state<{
 		nodeId: string;
 		pointerId: number;
-		offsetX: number;
-		offsetY: number;
+		x: number;
+		y: number;
+		originX: number;
+		originY: number;
 	} | null>(null);
+	let pointerMoved = false;
 	let panStart = $state<{
 		pointerId: number;
 		x: number;
@@ -160,6 +167,21 @@
 				Object.create(null) as Record<string, string[]>
 			)
 		).sort(([a], [b]) => a.localeCompare(b))
+	);
+	const visibleTagGroups = $derived(
+		tagGroups
+			.map(([group, tags]) => {
+				const needle = tagQuery.trim().toLowerCase();
+				const matched = tags.filter((tag) => {
+					const name = tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag;
+					return !needle || `${name} ${tag}`.toLowerCase().includes(needle);
+				});
+				const sorted = [...matched].sort((a, b) =>
+					tagSort === 'count' ? tagCount(b) - tagCount(a) || a.localeCompare(b) : a.localeCompare(b)
+				);
+				return [group, sorted] as const;
+			})
+			.filter(([, tags]) => tags.length > 0)
 	);
 	const inventoryItems = $derived(
 		searchInventory(
@@ -223,6 +245,22 @@
 		return graph.nodes.filter((node) => node.tags.includes(tag)).length;
 	}
 
+	function tagLabel(tag: string) {
+		return tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag;
+	}
+
+	function dotColor(node: ArchitectureNode) {
+		if (node.status === 'private') return '#8d97a6';
+		if (node.status === 'proposed') return '#d2a15a';
+		if (node.tags.includes('domain')) return '#3aa7c9';
+		if (node.tags.includes('brand')) return '#e0b15a';
+		if (node.tags.includes('docs')) return '#c9854a';
+		if (node.tags.includes('infra')) return '#7f92ad';
+		if (node.tags.some((tag) => tag === 'kind:component' || tag.startsWith('platform:')))
+			return '#6f8fbf';
+		return '#8273f6';
+	}
+
 	function fitPoints(points: Record<string, Point>, ids: string[]) {
 		if (!viewport) return;
 		let minX = Infinity;
@@ -232,10 +270,17 @@
 		for (const id of ids) {
 			const point = points[id];
 			if (!point) continue;
-			minX = Math.min(minX, point.x);
-			minY = Math.min(minY, point.y);
-			maxX = Math.max(maxX, point.x + flowCard.width);
-			maxY = Math.max(maxY, point.y + flowCard.height);
+			if (diagramMode === 'graph') {
+				minX = Math.min(minX, point.x - graphDot.radius - 8);
+				minY = Math.min(minY, point.y - graphDot.radius - 8);
+				maxX = Math.max(maxX, point.x + graphDot.radius + 168);
+				maxY = Math.max(maxY, point.y + graphDot.radius + 8);
+			} else {
+				minX = Math.min(minX, point.x);
+				minY = Math.min(minY, point.y);
+				maxX = Math.max(maxX, point.x + flowCard.width);
+				maxY = Math.max(maxY, point.y + flowCard.height);
+			}
 		}
 		if (!Number.isFinite(minX)) return;
 		for (const route of routes) {
@@ -329,7 +374,12 @@
 		openDiagram(id);
 	}
 
-	function selectNode(id: string) {
+	function selectNode(id: string, fromPointer = false) {
+		if (fromPointer && pointerMoved) {
+			pointerMoved = false;
+			return;
+		}
+		pointerMoved = false;
 		const node = graph.nodes.find((item) => item.id === id);
 		if (selectedNodeId === id && node?.child) {
 			openDiagram(id);
@@ -611,23 +661,28 @@
 
 	function startNodeDrag(event: PointerEvent, nodeId: string) {
 		const start = basePositions[nodeId] ?? { x: 0, y: 0 };
+		pointerMoved = false;
 		nodeDrag = {
 			nodeId,
 			pointerId: event.pointerId,
-			// grab offset in screen space: distance from pointer to node's rendered top-left
-			offsetX: event.clientX - (pan.x + start.x * zoom),
-			offsetY: event.clientY - (pan.y + start.y * zoom)
+			x: event.clientX,
+			y: event.clientY,
+			originX: start.x,
+			originY: start.y
 		};
 		event.stopPropagation();
 	}
 
 	function moveNodeDrag(event: PointerEvent) {
 		if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+		const dx = event.clientX - nodeDrag.x;
+		const dy = event.clientY - nodeDrag.y;
+		if (Math.abs(dx) + Math.abs(dy) > 3) pointerMoved = true;
 		overrides = {
 			...overrides,
 			[nodeDrag.nodeId]: {
-				x: (event.clientX - pan.x - nodeDrag.offsetX) / zoom,
-				y: (event.clientY - pan.y - nodeDrag.offsetY) / zoom
+				x: nodeDrag.originX + dx / zoom,
+				y: nodeDrag.originY + dy / zoom
 			}
 		};
 	}
@@ -659,7 +714,13 @@
 	function onKeydown(event: KeyboardEvent) {
 		const tag = (event.target as HTMLElement | null)?.tagName;
 		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-		if (event.key === 'Escape') armedOutput = null;
+		if (event.key === 'Escape') {
+			if (filtersOpen) {
+				filtersOpen = false;
+				return;
+			}
+			armedOutput = null;
+		}
 		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEdgeId) {
 			event.preventDefault();
 			disconnectEdge(selectedEdgeId);
@@ -806,12 +867,45 @@
 				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
 			</section>
 			<section>
-				<p class="help">A group matches any selected tag. Every group must match.</p>
-				<div class="tag-groups" aria-label="Tag group filters">
-					{#each tagGroups as [group, tags] (group)}
-						<div class="tag-group">
-							<strong>{group}</strong>
-							<div class="tags">
+				<div class="filter-wrap">
+					<button
+						type="button"
+						class="filter-toggle"
+						aria-expanded={filtersOpen}
+						aria-controls="tag-filter-menu"
+						onclick={() => (filtersOpen = !filtersOpen)}
+					>
+						<span>Filter{activeTags.length ? ` (${activeTags.length})` : ''}</span>
+						<span aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
+					</button>
+					{#if filtersOpen}
+						<button
+							type="button"
+							class="filter-backdrop"
+							aria-label="Close filters"
+							onclick={() => (filtersOpen = false)}
+						></button>
+						<div id="tag-filter-menu" class="filter-menu" role="dialog" aria-label="Tag filters">
+							<Input aria-label="Filter tags" placeholder="Filter tags…" bind:value={tagQuery} />
+							<div class="sort-row" role="group" aria-label="Sort tags">
+								<span>Sort</span>
+								<button
+									type="button"
+									aria-pressed={tagSort === 'name'}
+									onclick={() => (tagSort = 'name')}>Name</button
+								>
+								<button
+									type="button"
+									aria-pressed={tagSort === 'count'}
+									onclick={() => (tagSort = 'count')}>Count</button
+								>
+							</div>
+							<p class="help">A group matches any selected tag. Every group must match.</p>
+							{#if visibleTagGroups.length === 0}
+								<p class="help">No tags match.</p>
+							{/if}
+							{#each visibleTagGroups as [group, tags] (group)}
+								<strong>{group}</strong>
 								{#each tags as tag (tag)}
 									<label class="tag-check">
 										<input
@@ -819,14 +913,26 @@
 											checked={activeTags.includes(tag)}
 											onchange={() => toggleTag(tag)}
 										/>
-										{tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag}
+										{tagLabel(tag)}
 										<span class="count">{tagCount(tag)}</span>
 									</label>
 								{/each}
-							</div>
+							{/each}
+							{#if activeTags.length}
+								<button type="button" class="clear-filters" onclick={() => (activeTags = [])}
+									>Clear</button
+								>
+							{/if}
 						</div>
-					{/each}
+					{/if}
 				</div>
+				{#if activeTags.length}
+					<div class="active-tags">
+						{#each activeTags as tag (tag)}
+							<button type="button" onclick={() => toggleTag(tag)}>{tagLabel(tag)} ×</button>
+						{/each}
+					</div>
+				{/if}
 			</section>
 			<section>
 				<h2>Highlight</h2>
@@ -876,25 +982,8 @@
 							: `${visibleEdges.length} of ${graph.edges.length}`}
 					</span>
 				</div>
-				<div class="metric">
-					<span>References</span><span>{inventoryCount(defaultInventory, 'reference')}</span>
-				</div>
-				<div class="metric">
-					<span>GitHub repos</span><span>{inventoryCount(defaultInventory, 'repo')}</span>
-				</div>
-				<div class="metric">
-					<span>Root domains</span><span>{inventoryCount(defaultInventory, 'domain')}</span>
-				</div>
-				<div class="metric">
-					<span>Hostnames</span><span>{inventoryCount(defaultInventory, 'hostname')}</span>
-				</div>
-				<div class="metric">
-					<span>Convex DNS</span><span>{inventoryCount(defaultInventory, 'convex')}</span>
-				</div>
 				<p class="help">
-					Middle-click empty space to pan. Click a curve to select it. Escape cancels an armed
-					output, and Delete removes the selected connection. Private repository and domain records
-					are not bundled; the counts above are only what this public app ships.
+					Middle-click to pan. In Graph, nodes are dots. Click a dot twice if it has components.
 				</p>
 			</section>
 		</aside>
@@ -961,7 +1050,12 @@
 					{/each}
 				</ol>
 				<div class="world" style={worldStyle}>
-					<svg class="edges" viewBox="0 0 2400 1800" aria-hidden="true">
+					<svg
+						class="edges"
+						class:dots={diagramMode === 'graph'}
+						viewBox="0 0 2400 1800"
+						aria-hidden="true"
+					>
 						<defs>
 							<marker
 								id="arrow"
@@ -1007,70 +1101,124 @@
 					</svg>
 
 					{#each visibleNodes as node (node.id)}
-						<article
-							class="node"
-							class:hot={highlightedNodeIds.has(node.id)}
-							class:selected={selectedNodeId === node.id}
-							class:dim={emphasize && !highlightedNodeIds.has(node.id)}
-							class:context={contextNodeIds.has(node.id)}
-							class:connecting={armedOutput?.nodeId === node.id}
-							data-status={node.status ?? 'active'}
-							style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; width: ${flowCard.width}px; height: ${flowCard.height}px;`}
-							onpointerdown={(event) => {
-								if (event.button !== 0) return;
-								if (event.target instanceof Element && event.target.closest('[data-interactive]'))
-									return;
-								startNodeDrag(event, node.id);
-							}}
-						>
-							<div class="node-head">
-								<Button
-									data-interactive
-									class="node-select"
-									variant="ghost"
-									onclick={() => selectNode(node.id)}
+						{#if diagramMode === 'graph'}
+							<article
+								class="dot"
+								class:hot={highlightedNodeIds.has(node.id)}
+								class:selected={selectedNodeId === node.id}
+								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
+								class:context={contextNodeIds.has(node.id)}
+								data-status={node.status ?? 'active'}
+								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; --dot: ${dotColor(node)};`}
+							>
+								<button
+									type="button"
+									class="dot-hit"
+									title={node.subtitle || node.label}
+									onpointerdown={(event) => {
+										if (event.button !== 0) return;
+										startNodeDrag(event, node.id);
+									}}
+									onclick={() => selectNode(node.id, true)}
 								>
-									<span>
-										<strong>{node.label}</strong>
-										<small>{node.subtitle}</small>
-									</span>
-								</Button>
-							</div>
-							<div class="node-tags">
-								{#if node.child}<span class="chip">components</span>{/if}
-								{#each facetChips(node.tags) as chip (chip)}
-									<span class="chip">{chip}</span>
-								{/each}
-							</div>
-							<div class="port-side inputs">
-								{#each node.inputs as port (port.id)}
+									<span class="dot-mark" aria-hidden="true"></span>
+									<span class="dot-label">{node.label}</span>
+								</button>
+								{#if selectedNodeId === node.id}
+									<div class="dot-ports">
+										{#each node.outputs as port (port.id)}
+											<Button
+												data-interactive
+												size="sm"
+												variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
+													? 'default'
+													: 'outline'}
+												class="port-button"
+												onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
+											>
+												{port.label}
+											</Button>
+										{/each}
+										{#each node.inputs as port (port.id)}
+											<Button
+												data-interactive
+												size="sm"
+												variant="outline"
+												class="port-button"
+												onclick={() => connectTo(node.id, port.id)}
+											>
+												{port.label}
+											</Button>
+										{/each}
+									</div>
+								{/if}
+							</article>
+						{:else}
+							<article
+								class="node"
+								class:hot={highlightedNodeIds.has(node.id)}
+								class:selected={selectedNodeId === node.id}
+								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
+								class:context={contextNodeIds.has(node.id)}
+								class:connecting={armedOutput?.nodeId === node.id}
+								data-status={node.status ?? 'active'}
+								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; width: ${flowCard.width}px; height: ${flowCard.height}px;`}
+								onpointerdown={(event) => {
+									if (event.button !== 0) return;
+									if (event.target instanceof Element && event.target.closest('[data-interactive]'))
+										return;
+									startNodeDrag(event, node.id);
+								}}
+							>
+								<div class="node-head">
 									<Button
 										data-interactive
-										size="sm"
-										variant="outline"
-										class="port-button"
-										onclick={() => connectTo(node.id, port.id)}
+										class="node-select"
+										variant="ghost"
+										onclick={() => selectNode(node.id)}
 									>
-										<span class="socket"></span><span class="port-label">{port.label}</span>
+										<span>
+											<strong>{node.label}</strong>
+											<small>{node.subtitle}</small>
+										</span>
 									</Button>
-								{/each}
-							</div>
-							<div class="port-side outputs">
-								{#each node.outputs as port (port.id)}
-									<Button
-										data-interactive
-										size="sm"
-										variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
-											? 'default'
-											: 'outline'}
-										class="port-button"
-										onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
-									>
-										<span class="port-label">{port.label}</span><span class="socket"></span>
-									</Button>
-								{/each}
-							</div>
-						</article>
+								</div>
+								<div class="node-tags">
+									{#if node.child}<span class="chip">components</span>{/if}
+									{#each facetChips(node.tags) as chip (chip)}
+										<span class="chip">{chip}</span>
+									{/each}
+								</div>
+								<div class="port-side inputs">
+									{#each node.inputs as port (port.id)}
+										<Button
+											data-interactive
+											size="sm"
+											variant="outline"
+											class="port-button"
+											onclick={() => connectTo(node.id, port.id)}
+										>
+											<span class="socket"></span><span class="port-label">{port.label}</span>
+										</Button>
+									{/each}
+								</div>
+								<div class="port-side outputs">
+									{#each node.outputs as port (port.id)}
+										<Button
+											data-interactive
+											size="sm"
+											variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
+												? 'default'
+												: 'outline'}
+											class="port-button"
+											onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
+										>
+											<span class="port-label">{port.label}</span><span class="socket"></span>
+										</Button>
+									{/each}
+								</div>
+							</article>
+						{/if}
 					{/each}
 				</div>
 				<div class="floating">
@@ -1145,8 +1293,14 @@
 			{#if inspectorTab === 'inventory'}
 				<div class="panel">
 					<p class="help">
-						These three references are not on the public map until you add one. Repository, domain,
-						hostname, and Convex records stay out of the public seed.
+						References {inventoryCount(defaultInventory, 'reference')} · Repos {inventoryCount(
+							defaultInventory,
+							'repo'
+						)} · Domains {inventoryCount(defaultInventory, 'domain')} · Hosts {inventoryCount(
+							defaultInventory,
+							'hostname'
+						)} · Convex {inventoryCount(defaultInventory, 'convex')}. Private records are not in
+						this public app.
 					</p>
 					<select
 						class="theme-select"
@@ -1490,7 +1644,6 @@
 	.top-actions,
 	.segmented,
 	.diagram-path,
-	.tags,
 	.editor-heading,
 	.port-row,
 	.json-actions,
@@ -1601,20 +1754,9 @@
 	.empty p {
 		margin: 0;
 	}
-	.tag-groups,
-	.tag-group,
 	.inventory-list {
 		display: grid;
 		gap: 0.45rem;
-	}
-	.tag-group > strong {
-		font-size: 9px;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--muted-foreground);
-	}
-	.tags {
-		flex-wrap: wrap;
 	}
 	.metric {
 		display: flex;
@@ -1675,6 +1817,12 @@
 		stroke: transparent;
 		stroke-width: 14;
 		cursor: pointer;
+	}
+	.edges.dots .edge-label {
+		display: none;
+	}
+	.edges.dots path.edge-line {
+		stroke-width: 1.15;
 	}
 	.edge-label {
 		fill: var(--muted-foreground);
@@ -1809,6 +1957,154 @@
 	}
 	.tag-check input {
 		margin: 0;
+	}
+	.filter-wrap {
+		position: relative;
+	}
+	.filter-toggle,
+	.clear-filters,
+	.sort-row button,
+	.active-tags button {
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--surface-2);
+		color: var(--foreground);
+		cursor: pointer;
+	}
+	.filter-toggle {
+		display: flex;
+		width: 100%;
+		height: 32px;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 0.55rem;
+		font-size: 11px;
+	}
+	.filter-backdrop {
+		position: fixed;
+		z-index: 5;
+		inset: 0;
+		border: 0;
+		background: transparent;
+		cursor: default;
+	}
+	.filter-menu {
+		position: absolute;
+		z-index: 6;
+		top: calc(100% + 4px);
+		left: 0;
+		right: 0;
+		display: grid;
+		max-height: 320px;
+		gap: 0.35rem;
+		overflow: auto;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--card);
+		padding: 8px;
+		box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+	}
+	.filter-menu strong {
+		margin-top: 0.2rem;
+		color: var(--muted-foreground);
+		font-size: 9px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.filter-menu .tag-check {
+		width: 100%;
+		border-radius: 6px;
+		justify-content: flex-start;
+	}
+	.sort-row {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		color: var(--muted-foreground);
+		font-size: 9px;
+	}
+	.sort-row button,
+	.clear-filters,
+	.active-tags button {
+		height: 22px;
+		padding: 0 0.4rem;
+		font-size: 9px;
+	}
+	.sort-row button[aria-pressed='true'] {
+		background: var(--primary);
+		color: var(--primary-foreground);
+	}
+	.clear-filters {
+		justify-self: start;
+	}
+	.active-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+		margin-top: 0.4rem;
+	}
+	.dot {
+		position: absolute;
+		z-index: 2;
+		width: 0;
+		height: 0;
+		overflow: visible;
+	}
+	.dot.dim {
+		opacity: 0.16;
+	}
+	.dot-hit {
+		position: absolute;
+		top: 0;
+		left: 0;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		transform: translate(-9px, -50%);
+		border: 0;
+		background: transparent;
+		color: var(--foreground);
+		padding: 0;
+		cursor: grab;
+		font: inherit;
+	}
+	.dot-mark {
+		width: 16px;
+		height: 16px;
+		flex: 0 0 auto;
+		border-radius: 50%;
+		background: var(--dot);
+		box-shadow:
+			0 0 0 5px color-mix(in srgb, var(--dot) 28%, transparent),
+			0 0 16px color-mix(in srgb, var(--dot) 55%, transparent);
+	}
+	.dot.selected .dot-mark,
+	.dot.hot .dot-mark {
+		width: 20px;
+		height: 20px;
+		box-shadow:
+			0 0 0 7px color-mix(in srgb, var(--dot) 36%, transparent),
+			0 0 18px var(--dot);
+	}
+	.dot-label {
+		font-size: 12px;
+		font-weight: 650;
+		line-height: 1;
+		white-space: nowrap;
+		text-shadow:
+			0 0 8px var(--canvas),
+			0 1px 0 var(--canvas);
+	}
+	.dot.context .dot-mark {
+		outline: 1px dashed var(--foreground);
+		outline-offset: 4px;
+	}
+	.dot-ports {
+		position: absolute;
+		top: 16px;
+		left: 22px;
+		display: flex;
+		gap: 4px;
 	}
 	.panel .theme-select {
 		width: 100%;
