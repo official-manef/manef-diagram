@@ -277,7 +277,7 @@
 }
 .workspace .edges.dots path.edge-line {
 	stroke: #8b95a3;
-	stroke-width: 1;
+	stroke-width: calc(1px * var(--link, 1));
 	opacity: 0.7;
 }
 .workspace .edges.dots path.edge-line.hot {
@@ -561,6 +561,61 @@
 	padding: 0;
 	cursor: grab;
 	font: inherit;
+}
+.workspace .marquee {
+	position: absolute;
+	z-index: 6;
+	pointer-events: none;
+}
+.workspace .marquee.window {
+	border: 1.5px solid #4f8cff;
+	background: color-mix(in srgb, #4f8cff 16%, transparent);
+}
+.workspace .marquee.crossing {
+	border: 1.5px dashed #3cba8b;
+	background: color-mix(in srgb, #3cba8b 16%, transparent);
+}
+.workspace .forces {
+	position: absolute;
+	top: 12px;
+	left: 12px;
+	z-index: 5;
+	width: 220px;
+	display: grid;
+	gap: 6px;
+	padding: 10px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--card) 92%, transparent);
+	color: var(--foreground);
+	font-size: 11px;
+}
+.workspace .forces p,
+.workspace .forces label {
+	display: grid;
+	gap: 2px;
+	margin: 0;
+}
+.workspace .force-layouts,
+.workspace .force-actions {
+	display: flex;
+	gap: 4px;
+}
+.workspace .forces button {
+	flex: 1;
+	height: 26px;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+}
+.workspace .forces button[aria-pressed='true'] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.workspace .forces input[type='range'] {
+	width: 100%;
 }
 .workspace .dot-mark {
 	width: calc(var(--r) * 2);
@@ -853,6 +908,7 @@
 	}
 	.workspace .world,
 	.workspace .floating,
+	.workspace .forces,
 	.workspace .status,
 	.workspace .zoom,
 	.workspace .edge-strip {
