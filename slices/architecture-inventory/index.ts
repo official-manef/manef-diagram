@@ -10,6 +10,7 @@ export {
 	settleTick,
 	flowCard,
 	graphDot,
+	graphNodeRadius,
 	routeEdges,
 	sameGraph,
 	relatedView,
