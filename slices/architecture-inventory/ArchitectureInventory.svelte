@@ -12,7 +12,7 @@
 		diagramAt,
 		layoutGraph,
 		flowCard,
-		graphDot,
+		graphNodeRadius,
 		parseGraphJson,
 		parseImportedGraph,
 		routeEdges,
@@ -88,6 +88,7 @@
 	let inventoryKind = $state<'all' | InventoryKind>('all');
 	let activeTags = $state<string[]>([]);
 	let selectedNodeId = $state<string | null>(null);
+	let hoveredNodeId = $state<string | null>(null);
 	let selectedEdgeId = $state<string | null>(null);
 	let armedOutput = $state<{ nodeId: string; portId: string } | null>(null);
 	let jsonText = $state(JSON.stringify(defaultGraph, null, 2));
@@ -148,8 +149,9 @@
 			])
 		)
 	);
+	const traceSeed = $derived(hoveredNodeId ?? selectedNodeId);
 	const trace = $derived(
-		selectedNodeId ? traceGraph(graph, [selectedNodeId], traceMode) : { nodeIds: [], edgeIds: [] }
+		traceSeed ? traceGraph(graph, [traceSeed], traceMode) : { nodeIds: [], edgeIds: [] }
 	);
 	const highlightedNodeIds = $derived(new Set(trace.nodeIds));
 	const highlightedEdgeIds = $derived(new Set(trace.edgeIds));
@@ -214,7 +216,7 @@
 	const visibleNodes = $derived(graph.nodes.filter((node) => related.nodeIds.includes(node.id)));
 	const visibleEdges = $derived(related.edges);
 	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
-	const emphasize = $derived(Boolean(selectedNodeId) && highlightedNodeIds.size > 1);
+	const emphasize = $derived(Boolean(traceSeed) && highlightedNodeIds.size > 1);
 	const fitKey = $derived(
 		`${diagramPath.join('/')}:${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
 			.map((node) => node.id)
@@ -249,16 +251,19 @@
 		return tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag;
 	}
 
+	function nodeRadius(id: string) {
+		const links = graph.edges.filter((edge) => edge.source === id || edge.target === id).length;
+		return graphNodeRadius(links);
+	}
+
 	function dotColor(node: ArchitectureNode) {
-		if (node.status === 'private') return '#8d97a6';
+		if (node.status === 'private') return '#9aa3b2';
 		if (node.status === 'proposed') return '#d2a15a';
-		if (node.tags.includes('domain')) return '#3aa7c9';
-		if (node.tags.includes('brand')) return '#e0b15a';
-		if (node.tags.includes('docs')) return '#c9854a';
-		if (node.tags.includes('infra')) return '#7f92ad';
-		if (node.tags.some((tag) => tag === 'kind:component' || tag.startsWith('platform:')))
-			return '#6f8fbf';
-		return '#8273f6';
+		if (node.tags.includes('domain')) return '#3cb7d6';
+		if (node.tags.includes('brand')) return '#e0a24a';
+		if (node.tags.includes('docs')) return '#d08a4a';
+		if (node.tags.includes('infra')) return '#8b9bb4';
+		return '#4f8cff';
 	}
 
 	function fitPoints(points: Record<string, Point>, ids: string[]) {
@@ -271,10 +276,11 @@
 			const point = points[id];
 			if (!point) continue;
 			if (diagramMode === 'graph') {
-				minX = Math.min(minX, point.x - graphDot.radius - 8);
-				minY = Math.min(minY, point.y - graphDot.radius - 8);
-				maxX = Math.max(maxX, point.x + graphDot.radius + 168);
-				maxY = Math.max(maxY, point.y + graphDot.radius + 8);
+				const radius = nodeRadius(id);
+				minX = Math.min(minX, point.x - radius - 16);
+				minY = Math.min(minY, point.y - radius - 12);
+				maxX = Math.max(maxX, point.x + radius + 148);
+				maxY = Math.max(maxY, point.y + radius + 12);
 			} else {
 				minX = Math.min(minX, point.x);
 				minY = Math.min(minY, point.y);
@@ -700,6 +706,9 @@
 		const step = () => {
 			if (settleFrame >= 90) {
 				settleHandle = 0;
+				void tick()
+					.then(() => fitView())
+					.catch(() => undefined);
 				return;
 			}
 			const next = settleTick(graph, overrides, settleVelocity);
@@ -1077,7 +1086,7 @@
 									class="edge-line"
 									class:hot={highlightedEdgeIds.has(edge.id) || selectedEdgeId === edge.id}
 									class:dim={emphasize && !highlightedEdgeIds.has(edge.id)}
-									marker-end="url(#arrow)"
+									marker-end={diagramMode === 'flow' ? 'url(#arrow)' : undefined}
 								></path>
 								<path
 									d={route.d}
@@ -1107,14 +1116,16 @@
 								class:hot={highlightedNodeIds.has(node.id)}
 								class:selected={selectedNodeId === node.id}
 								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
-								class:context={contextNodeIds.has(node.id)}
-								data-status={node.status ?? 'active'}
-								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; --dot: ${dotColor(node)};`}
+								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; --r: ${nodeRadius(node.id)}px; --dot: ${dotColor(node)};`}
 							>
 								<button
 									type="button"
 									class="dot-hit"
 									title={node.subtitle || node.label}
+									onpointerenter={() => (hoveredNodeId = node.id)}
+									onpointerleave={() => {
+										if (hoveredNodeId === node.id) hoveredNodeId = null;
+									}}
 									onpointerdown={(event) => {
 										if (event.button !== 0) return;
 										startNodeDrag(event, node.id);
@@ -1124,34 +1135,6 @@
 									<span class="dot-mark" aria-hidden="true"></span>
 									<span class="dot-label">{node.label}</span>
 								</button>
-								{#if selectedNodeId === node.id}
-									<div class="dot-ports">
-										{#each node.outputs as port (port.id)}
-											<Button
-												data-interactive
-												size="sm"
-												variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
-													? 'default'
-													: 'outline'}
-												class="port-button"
-												onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
-											>
-												{port.label}
-											</Button>
-										{/each}
-										{#each node.inputs as port (port.id)}
-											<Button
-												data-interactive
-												size="sm"
-												variant="outline"
-												class="port-button"
-												onclick={() => connectTo(node.id, port.id)}
-											>
-												{port.label}
-											</Button>
-										{/each}
-									</div>
-								{/if}
 							</article>
 						{:else}
 							<article
@@ -1191,30 +1174,28 @@
 								</div>
 								<div class="port-side inputs">
 									{#each node.inputs as port (port.id)}
-										<Button
+										<button
+											type="button"
+											class="port in"
 											data-interactive
-											size="sm"
-											variant="outline"
-											class="port-button"
 											onclick={() => connectTo(node.id, port.id)}
 										>
 											<span class="socket"></span><span class="port-label">{port.label}</span>
-										</Button>
+										</button>
 									{/each}
 								</div>
 								<div class="port-side outputs">
 									{#each node.outputs as port (port.id)}
-										<Button
+										<button
+											type="button"
+											class="port out"
+											class:active={armedOutput?.nodeId === node.id &&
+												armedOutput?.portId === port.id}
 											data-interactive
-											size="sm"
-											variant={armedOutput?.nodeId === node.id && armedOutput?.portId === port.id
-												? 'default'
-												: 'outline'}
-											class="port-button"
 											onclick={() => (armedOutput = { nodeId: node.id, portId: port.id })}
 										>
-											<span class="port-label">{port.label}</span><span class="socket"></span>
-										</Button>
+											<span class="socket"></span><span class="port-label">{port.label}</span>
+										</button>
 									{/each}
 								</div>
 							</article>
@@ -1248,7 +1229,7 @@
 					>
 				</div>
 			</div>
-			{#if visibleEdges.length}
+			{#if visibleEdges.length && diagramMode === 'flow'}
 				<div class="edge-strip" aria-label="Connections">
 					{#each visibleEdges as edge (edge.id)}
 						<Button
@@ -1822,7 +1803,17 @@
 		display: none;
 	}
 	.edges.dots path.edge-line {
-		stroke-width: 1.15;
+		stroke: #8b95a3;
+		stroke-width: 1;
+		opacity: 0.7;
+	}
+	.edges.dots path.edge-line.hot {
+		stroke: var(--foreground);
+		stroke-width: 1.35;
+		opacity: 1;
+	}
+	.edges.dots path.edge-line.dim {
+		opacity: 0.12;
 	}
 	.edge-label {
 		fill: var(--muted-foreground);
@@ -1920,30 +1911,60 @@
 	.port-side {
 		position: absolute;
 		z-index: 2;
-		top: 28px;
+		top: 10px;
+		bottom: 10px;
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		justify-content: center;
+		gap: 8px;
 	}
 	.port-side.inputs {
 		left: 0;
-		transform: translateX(-8px);
+		transform: translateX(-6px);
 		align-items: flex-start;
 	}
 	.port-side.outputs {
 		right: 0;
-		transform: translateX(8px);
+		transform: translateX(6px);
 		align-items: flex-end;
 	}
-	:global(.port-button) {
-		height: 18px !important;
-		max-width: 7.2rem;
-		padding: 0 0.2rem !important;
-		font-size: 8px !important;
+	.port {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		max-width: 84px;
+		border: 0;
+		background: transparent;
+		color: var(--muted-foreground);
+		padding: 0;
+		cursor: pointer;
+	}
+	.port.out {
+		flex-direction: row-reverse;
 	}
 	.port-label {
 		overflow: hidden;
+		max-width: 70px;
+		border-radius: 3px;
+		background: var(--card);
+		padding: 1px 3px;
+		font-size: 8px;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.socket {
+		width: 12px;
+		height: 12px;
+		flex: 0 0 auto;
+		border: 2px solid var(--card);
+		border-radius: 50%;
+		background: var(--muted-foreground);
+		box-shadow: 0 0 0 1px var(--border);
+	}
+	.port:hover .socket,
+	.port.active .socket {
+		background: var(--primary);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
 	}
 	.tag-check {
 		display: inline-flex;
@@ -2059,64 +2080,39 @@
 		left: 0;
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		transform: translate(-9px, -50%);
+		gap: 6px;
+		transform: translate(calc(var(--r) * -1), -50%);
 		border: 0;
 		background: transparent;
-		color: var(--foreground);
+		color: var(--muted-foreground);
 		padding: 0;
 		cursor: grab;
 		font: inherit;
 	}
 	.dot-mark {
-		width: 16px;
-		height: 16px;
+		width: calc(var(--r) * 2);
+		height: calc(var(--r) * 2);
 		flex: 0 0 auto;
 		border-radius: 50%;
 		background: var(--dot);
-		box-shadow:
-			0 0 0 5px color-mix(in srgb, var(--dot) 28%, transparent),
-			0 0 16px color-mix(in srgb, var(--dot) 55%, transparent);
 	}
 	.dot.selected .dot-mark,
 	.dot.hot .dot-mark {
-		width: 20px;
-		height: 20px;
-		box-shadow:
-			0 0 0 7px color-mix(in srgb, var(--dot) 36%, transparent),
-			0 0 18px var(--dot);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 45%, transparent);
 	}
 	.dot-label {
-		font-size: 12px;
-		font-weight: 650;
+		font-size: 11px;
+		font-weight: 450;
 		line-height: 1;
 		white-space: nowrap;
-		text-shadow:
-			0 0 8px var(--canvas),
-			0 1px 0 var(--canvas);
 	}
-	.dot.context .dot-mark {
-		outline: 1px dashed var(--foreground);
-		outline-offset: 4px;
-	}
-	.dot-ports {
-		position: absolute;
-		top: 16px;
-		left: 22px;
-		display: flex;
-		gap: 4px;
+	.dot.selected .dot-label,
+	.dot.hot .dot-label {
+		color: var(--foreground);
+		font-weight: 600;
 	}
 	.panel .theme-select {
 		width: 100%;
-	}
-	.socket {
-		width: 8px;
-		height: 8px;
-		flex: 0 0 auto;
-		border: 2px solid var(--card);
-		border-radius: 50%;
-		background: var(--muted-foreground);
-		box-shadow: 0 0 0 1px var(--border);
 	}
 	.floating,
 	.status,

@@ -258,7 +258,12 @@ export function traceGraph(
 
 export const flowCard = { width: 204, height: 138, gapX: 176, gapY: 18 } as const;
 /** Graph mode draws an Obsidian-style dot. Positions in that mode are the dot center. */
-export const graphDot = { radius: 12 } as const;
+export const graphDot = { radius: 5 } as const;
+
+/** Bigger dots have more links, the same way Obsidian sizes a note. */
+export function graphNodeRadius(linkCount: number): number {
+	return 3.5 + Math.min(4.5, Math.max(0, linkCount) * 0.7);
+}
 const flowRows = 4;
 
 function columnHeight(count: number) {
@@ -401,14 +406,20 @@ export type EdgeRoute = {
 	points: Point[];
 };
 
-function graphLine(source: Point, target: Point): Point[] {
+function graphLine(
+	source: Point,
+	target: Point,
+	sourceRadius: number = graphDot.radius,
+	targetRadius: number = graphDot.radius
+): Point[] {
 	const dx = target.x - source.x;
 	const dy = target.y - source.y;
 	const distance = Math.hypot(dx, dy) || 1;
-	const inset = Math.min(graphDot.radius + 3, Math.max(0, distance / 2 - 1));
+	const sourceInset = Math.min(sourceRadius + 1.5, Math.max(0, distance / 2 - 1));
+	const targetInset = Math.min(targetRadius + 1.5, Math.max(0, distance / 2 - 1));
 	return [
-		{ x: source.x + (dx / distance) * inset, y: source.y + (dy / distance) * inset },
-		{ x: target.x - (dx / distance) * inset, y: target.y - (dy / distance) * inset }
+		{ x: source.x + (dx / distance) * sourceInset, y: source.y + (dy / distance) * sourceInset },
+		{ x: target.x - (dx / distance) * targetInset, y: target.y - (dy / distance) * targetInset }
 	];
 }
 
@@ -573,7 +584,20 @@ export function routeEdges(
 						obstacles
 					)
 				: null;
-		const points = curved ? curved.points : graphLine(source, target);
+		const points = curved
+			? curved.points
+			: graphLine(
+					source,
+					target,
+					graphNodeRadius(
+						graph.edges.filter((item) => item.source === edge.source || item.target === edge.source)
+							.length
+					),
+					graphNodeRadius(
+						graph.edges.filter((item) => item.source === edge.target || item.target === edge.target)
+							.length
+					)
+				);
 		const end = points[points.length - 1];
 		if (mode === 'graph') {
 			const dx = end.x - points[0].x;
