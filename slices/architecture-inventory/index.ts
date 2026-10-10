@@ -4,9 +4,9 @@ export {
 	addEdge,
 	adjacency,
 	cloneGraph,
-	dedupeEdges,
 	diagramAt,
 	layoutGraph,
+	linkCount,
 	settleTick,
 	flowCard,
 	graphDot,
@@ -25,6 +25,7 @@ export {
 export {
 	addInventoryItem,
 	inventoryCount,
+	parseInventoryFilter,
 	materializeInventoryItem,
 	searchInventory
 } from './lib/inventory';

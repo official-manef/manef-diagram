@@ -192,14 +192,11 @@ export function blankChild(label: string): ArchitectureGraph {
 	};
 }
 
-export function dedupeEdges(edges: ArchitectureEdge[]): ArchitectureEdge[] {
-	const seen = new Set<string>();
-	return edges.filter((edge) => {
-		const key = connectionKey(edge);
-		if (seen.has(key)) return false;
-		seen.add(key);
-		return true;
-	});
+export function linkCount(graph: ArchitectureGraph, id: string): number {
+	return graph.edges.reduce(
+		(count, edge) => count + (edge.source === id || edge.target === id ? 1 : 0),
+		0
+	);
 }
 
 export function addEdge(graph: ArchitectureGraph, edge: ArchitectureEdge): ArchitectureGraph {
@@ -589,14 +586,8 @@ export function routeEdges(
 			: graphLine(
 					source,
 					target,
-					graphNodeRadius(
-						graph.edges.filter((item) => item.source === edge.source || item.target === edge.source)
-							.length
-					),
-					graphNodeRadius(
-						graph.edges.filter((item) => item.source === edge.target || item.target === edge.target)
-							.length
-					)
+					graphNodeRadius(linkCount(graph, edge.source)),
+					graphNodeRadius(linkCount(graph, edge.target))
 				);
 		const end = points[points.length - 1];
 		if (mode === 'graph') {
