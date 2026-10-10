@@ -98,6 +98,7 @@
 .workspace .port-row,
 .workspace .json-actions,
 .workspace .floating,
+.workspace .toolbar,
 .workspace .zoom {
 	display: flex;
 	align-items: center;
@@ -165,6 +166,7 @@
 .workspace .topbar button,
 .workspace .segmented button,
 .workspace .floating button,
+.workspace .toolbar button,
 .workspace .zoom button,
 .workspace .tabs button {
 	height: 32px;
@@ -233,13 +235,10 @@
 	position: relative;
 	min-height: 0;
 	overflow: hidden;
-	cursor: grab;
+	cursor: crosshair;
 	touch-action: none;
 	background-image: radial-gradient(circle, var(--border) 0.9px, transparent 0.9px);
 	background-size: 22px 22px;
-}
-.workspace .viewport:active {
-	cursor: grabbing;
 }
 .workspace .world {
 	position: absolute;
@@ -315,6 +314,7 @@
 	border-radius: 10px;
 	background: var(--card);
 	box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
+	cursor: pointer;
 	padding: 8px 10px;
 }
 .workspace .node.selected,
@@ -559,8 +559,12 @@
 	background: transparent;
 	color: var(--muted-foreground);
 	padding: 0;
-	cursor: grab;
+	cursor: pointer;
 	font: inherit;
+}
+.workspace .dot.dragging .dot-hit,
+.workspace .node.dragging {
+	cursor: grabbing;
 }
 .workspace .marquee {
 	position: absolute;
@@ -650,6 +654,7 @@
 	width: 100%;
 }
 .workspace .floating,
+.workspace .toolbar,
 .workspace .status,
 .workspace .zoom {
 	position: absolute;
@@ -659,11 +664,17 @@
 	background: var(--card);
 	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
 }
-.workspace .floating {
-	top: 10px;
+.workspace .toolbar {
 	left: 50%;
+	bottom: 10px;
 	transform: translateX(-50%);
 	padding: 4px;
+}
+.workspace .toolbar span {
+	min-width: 40px;
+	color: var(--muted-foreground);
+	font-size: 9px;
+	text-align: center;
 }
 .workspace .status {
 	left: 10px;
@@ -908,6 +919,7 @@
 	}
 	.workspace .world,
 	.workspace .floating,
+	.workspace .toolbar,
 	.workspace .forces,
 	.workspace .status,
 	.workspace .zoom,

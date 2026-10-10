@@ -51,6 +51,7 @@
 		withoutPort
 	} from './lib/edit';
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
+	import { panForZoom } from './lib/camera';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import './editor.css';
 
@@ -122,8 +123,10 @@
 		y: number;
 		originX: number;
 		originY: number;
+		armed: boolean;
 	} | null>(null);
 	let pointerMoved = false;
+	let holdTimer = 0;
 	let panStart = $state<{
 		pointerId: number;
 		x: number;
@@ -159,7 +162,10 @@
 		stopMotion();
 	}
 
-	onDestroy(stopSettle);
+	onDestroy(() => {
+		clearTimeout(holdTimer);
+		stopSettle();
+	});
 
 	function applyEditorTheme(next: 'composio-dark' | 'composio-light' | 'system') {
 		editorTheme = next;
@@ -260,7 +266,12 @@
 		return graphNodeRadius(linkCount(graph, id));
 	}
 
-	function fitPoints(points: Record<string, Point>, ids: string[], animate = false) {
+	function fitPoints(
+		points: Record<string, Point>,
+		ids: string[],
+		animate = false,
+		includeRoutes = true
+	) {
 		if (!viewport) return;
 		let minX = Infinity;
 		let minY = Infinity;
@@ -283,22 +294,25 @@
 			}
 		}
 		if (!Number.isFinite(minX)) return;
-		for (const route of routes) {
-			if (!visibleEdges.some((edge) => edge.id === route.id)) continue;
-			for (const point of route.points) {
-				minX = Math.min(minX, point.x - 12);
-				minY = Math.min(minY, point.y - 18);
-				maxX = Math.max(maxX, point.x + 12);
-				maxY = Math.max(maxY, point.y + 8);
+		if (includeRoutes) {
+			for (const route of routes) {
+				if (!visibleEdges.some((edge) => edge.id === route.id)) continue;
+				for (const point of route.points) {
+					minX = Math.min(minX, point.x - 12);
+					minY = Math.min(minY, point.y - 18);
+					maxX = Math.max(maxX, point.x + 12);
+					maxY = Math.max(maxY, point.y + 8);
+				}
 			}
 		}
 		const rect = viewport.getBoundingClientRect();
 		if (rect.width < 40 || rect.height < 40) return;
 		const pad = 28;
+		const cap = includeRoutes ? 1.25 : 2.2;
 		const scale = Math.min(
-			1.05,
+			cap,
 			Math.max(
-				0.4,
+				0.2,
 				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
 			)
 		);
@@ -682,14 +696,32 @@
 			x: event.clientX,
 			y: event.clientY,
 			originX: start.x,
-			originY: start.y
+			originY: start.y,
+			armed: false
 		};
-		if (diagramMode === 'graph') reheat(0.4);
+		clearTimeout(holdTimer);
+		holdTimer = window.setTimeout(() => {
+			if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+			const point = basePositions[nodeId] ?? { x: nodeDrag.originX, y: nodeDrag.originY };
+			nodeDrag = {
+				...nodeDrag,
+				armed: true,
+				x: nodeDrag.x,
+				y: nodeDrag.y,
+				originX: point.x,
+				originY: point.y
+			};
+			if (diagramMode === 'graph') reheat(0.4);
+		}, 160);
 		event.stopPropagation();
 	}
 
 	function moveNodeDrag(event: PointerEvent) {
 		if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+		if (!nodeDrag.armed) {
+			nodeDrag = { ...nodeDrag, x: event.clientX, y: event.clientY };
+			return;
+		}
 		const dx = event.clientX - nodeDrag.x;
 		const dy = event.clientY - nodeDrag.y;
 		if (Math.abs(dx) + Math.abs(dy) > 3) pointerMoved = true;
@@ -703,7 +735,52 @@
 	}
 
 	function stopNodeDrag(event: PointerEvent) {
-		if (nodeDrag?.pointerId === event.pointerId) nodeDrag = null;
+		if (nodeDrag?.pointerId !== event.pointerId) return;
+		clearTimeout(holdTimer);
+		nodeDrag = null;
+	}
+
+	const zoomMin = 0.25;
+	const zoomMax = 2.5;
+
+	function zoomAt(clientX: number, clientY: number, nextZoom: number) {
+		stopMotion();
+		const next = Math.min(zoomMax, Math.max(zoomMin, nextZoom));
+		if (!viewport) {
+			zoom = next;
+			return;
+		}
+		const bounds = viewport.getBoundingClientRect();
+		pan = panForZoom(pan, { x: clientX - bounds.left, y: clientY - bounds.top }, zoom, next);
+		zoom = next;
+	}
+
+	function zoomBy(factor: number) {
+		if (!viewport) {
+			zoom = Math.min(zoomMax, Math.max(zoomMin, zoom * factor));
+			return;
+		}
+		const bounds = viewport.getBoundingClientRect();
+		zoomAt(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2, zoom * factor);
+	}
+
+	function zoomActual() {
+		if (!viewport) {
+			zoom = 1;
+			return;
+		}
+		const bounds = viewport.getBoundingClientRect();
+		zoomAt(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2, 1);
+	}
+
+	function zoomSelection() {
+		const fromEdges = selectedEdgeIds.flatMap((id) => {
+			const edge = graph.edges.find((item) => item.id === id);
+			return edge ? [edge.source, edge.target] : [];
+		});
+		const ids = [...new Set(selectedNodeIds.length > 0 ? selectedNodeIds : fromEdges)];
+		if (ids.length === 0) return;
+		fitPoints(basePositions, ids, true, false);
 	}
 
 	function fitView(animate = false) {
@@ -901,7 +978,7 @@
 	function handleWheel(event: WheelEvent) {
 		if (window.matchMedia('(max-width: 44rem)').matches) return;
 		event.preventDefault();
-		zoom = Math.min(1.6, Math.max(0.4, zoom * (event.deltaY < 0 ? 1.08 : 0.92)));
+		zoomAt(event.clientX, event.clientY, zoom * (event.deltaY < 0 ? 1.08 : 0.92));
 	}
 </script>
 
@@ -1117,8 +1194,8 @@
 					</span>
 				</div>
 				<p class="help">
-					Middle-click to pan. Drag left to right to enclose, or right to left to cross. In Graph,
-					nodes are dots.
+					Click a node to select it. Hold a node to drag it. Drag empty space to box-select: left to
+					right encloses, right to left crosses. Scroll zooms toward the pointer.
 				</p>
 			</section>
 		</aside>
@@ -1246,6 +1323,7 @@
 								class="dot"
 								class:hot={highlightedNodeIds.has(node.id)}
 								class:selected={selectedNodeIds.includes(node.id)}
+								class:dragging={nodeDrag?.armed === true && nodeDrag.nodeId === node.id}
 								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
 								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; --r: ${nodeRadius(node.id) * (forces.nodeSize / 100)}px; --dot: ${dotColor(node)};`}
 							>
@@ -1272,6 +1350,7 @@
 								class="node"
 								class:hot={highlightedNodeIds.has(node.id)}
 								class:selected={selectedNodeIds.includes(node.id)}
+								class:dragging={nodeDrag?.armed === true && nodeDrag.nodeId === node.id}
 								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
 								class:context={contextNodeIds.has(node.id)}
 								class:connecting={armedOutput?.nodeId === node.id}
@@ -1430,9 +1509,22 @@
 						</div>
 					</div>
 				{/if}
-				<div class="floating">
-					<Button size="sm" variant="default" aria-pressed="true">Select</Button>
+				<div class="toolbar" data-interactive>
 					<Button size="sm" variant="outline" onclick={() => fitView(true)}>Fit</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={selectedNodeIds.length === 0 && selectedEdgeIds.length === 0}
+						onclick={zoomSelection}>Selection</Button
+					>
+					<Button size="sm" variant="outline" onclick={zoomActual}>100%</Button>
+					<Button size="sm" variant="outline" onclick={() => zoomBy(0.9)} aria-label="Zoom out"
+						>−</Button
+					>
+					<span>{Math.round(zoom * 100)}%</span>
+					<Button size="sm" variant="outline" onclick={() => zoomBy(1.1)} aria-label="Zoom in"
+						>+</Button
+					>
 					<Button size="sm" variant="outline" onclick={startSettle}>Settle</Button>
 					{#if armedOutput}
 						<Button size="sm" variant="outline" onclick={() => (armedOutput = null)}>Cancel</Button>
@@ -1450,15 +1542,6 @@
 									: armedOutput
 										? 'output armed'
 										: 'no selection'}
-				</div>
-				<div class="zoom">
-					<Button size="sm" variant="outline" onclick={() => (zoom = Math.max(0.4, zoom * 0.9))}
-						>−</Button
-					>
-					<span>{Math.round(zoom * 100)}%</span>
-					<Button size="sm" variant="outline" onclick={() => (zoom = Math.min(1.6, zoom * 1.1))}
-						>+</Button
-					>
 				</div>
 			</div>
 			{#if visibleEdges.length && diagramMode === 'flow'}
