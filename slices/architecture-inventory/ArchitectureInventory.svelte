@@ -132,10 +132,17 @@
 	let settleVelocity: Record<string, Point> = {};
 	let settleFrame = 0;
 	let settleHandle = 0;
+	let motionHandle = 0;
+
+	function stopMotion() {
+		if (motionHandle) cancelAnimationFrame(motionHandle);
+		motionHandle = 0;
+	}
 
 	function stopSettle() {
 		if (settleHandle) cancelAnimationFrame(settleHandle);
 		settleHandle = 0;
+		stopMotion();
 	}
 
 	onDestroy(stopSettle);
@@ -215,7 +222,7 @@
 	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
 	const emphasize = $derived(Boolean(traceSeed) && highlightedNodeIds.size > 1);
 	const fitKey = $derived(
-		`${diagramPath.join('/')}:${diagramMode}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
+		`${diagramPath.join('/')}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
 			.map((node) => node.id)
 			.join(',')}:${focusMode}`
 	);
@@ -239,7 +246,7 @@
 		return graphNodeRadius(linkCount(graph, id));
 	}
 
-	function fitPoints(points: Record<string, Point>, ids: string[]) {
+	function fitPoints(points: Record<string, Point>, ids: string[], animate = false) {
 		if (!viewport) return;
 		let minX = Infinity;
 		let minY = Infinity;
@@ -281,18 +288,69 @@
 				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
 			)
 		);
-		zoom = scale;
-		pan = {
+		const nextPan = {
 			x: (rect.width - (maxX - minX) * scale) / 2 - minX * scale,
 			y: (rect.height - (maxY - minY) * scale) / 2 - minY * scale
 		};
+		if (!animate) {
+			zoom = scale;
+			pan = nextPan;
+			return;
+		}
+		const fromZoom = zoom;
+		const fromPan = pan;
+		const started = performance.now();
+		const step = (now: number) => {
+			const t = Math.min(1, (now - started) / 560);
+			const eased = 1 - (1 - t) ** 3;
+			zoom = fromZoom + (scale - fromZoom) * eased;
+			pan = {
+				x: fromPan.x + (nextPan.x - fromPan.x) * eased,
+				y: fromPan.y + (nextPan.y - fromPan.y) * eased
+			};
+			motionHandle = t < 1 ? requestAnimationFrame(step) : 0;
+		};
+		stopMotion();
+		motionHandle = requestAnimationFrame(step);
 	}
 
-	function fitView() {
-		fitPoints(
-			basePositions,
-			visibleNodes.map((node) => node.id)
-		);
+	function showFlow() {
+		stopSettle();
+		const from: Record<string, Point> = {};
+		for (const node of graph.nodes) {
+			const point = basePositions[node.id] ?? { x: 0, y: 0 };
+			from[node.id] =
+				diagramMode === 'graph'
+					? { x: point.x - flowCard.width / 2, y: point.y - flowCard.height / 2 }
+					: point;
+		}
+		diagramMode = 'flow';
+		const to = layoutGraph(graph, 'flow');
+		const started = performance.now();
+		const step = (now: number) => {
+			const t = Math.min(1, (now - started) / 680);
+			const eased = 1 - (1 - t) ** 3;
+			const next: Record<string, Point> = {};
+			for (const node of graph.nodes) {
+				const start = from[node.id] ?? to[node.id] ?? { x: 0, y: 0 };
+				const end = to[node.id] ?? start;
+				next[node.id] = {
+					x: start.x + (end.x - start.x) * eased,
+					y: start.y + (end.y - start.y) * eased
+				};
+			}
+			overrides = next;
+			if (t < 1) {
+				settleHandle = requestAnimationFrame(step);
+				return;
+			}
+			settleHandle = 0;
+			overrides = {};
+			void tick()
+				.then(() => fitView(true))
+				.catch(() => undefined);
+		};
+		settleHandle = requestAnimationFrame(step);
 	}
 
 	$effect(() => {
@@ -613,17 +671,37 @@
 		if (nodeDrag?.pointerId === event.pointerId) nodeDrag = null;
 	}
 
+	function fitView(animate = false) {
+		fitPoints(
+			basePositions,
+			visibleNodes.map((node) => node.id),
+			animate
+		);
+	}
+
 	function startSettle() {
+		const fromFlow = diagramMode !== 'graph';
+		const seed: Record<string, Point> = {};
+		for (const node of graph.nodes) {
+			const point = basePositions[node.id] ?? { x: 0, y: 0 };
+			seed[node.id] = fromFlow
+				? { x: point.x + flowCard.width / 2, y: point.y + flowCard.height / 2 }
+				: point;
+		}
 		stopSettle();
 		diagramMode = 'graph';
-		overrides = { ...layoutGraph(graph, 'graph') };
+		overrides = seed;
 		settleVelocity = {};
 		settleFrame = 0;
 		const step = () => {
-			if (settleFrame >= 90) {
+			const fastest = Math.max(
+				0,
+				...Object.values(settleVelocity).map((item) => Math.hypot(item.x, item.y))
+			);
+			if (settleFrame >= 180 || (settleFrame > 40 && fastest < 0.4)) {
 				settleHandle = 0;
 				void tick()
-					.then(() => fitView())
+					.then(() => fitView(true))
 					.catch(() => undefined);
 				return;
 			}
@@ -722,11 +800,7 @@
 				aria-pressed={diagramMode === 'flow'}
 				disabled={!hydrated}
 				size="sm"
-				onclick={() => {
-					stopSettle();
-					overrides = {};
-					diagramMode = 'flow';
-				}}>Flow</Button
+				onclick={showFlow}>Flow</Button
 			>
 			<Button
 				data-interactive
@@ -1120,7 +1194,7 @@
 				</div>
 				<div class="floating">
 					<Button size="sm" variant="default" aria-pressed="true">Select</Button>
-					<Button size="sm" variant="outline" onclick={fitView}>Fit</Button>
+					<Button size="sm" variant="outline" onclick={() => fitView(true)}>Fit</Button>
 					<Button size="sm" variant="outline" onclick={startSettle}>Settle</Button>
 					{#if armedOutput}
 						<Button size="sm" variant="outline" onclick={() => (armedOutput = null)}>Cancel</Button>
