@@ -25,7 +25,7 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 8. Release gates include Bun frozen install, check, lint, unit tests, production build and browser smoke when available.
 9. Portable links restore validated graph data and view filters; invalid or oversized links show a recoverable error with the default graph.
 10. Namespaced tag facets combine alternatives within a namespace and intersect namespaces, including arbitrary user-supplied namespace names.
-11. A node may contain a child diagram of the same contract. Selecting that node again opens it, up to three levels deep. The public seed stays nine services and eight edges. A seeded child describes this product and does not add private infrastructure.
+11. A node may contain a child diagram of the same contract. Selecting that node again opens it, up to three levels deep. The public seed keeps nine services and adds their public modules. A seeded child describes this product and does not add private infrastructure.
 
 ## Revision evidence — 2026-10-09
 

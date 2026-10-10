@@ -299,21 +299,24 @@ function layoutFlow(graph: ArchitectureGraph): Record<string, Point> {
 }
 
 function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
-	const degree = new Map(graph.nodes.map((node) => [node.id, 0]));
+	const core = graph.nodes.filter((node) => (node.level ?? 3) < 3);
+	const placed = core.length > 0 ? core : graph.nodes;
+	const degree = new Map(placed.map((node) => [node.id, 0]));
 	for (const edge of graph.edges) {
+		if (!degree.has(edge.source) || !degree.has(edge.target)) continue;
 		degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
 		degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
 	}
 	const hub =
-		[...graph.nodes].sort(
+		[...placed].sort(
 			(a, b) =>
 				(degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) ||
 				(a.level ?? 3) - (b.level ?? 3) ||
 				a.label.localeCompare(b.label)
-		)[0] ?? graph.nodes[0];
-	const others = graph.nodes.filter((node) => node.id !== hub?.id);
+		)[0] ?? placed[0];
+	const others = placed.filter((node) => node.id !== hub?.id);
 	const count = Math.max(others.length, 1);
-	const radius = Math.max(360, flowCard.width + 120 + count * 28);
+	const radius = Math.max(280, 180 + count * 36);
 	const center = { x: 980, y: 760 };
 	const points: Record<string, Point> = {};
 	if (hub) points[hub.id] = { x: center.x, y: center.y };
@@ -324,6 +327,26 @@ function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
 			y: center.y + Math.sin(angle) * radius
 		};
 	});
+	const extras = graph.nodes.filter((node) => !points[node.id]);
+	const satellites = new Map<string, ArchitectureNode[]>();
+	for (const node of extras) {
+		const edge = graph.edges.find((item) => item.source === node.id || item.target === node.id);
+		const anchor = edge ? (edge.source === node.id ? edge.target : edge.source) : hub?.id;
+		const list = satellites.get(anchor ?? '') ?? [];
+		list.push(node);
+		satellites.set(anchor ?? '', list);
+	}
+	for (const [anchorId, nodes] of satellites) {
+		const anchor = points[anchorId] ?? center;
+		const orbit = 72 + nodes.length * 14;
+		nodes.forEach((node, index) => {
+			const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(nodes.length, 1);
+			points[node.id] = {
+				x: anchor.x + Math.cos(angle) * orbit,
+				y: anchor.y + Math.sin(angle) * orbit
+			};
+		});
+	}
 	return points;
 }
 
@@ -349,7 +372,7 @@ export function settleTick(
 			let distanceSquared = dx * dx + dy * dy;
 			if (distanceSquared < 1) distanceSquared = 1;
 			const distance = Math.sqrt(distanceSquared);
-			const push = 110000 / distanceSquared;
+			const push = 28000 / distanceSquared;
 			dx /= distance;
 			dy /= distance;
 			const forceA = force.get(ids[left]);
@@ -370,7 +393,7 @@ export function settleTick(
 		let dx = b.x - a.x;
 		let dy = b.y - a.y;
 		const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-		const pull = (distance - 260) * 0.011;
+		const pull = (distance - 150) * 0.02;
 		dx /= distance;
 		dy /= distance;
 		forceA.x += dx * pull;
@@ -384,10 +407,17 @@ export function settleTick(
 		const current = positions[id];
 		const motion = velocity[id] ?? { x: 0, y: 0 };
 		const applied = force.get(id) ?? { x: 0, y: 0 };
+		applied.x += (980 - current.x) * 0.012;
+		applied.y += (760 - current.y) * 0.012;
 		const next = {
-			x: Math.max(-28, Math.min(28, (motion.x + applied.x) * 0.82)),
-			y: Math.max(-28, Math.min(28, (motion.y + applied.y) * 0.82))
+			x: (motion.x + applied.x) * 0.72,
+			y: (motion.y + applied.y) * 0.72
 		};
+		const speed = Math.hypot(next.x, next.y);
+		if (speed > 14) {
+			next.x *= 14 / speed;
+			next.y *= 14 / speed;
+		}
 		nextVelocity[id] = next;
 		nextPositions[id] = { x: current.x + next.x, y: current.y + next.y };
 	}
@@ -532,16 +562,19 @@ function flowCurve(
 	const bend = Math.max(60, Math.abs(end.x - start.x) * 0.42);
 	const direct = curveThrough(start, end, bend, null);
 	if (!samplesHit(direct.points, obstacles)) return direct;
-	const left = Math.min(start.x, end.x);
-	const right = Math.max(start.x, end.x);
-	const crossed = obstacles.filter((box) => box.x + flowCard.width > left && box.x < right);
-	const roof = Math.min(...crossed.map((box) => box.y), start.y, end.y);
-	for (const extra of [72, 120, 180, 260]) {
-		const clearance = roof - extra;
+	const roof = Math.min(start.y, end.y, ...obstacles.map((box) => box.y));
+	const over = curveThrough(start, end, 0, { start: roof - 64, end: roof - 64 });
+	if (!samplesHit(over.points, obstacles)) return over;
+	const crossed = obstacles.filter(
+		(box) => box.x + flowCard.width > Math.min(start.x, end.x) && box.x < Math.max(start.x, end.x)
+	);
+	const crossedRoof = Math.min(...crossed.map((box) => box.y), start.y, end.y);
+	for (const extra of [72, 120, 180, 260, 420]) {
+		const clearance = crossedRoof - extra;
 		const tucked = curveThrough(start, end, 72, { start: clearance, end: clearance });
 		if (!samplesHit(tucked.points, obstacles)) return tucked;
 	}
-	return curveThrough(start, end, 72, { start: roof - 320, end: roof - 320 });
+	return curveThrough(start, end, 0, { start: roof - 220, end: roof - 220 });
 }
 
 export function routeEdges(

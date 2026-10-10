@@ -111,7 +111,21 @@ export const defaultGraph: ArchitectureGraph = {
 			'manef',
 			'infra',
 			'private'
-		])
+		]),
+		node('directory', 'Directory', 'Public pages', 3, 'active', ['module']),
+		node('canvas', 'Canvas', 'The public map', 3, 'active', ['module']),
+		node('workspace', 'Workspace', 'Local demo', 3, 'active', ['module']),
+		node('contract', 'Contract', 'Nodes and edges', 3, 'active', ['module']),
+		node('mcp', 'MCP', 'Read API', 3, 'active', ['module']),
+		node('shell', 'Shell', 'MSO frame', 3, 'active', ['module']),
+		node('sessions', 'Sessions', 'Signed-in state', 3, 'active', ['module']),
+		node('catalog', 'Catalog', 'Model list', 3, 'active', ['module']),
+		node('routing', 'Routing', 'Model choice', 3, 'active', ['module']),
+		node('sign-in', 'Sign-in', 'Account entry', 3, 'active', ['module']),
+		node('webhooks', 'Webhooks', 'Inbound events', 3, 'active', ['module']),
+		node('agents', 'Agents', 'Registered agents', 3, 'active', ['module']),
+		node('tools', 'Tools', 'Registered tools', 3, 'active', ['module']),
+		node('guide', 'Guide', 'Public docs', 3, 'active', ['module'])
 	],
 	edges: [
 		{
@@ -177,7 +191,21 @@ export const defaultGraph: ArchitectureGraph = {
 			target: 'ops',
 			targetPort: 'in',
 			label: 'private operations'
-		}
+		},
+		link('arch-directory', 'architecture', 'directory', 'lists pages'),
+		link('arch-canvas', 'architecture', 'canvas', 'draws the map'),
+		link('arch-workspace', 'architecture', 'workspace', 'opens the demo'),
+		link('arch-contract', 'architecture', 'contract', 'defines the map'),
+		link('arch-mcp', 'architecture', 'mcp', 'reads the map'),
+		link('mso-shell', 'mso', 'shell', 'frames the shell'),
+		link('mso-sessions', 'mso', 'sessions', 'keeps a session'),
+		link('models-catalog', 'models', 'catalog', 'lists models'),
+		link('models-routing', 'models', 'routing', 'chooses a model'),
+		link('connectors-signin', 'connectors', 'sign-in', 'starts sign-in'),
+		link('connectors-webhooks', 'connectors', 'webhooks', 'receives events'),
+		link('registry-agents', 'registry', 'agents', 'indexes agents'),
+		link('registry-tools', 'registry', 'tools', 'indexes tools'),
+		link('docs-guide', 'docs', 'guide', 'explains the product')
 	]
 };
 

@@ -2,7 +2,7 @@ import type { ArchitectureGraph, DiagramMode, TraceMode } from '../types';
 import { cloneGraph, parseGraphJson, validateGraph } from './graph';
 
 export const DEFAULT_DIAGRAM_ORIGIN = 'https://diagram.manef.dev';
-export const PORTABLE_GRAPH_MAX_CHARS = 6_000;
+export const PORTABLE_GRAPH_MAX_CHARS = 12_000;
 
 export type DiagramView = {
 	graph?: ArchitectureGraph;
