@@ -355,73 +355,226 @@ export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record
 	return mode === 'graph' ? layoutRadial(graph) : layoutFlow(graph);
 }
 
+export type GraphLayout = 'web' | 'radial' | 'layered';
+
+/** Same knobs as Open Silong's graph: centre, repel, link stiffness, link length. */
+export type GraphForces = {
+	layout: GraphLayout;
+	center: number;
+	repel: number;
+	link: number;
+	linkDistance: number;
+	nodeSize: number;
+	linkThickness: number;
+	animate: boolean;
+};
+
+export const defaultForces: GraphForces = {
+	layout: 'web',
+	center: 40,
+	repel: 50,
+	link: 85,
+	linkDistance: 170,
+	nodeSize: 100,
+	linkThickness: 100,
+	animate: false
+};
+
+const FORCE_CENTER = { x: 980, y: 760 };
+const REPEL_SCALE = 7000;
+const REPEL_CAP = 5;
+const REPEL_MAX2 = 640000;
+const CENTER_K = 0.1;
+const DAMPEN = 0.7;
+const VEL_CAP = 12;
+const RING_GAP = 130;
+const LAYER_GAP = 190;
+const RADIAL_K = 0.09;
+const LAYER_K = 0.1;
+
+function hopRings(graph: ArchitectureGraph): {
+	pivot: string | null;
+	ring: Map<string, number>;
+	maxRing: number;
+} {
+	const degree = new Map(graph.nodes.map((node) => [node.id, linkCount(graph, node.id)]));
+	let pivot: string | null = null;
+	let best = -1;
+	for (const node of graph.nodes) {
+		const weight = degree.get(node.id) ?? 0;
+		if (weight > best) {
+			best = weight;
+			pivot = node.id;
+		}
+	}
+	const neighbors = adjacency(graph);
+	const ring = new Map<string, number>();
+	if (pivot) {
+		ring.set(pivot, 0);
+		const queue = [pivot];
+		for (let index = 0; index < queue.length; index += 1) {
+			const next = (ring.get(queue[index]) ?? 0) + 1;
+			for (const neighbor of neighbors.get(queue[index]) ?? []) {
+				if (!ring.has(neighbor)) {
+					ring.set(neighbor, next);
+					queue.push(neighbor);
+				}
+			}
+		}
+	}
+	let maxRing = 0;
+	for (const value of ring.values()) if (value > maxRing) maxRing = value;
+	const outer = maxRing + 1;
+	for (const node of graph.nodes) if (!ring.has(node.id)) ring.set(node.id, outer);
+	return { pivot, ring, maxRing: outer };
+}
+
+/** One d3-style force step. `alpha` is the temperature; 0 freezes injected forces. */
+export function forceStep(
+	graph: ArchitectureGraph,
+	positions: Record<string, Point>,
+	velocity: Record<string, Point> = {},
+	forces: GraphForces = defaultForces,
+	alpha = 1,
+	pinnedId: string | null = null
+): { positions: Record<string, Point>; velocity: Record<string, Point> } {
+	const ids = graph.nodes.map((node) => node.id).filter((id) => positions[id]);
+	const nextPositions: Record<string, Point> = {};
+	const nextVelocity: Record<string, Point> = {};
+	const body = new Map(
+		ids.map((id) => {
+			const point = positions[id];
+			const motion = velocity[id] ?? { x: 0, y: 0 };
+			return [id, { x: point.x, y: point.y, vx: motion.x, vy: motion.y }];
+		})
+	);
+	const charge = (forces.repel / 100) * REPEL_SCALE;
+	const gravity = Math.max(0.008, forces.center / 100) * CENTER_K;
+	const linkMul = forces.link / 100;
+	const desired = forces.linkDistance;
+	const scale = forces.nodeSize / 100;
+	const { pivot, ring, maxRing } = hopRings(graph);
+	if (forces.layout === 'radial') {
+		for (const id of ids) {
+			const point = body.get(id);
+			if (!point) continue;
+			if (id === pivot) {
+				point.vx += (FORCE_CENTER.x - point.x) * 0.3 * alpha;
+				point.vy += (FORCE_CENTER.y - point.y) * 0.3 * alpha;
+				continue;
+			}
+			const targetR = (ring.get(id) || 1) * RING_GAP;
+			const dx = point.x - FORCE_CENTER.x;
+			const dy = point.y - FORCE_CENTER.y;
+			const distance = Math.hypot(dx, dy) || 1;
+			const pull = RADIAL_K * alpha;
+			point.vx += (dx / distance) * (targetR - distance) * pull;
+			point.vy += (dy / distance) * (targetR - distance) * pull;
+			point.vx += (FORCE_CENTER.x - point.x) * 0.006 * alpha;
+			point.vy += (FORCE_CENTER.y - point.y) * 0.006 * alpha;
+		}
+	} else if (forces.layout === 'layered') {
+		const mid = maxRing / 2;
+		for (const id of ids) {
+			const point = body.get(id);
+			if (!point) continue;
+			const targetX = FORCE_CENTER.x + ((ring.get(id) || 0) - mid) * LAYER_GAP;
+			point.vx += (targetX - point.x) * LAYER_K * alpha;
+			point.vy += (FORCE_CENTER.y - point.y) * 0.012 * alpha;
+		}
+	} else {
+		for (const id of ids) {
+			const point = body.get(id);
+			if (!point) continue;
+			point.vx += (FORCE_CENTER.x - point.x) * gravity * alpha;
+			point.vy += (FORCE_CENTER.y - point.y) * gravity * alpha;
+		}
+	}
+	for (let left = 0; left < ids.length; left += 1) {
+		const a = body.get(ids[left]);
+		if (!a) continue;
+		const radiusA = graphNodeRadius(linkCount(graph, ids[left])) * scale;
+		for (let right = left + 1; right < ids.length; right += 1) {
+			const b = body.get(ids[right]);
+			if (!b) continue;
+			let dx = a.x - b.x;
+			let dy = a.y - b.y;
+			let distanceSquared = dx * dx + dy * dy;
+			if (distanceSquared < 1) {
+				dx = 0.5;
+				dy = 0;
+				distanceSquared = 1;
+			}
+			if (distanceSquared > REPEL_MAX2) continue;
+			const distance = Math.sqrt(distanceSquared);
+			const ux = dx / distance;
+			const uy = dy / distance;
+			const magnitude = Math.min(REPEL_CAP, charge / distanceSquared) * alpha;
+			a.vx += ux * magnitude;
+			a.vy += uy * magnitude;
+			b.vx -= ux * magnitude;
+			b.vy -= uy * magnitude;
+			const minDistance = radiusA + graphNodeRadius(linkCount(graph, ids[right])) * scale + 6;
+			if (distance < minDistance) {
+				const push = (minDistance - distance) * 0.5;
+				a.x += ux * push;
+				a.y += uy * push;
+				b.x -= ux * push;
+				b.y -= uy * push;
+			}
+		}
+	}
+	for (const edge of graph.edges) {
+		const a = body.get(edge.source);
+		const b = body.get(edge.target);
+		if (!a || !b) continue;
+		const sourceDegree = Math.max(1, linkCount(graph, edge.source));
+		const targetDegree = Math.max(1, linkCount(graph, edge.target));
+		const strength = (linkMul / Math.min(sourceDegree, targetDegree)) * alpha;
+		const bias = sourceDegree / (sourceDegree + targetDegree);
+		const dx = b.x - a.x;
+		const dy = b.y - a.y;
+		const distance = Math.hypot(dx, dy) || 1;
+		const pull = ((distance - desired) / distance) * strength;
+		const fx = dx * pull;
+		const fy = dy * pull;
+		b.vx -= fx * bias;
+		b.vy -= fy * bias;
+		a.vx += fx * (1 - bias);
+		a.vy += fy * (1 - bias);
+	}
+	for (const id of ids) {
+		const point = body.get(id);
+		if (!point) continue;
+		if (id === pinnedId) {
+			nextVelocity[id] = { x: 0, y: 0 };
+			nextPositions[id] = { x: positions[id].x, y: positions[id].y };
+			continue;
+		}
+		if (forces.animate) {
+			point.vx += (((id.charCodeAt(0) % 5) - 2) / 8) * 0.6 * alpha;
+			point.vy += ((((id.charCodeAt(1) ?? id.charCodeAt(0)) % 5) - 2) / 8) * 0.6 * alpha;
+		}
+		point.vx *= DAMPEN;
+		point.vy *= DAMPEN;
+		const speed = Math.hypot(point.vx, point.vy);
+		if (speed > VEL_CAP) {
+			point.vx = (point.vx / speed) * VEL_CAP;
+			point.vy = (point.vy / speed) * VEL_CAP;
+		}
+		nextVelocity[id] = { x: point.vx, y: point.vy };
+		nextPositions[id] = { x: point.x + point.vx, y: point.y + point.vy };
+	}
+	return { positions: nextPositions, velocity: nextVelocity };
+}
+
 /** One step of the graph-mode force layout used by Settle. */
 export function settleTick(
 	graph: ArchitectureGraph,
 	positions: Record<string, Point>,
 	velocity: Record<string, Point> = {}
 ): { positions: Record<string, Point>; velocity: Record<string, Point> } {
-	const ids = graph.nodes.map((node) => node.id).filter((id) => positions[id]);
-	const force = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
-	for (let left = 0; left < ids.length; left += 1) {
-		for (let right = left + 1; right < ids.length; right += 1) {
-			const a = positions[ids[left]];
-			const b = positions[ids[right]];
-			let dx = a.x - b.x;
-			let dy = a.y - b.y;
-			let distanceSquared = dx * dx + dy * dy;
-			if (distanceSquared < 1) distanceSquared = 1;
-			const distance = Math.sqrt(distanceSquared);
-			const push = 28000 / distanceSquared;
-			dx /= distance;
-			dy /= distance;
-			const forceA = force.get(ids[left]);
-			const forceB = force.get(ids[right]);
-			if (!forceA || !forceB) continue;
-			forceA.x += dx * push;
-			forceA.y += dy * push;
-			forceB.x -= dx * push;
-			forceB.y -= dy * push;
-		}
-	}
-	for (const edge of graph.edges) {
-		const a = positions[edge.source];
-		const b = positions[edge.target];
-		const forceA = force.get(edge.source);
-		const forceB = force.get(edge.target);
-		if (!a || !b || !forceA || !forceB) continue;
-		let dx = b.x - a.x;
-		let dy = b.y - a.y;
-		const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-		const pull = (distance - 150) * 0.02;
-		dx /= distance;
-		dy /= distance;
-		forceA.x += dx * pull;
-		forceA.y += dy * pull;
-		forceB.x -= dx * pull;
-		forceB.y -= dy * pull;
-	}
-	const nextPositions = { ...positions };
-	const nextVelocity: Record<string, Point> = { ...velocity };
-	for (const id of ids) {
-		const current = positions[id];
-		const motion = velocity[id] ?? { x: 0, y: 0 };
-		const applied = force.get(id) ?? { x: 0, y: 0 };
-		applied.x += (980 - current.x) * 0.012;
-		applied.y += (760 - current.y) * 0.012;
-		const next = {
-			x: (motion.x + applied.x) * 0.72,
-			y: (motion.y + applied.y) * 0.72
-		};
-		const speed = Math.hypot(next.x, next.y);
-		if (speed > 14) {
-			next.x *= 14 / speed;
-			next.y *= 14 / speed;
-		}
-		nextVelocity[id] = next;
-		nextPositions[id] = { x: current.x + next.x, y: current.y + next.y };
-	}
-	return { positions: nextPositions, velocity: nextVelocity };
+	return forceStep(graph, positions, velocity, defaultForces, 1);
 }
 
 export type EdgeRoute = {

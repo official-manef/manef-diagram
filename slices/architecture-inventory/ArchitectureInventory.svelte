@@ -22,7 +22,8 @@
 		searchInventory,
 		inventoryCount,
 		parseInventoryFilter,
-		settleTick,
+		forceStep,
+		defaultForces,
 		traceGraph,
 		buildDiagramViewUrl,
 		parseDiagramView,
@@ -50,6 +51,7 @@
 		withoutPort
 	} from './lib/edit';
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
+	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import './editor.css';
 
 	let root = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
@@ -99,6 +101,8 @@
 	let inventoryKind = $state<'all' | InventoryKind>('all');
 	let activeTags = $state<string[]>([]);
 	let selectedNodeId = $state<string | null>(null);
+	let selectedNodeIds = $state<string[]>([]);
+	let selectedEdgeIds = $state<string[]>([]);
 	let hoveredNodeId = $state<string | null>(null);
 	let selectedEdgeId = $state<string | null>(null);
 	let armedOutput = $state<{ nodeId: string; portId: string } | null>(null);
@@ -130,7 +134,17 @@
 	let viewport = $state<HTMLDivElement | null>(null);
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let settleVelocity: Record<string, Point> = {};
-	let settleFrame = 0;
+	let simAlpha = 1;
+	let fitWhenCool = false;
+	let forces = $state({ ...defaultForces });
+	let marquee = $state<{
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+		mode: MarqueeMode;
+	} | null>(null);
+	let marqueeDrag: { pointerId: number; x: number; y: number; shift: boolean } | null = null;
 	let settleHandle = 0;
 	let motionHandle = 0;
 
@@ -375,7 +389,9 @@
 	function resetLevel() {
 		stopSettle();
 		selectedNodeId = null;
+		selectedNodeIds = [];
 		selectedEdgeId = null;
+		selectedEdgeIds = [];
 		armedOutput = null;
 		overrides = {};
 		search = '';
@@ -411,26 +427,44 @@
 		openDiagram(id);
 	}
 
-	function selectNode(id: string, fromPointer = false) {
+	function rememberSelection(nodeIds: string[], edgeIds: string[]) {
+		selectedNodeIds = nodeIds;
+		selectedEdgeIds = edgeIds;
+		selectedNodeId = nodeIds.length === 1 ? nodeIds[0] : null;
+		selectedEdgeId = nodeIds.length === 0 && edgeIds.length === 1 ? edgeIds[0] : null;
+		if (nodeIds.length === 1 || edgeIds.length === 1) inspectorTab = 'details';
+	}
+
+	function selectNode(id: string, fromPointer = false, additive = false) {
 		if (fromPointer && pointerMoved) {
 			pointerMoved = false;
 			return;
 		}
 		pointerMoved = false;
 		const node = graph.nodes.find((item) => item.id === id);
-		if (selectedNodeId === id && node?.child) {
+		if (!additive && selectedNodeId === id && node?.child) {
 			openDiagram(id);
 			return;
 		}
-		selectedNodeId = id;
-		selectedEdgeId = null;
-		inspectorTab = 'details';
+		if (additive) {
+			const nodeIds = selectedNodeIds.includes(id)
+				? selectedNodeIds.filter((item) => item !== id)
+				: [...selectedNodeIds, id];
+			rememberSelection(nodeIds, selectedEdgeIds);
+			return;
+		}
+		rememberSelection([id], []);
 	}
 
-	function selectEdge(id: string) {
-		selectedEdgeId = id;
-		selectedNodeId = null;
-		inspectorTab = 'details';
+	function selectEdge(id: string, additive = false) {
+		if (additive) {
+			const edgeIds = selectedEdgeIds.includes(id)
+				? selectedEdgeIds.filter((item) => item !== id)
+				: [...selectedEdgeIds, id];
+			rememberSelection(selectedNodeIds, edgeIds);
+			return;
+		}
+		rememberSelection([], [id]);
 	}
 
 	function updateNode(id: string, patch: Partial<ArchitectureNode>) {
@@ -491,8 +525,9 @@
 	}
 
 	function disconnectEdge(id: string) {
-		commitVisible({ ...graph, edges: graph.edges.filter((edge) => edge.id !== id) });
-		selectedEdgeId = null;
+		const ids = selectedEdgeIds.includes(id) ? selectedEdgeIds : [id];
+		commitVisible({ ...graph, edges: graph.edges.filter((edge) => !ids.includes(edge.id)) });
+		rememberSelection(selectedNodeIds, []);
 	}
 
 	function materialize(id: string) {
@@ -563,8 +598,7 @@
 			}
 			const next = parseGraphJson(jsonText);
 			commitVisible(next);
-			selectedNodeId = null;
-			selectedEdgeId = null;
+			rememberSelection([], []);
 			armedOutput = null;
 			jsonMessage = 'JSON applied.';
 		} catch (error) {
@@ -650,6 +684,7 @@
 			originX: start.x,
 			originY: start.y
 		};
+		if (diagramMode === 'graph') reheat(0.4);
 		event.stopPropagation();
 	}
 
@@ -679,6 +714,46 @@
 		);
 	}
 
+	function reheat(amount = 0.7) {
+		simAlpha = Math.max(simAlpha, amount);
+		ensureSim();
+	}
+
+	function ensureSim() {
+		if (settleHandle || diagramMode !== 'graph') return;
+		const step = () => {
+			if (diagramMode !== 'graph') {
+				settleHandle = 0;
+				return;
+			}
+			const target = forces.animate ? 0.06 : 0;
+			simAlpha += (target - simAlpha) * 0.02;
+			if (!forces.animate && simAlpha < 0.02) {
+				simAlpha = 0;
+				settleHandle = 0;
+				if (fitWhenCool) {
+					fitWhenCool = false;
+					void tick()
+						.then(() => fitView(true))
+						.catch(() => undefined);
+				}
+				return;
+			}
+			const next = forceStep(
+				graph,
+				overrides,
+				settleVelocity,
+				forces,
+				simAlpha,
+				nodeDrag?.nodeId ?? null
+			);
+			overrides = next.positions;
+			settleVelocity = next.velocity;
+			settleHandle = requestAnimationFrame(step);
+		};
+		settleHandle = requestAnimationFrame(step);
+	}
+
 	function startSettle() {
 		const fromFlow = diagramMode !== 'graph';
 		const seed: Record<string, Point> = {};
@@ -692,26 +767,14 @@
 		diagramMode = 'graph';
 		overrides = seed;
 		settleVelocity = {};
-		settleFrame = 0;
-		const step = () => {
-			const fastest = Math.max(
-				0,
-				...Object.values(settleVelocity).map((item) => Math.hypot(item.x, item.y))
-			);
-			if (settleFrame >= 180 || (settleFrame > 40 && fastest < 0.4)) {
-				settleHandle = 0;
-				void tick()
-					.then(() => fitView(true))
-					.catch(() => undefined);
-				return;
-			}
-			const next = settleTick(graph, overrides, settleVelocity);
-			overrides = next.positions;
-			settleVelocity = next.velocity;
-			settleFrame += 1;
-			settleHandle = requestAnimationFrame(step);
-		};
-		settleHandle = requestAnimationFrame(step);
+		simAlpha = 1;
+		fitWhenCool = fromFlow;
+		ensureSim();
+	}
+
+	function setForces(patch: Partial<typeof forces>) {
+		forces = { ...forces, ...patch };
+		if (diagramMode === 'graph') reheat(patch.layout ? 1 : 0.7);
 	}
 
 	function onKeydown(event: KeyboardEvent) {
@@ -722,11 +785,15 @@
 				filtersOpen = false;
 				return;
 			}
-			armedOutput = null;
+			if (armedOutput) {
+				armedOutput = null;
+				return;
+			}
+			rememberSelection([], []);
 		}
-		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEdgeId) {
+		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEdgeIds.length > 0) {
 			event.preventDefault();
-			disconnectEdge(selectedEdgeId);
+			disconnectEdge(selectedEdgeIds[0]);
 		}
 	}
 
@@ -746,9 +813,77 @@
 		}
 		if (event.button !== 0) return;
 		const target = event.target as HTMLElement;
-		if (target.closest('[data-interactive], .node, .edge-hit')) return;
-		selectedNodeId = null;
-		selectedEdgeId = null;
+		if (target.closest('[data-interactive], .node, .dot, .edge-hit')) return;
+		viewport?.setPointerCapture(event.pointerId);
+		marqueeDrag = {
+			pointerId: event.pointerId,
+			x: event.clientX,
+			y: event.clientY,
+			shift: event.shiftKey
+		};
+	}
+
+	function moveMarquee(event: PointerEvent) {
+		if (!marqueeDrag || marqueeDrag.pointerId !== event.pointerId || !viewport) return;
+		const bounds = viewport.getBoundingClientRect();
+		const start = { x: marqueeDrag.x - bounds.left, y: marqueeDrag.y - bounds.top };
+		const end = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+		const rect = worldRect(start, end);
+		marquee = { ...rect, mode: marqueeMode(start.x, end.x) };
+	}
+
+	function finishMarquee(event: PointerEvent) {
+		if (!marqueeDrag || marqueeDrag.pointerId !== event.pointerId) return;
+		const drag = marqueeDrag;
+		const box = marquee;
+		marqueeDrag = null;
+		marquee = null;
+		if (!box || box.width + box.height < 4) {
+			if (!drag.shift) rememberSelection([], []);
+			return;
+		}
+		const rect = {
+			x: (box.x - pan.x) / zoom,
+			y: (box.y - pan.y) / zoom,
+			width: box.width / zoom,
+			height: box.height / zoom
+		};
+		const nodeIds = visibleNodes
+			.filter((node) => {
+				const point = basePositions[node.id];
+				if (!point) return false;
+				if (diagramMode === 'graph') {
+					return hitByMarquee(
+						{ id: node.id, kind: 'circle', x: point.x, y: point.y, radius: nodeRadius(node.id) },
+						rect,
+						box.mode
+					);
+				}
+				return hitByMarquee(
+					{
+						id: node.id,
+						kind: 'box',
+						x: point.x,
+						y: point.y,
+						width: flowCard.width,
+						height: flowCard.height
+					},
+					rect,
+					box.mode
+				);
+			})
+			.map((node) => node.id);
+		const edgeIds = visibleEdges
+			.filter((edge) => {
+				const route = routes.find((item) => item.id === edge.id);
+				if (!route) return false;
+				return hitByMarquee({ id: edge.id, kind: 'line', points: route.points }, rect, box.mode);
+			})
+			.map((edge) => edge.id);
+		rememberSelection(
+			drag.shift ? [...new Set([...selectedNodeIds, ...nodeIds])] : nodeIds,
+			drag.shift ? [...new Set([...selectedEdgeIds, ...edgeIds])] : edgeIds
+		);
 	}
 
 	function movePan(event: PointerEvent) {
@@ -982,7 +1117,8 @@
 					</span>
 				</div>
 				<p class="help">
-					Middle-click to pan. In Graph, nodes are dots. Click a dot twice if it has components.
+					Middle-click to pan. Drag left to right to enclose, or right to left to cross. In Graph,
+					nodes are dots.
 				</p>
 			</section>
 		</aside>
@@ -998,14 +1134,18 @@
 				onpointermove={(event) => {
 					moveNodeDrag(event);
 					movePan(event);
+					moveMarquee(event);
 				}}
 				onpointerup={(event) => {
 					stopNodeDrag(event);
 					stopPan(event);
+					finishMarquee(event);
 				}}
 				onpointercancel={(event) => {
 					stopNodeDrag(event);
 					stopPan(event);
+					marqueeDrag = null;
+					marquee = null;
 				}}
 				onwheel={handleWheel}
 			>
@@ -1027,7 +1167,7 @@
 							<button
 								type="button"
 								class="mobile-card"
-								class:selected={selectedNodeId === node.id}
+								class:selected={selectedNodeIds.includes(node.id)}
 								onclick={() => selectNode(node.id)}
 							>
 								<span>
@@ -1053,6 +1193,7 @@
 						class="edges"
 						class:dots={diagramMode === 'graph'}
 						viewBox="0 0 2400 1800"
+						style={`--link: ${forces.linkThickness / 100}`}
 						aria-hidden="true"
 					>
 						<defs>
@@ -1074,7 +1215,7 @@
 								<path
 									d={route.d}
 									class="edge-line"
-									class:hot={highlightedEdgeIds.has(edge.id) || selectedEdgeId === edge.id}
+									class:hot={highlightedEdgeIds.has(edge.id) || selectedEdgeIds.includes(edge.id)}
 									class:dim={emphasize && !highlightedEdgeIds.has(edge.id)}
 									marker-end={diagramMode === 'flow' ? 'url(#arrow)' : undefined}
 								></path>
@@ -1084,7 +1225,7 @@
 									role="button"
 									tabindex="0"
 									aria-label={route.label}
-									onclick={() => selectEdge(edge.id)}
+									onclick={(event) => selectEdge(edge.id, event.shiftKey)}
 									onkeydown={(event) => {
 										if (event.key === 'Enter' || event.key === ' ') {
 											event.preventDefault();
@@ -1104,9 +1245,9 @@
 							<article
 								class="dot"
 								class:hot={highlightedNodeIds.has(node.id)}
-								class:selected={selectedNodeId === node.id}
+								class:selected={selectedNodeIds.includes(node.id)}
 								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
-								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; --r: ${nodeRadius(node.id)}px; --dot: ${dotColor(node)};`}
+								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; --r: ${nodeRadius(node.id) * (forces.nodeSize / 100)}px; --dot: ${dotColor(node)};`}
 							>
 								<button
 									type="button"
@@ -1120,7 +1261,7 @@
 										if (event.button !== 0) return;
 										startNodeDrag(event, node.id);
 									}}
-									onclick={() => selectNode(node.id, true)}
+									onclick={(event) => selectNode(node.id, true, event.shiftKey)}
 								>
 									<span class="dot-mark" aria-hidden="true"></span>
 									<span class="dot-label">{node.label}</span>
@@ -1130,7 +1271,7 @@
 							<article
 								class="node"
 								class:hot={highlightedNodeIds.has(node.id)}
-								class:selected={selectedNodeId === node.id}
+								class:selected={selectedNodeIds.includes(node.id)}
 								class:dim={emphasize && !highlightedNodeIds.has(node.id)}
 								class:context={contextNodeIds.has(node.id)}
 								class:connecting={armedOutput?.nodeId === node.id}
@@ -1148,7 +1289,7 @@
 										data-interactive
 										class="node-select"
 										variant="ghost"
-										onclick={() => selectNode(node.id)}
+										onclick={(event) => selectNode(node.id, false, event.shiftKey)}
 									>
 										<span>
 											<strong>{node.label}</strong>
@@ -1192,6 +1333,103 @@
 						{/if}
 					{/each}
 				</div>
+				{#if marquee}
+					<div
+						class="marquee {marquee.mode}"
+						style={`left:${marquee.x}px;top:${marquee.y}px;width:${marquee.width}px;height:${marquee.height}px`}
+					></div>
+				{/if}
+				{#if diagramMode === 'graph'}
+					<div class="forces" data-interactive>
+						<p>Layout</p>
+						<div class="force-layouts">
+							<button
+								type="button"
+								aria-pressed={forces.layout === 'web'}
+								onclick={() => setForces({ layout: 'web' })}>Web</button
+							>
+							<button
+								type="button"
+								aria-pressed={forces.layout === 'radial'}
+								onclick={() => setForces({ layout: 'radial' })}>Globe</button
+							>
+							<button
+								type="button"
+								aria-pressed={forces.layout === 'layered'}
+								onclick={() => setForces({ layout: 'layered' })}>Layers</button
+							>
+						</div>
+						<label
+							>Center <input
+								aria-label="Center"
+								type="range"
+								min="0"
+								max="100"
+								value={forces.center}
+								oninput={(event) => setForces({ center: Number(event.currentTarget.value) })}
+							/></label
+						>
+						<label
+							>Repel <input
+								aria-label="Repel"
+								type="range"
+								min="0"
+								max="100"
+								value={forces.repel}
+								oninput={(event) => setForces({ repel: Number(event.currentTarget.value) })}
+							/></label
+						>
+						<label
+							>Link <input
+								aria-label="Link"
+								type="range"
+								min="0"
+								max="100"
+								value={forces.link}
+								oninput={(event) => setForces({ link: Number(event.currentTarget.value) })}
+							/></label
+						>
+						<label
+							>Link distance <input
+								aria-label="Link distance"
+								type="range"
+								min="80"
+								max="260"
+								value={forces.linkDistance}
+								oninput={(event) => setForces({ linkDistance: Number(event.currentTarget.value) })}
+							/><span>{forces.linkDistance}px</span></label
+						>
+						<label
+							>Node size <input
+								aria-label="Node size"
+								type="range"
+								min="70"
+								max="145"
+								value={forces.nodeSize}
+								oninput={(event) => setForces({ nodeSize: Number(event.currentTarget.value) })}
+							/></label
+						>
+						<label
+							>Link thickness <input
+								aria-label="Link thickness"
+								type="range"
+								min="60"
+								max="240"
+								value={forces.linkThickness}
+								oninput={(event) => setForces({ linkThickness: Number(event.currentTarget.value) })}
+							/></label
+						>
+						<div class="force-actions">
+							<button
+								type="button"
+								aria-pressed={forces.animate}
+								onclick={() => setForces({ animate: !forces.animate })}
+								>{forces.animate ? 'Pause' : 'Animate'}</button
+							>
+							<button type="button" onclick={() => reheat(1)}>Reheat</button>
+						</div>
+					</div>
+				{/if}
 				<div class="floating">
 					<Button size="sm" variant="default" aria-pressed="true">Select</Button>
 					<Button size="sm" variant="outline" onclick={() => fitView(true)}>Fit</Button>
@@ -1201,13 +1439,17 @@
 					{/if}
 				</div>
 				<div class="status">
-					{diagramMode === 'flow' ? 'Flow' : 'Graph'} · {selectedNode
-						? selectedNode.label
-						: selectedEdge
-							? 'connection'
-							: armedOutput
-								? 'output armed'
-								: 'no selection'}
+					{diagramMode === 'flow' ? 'Flow' : 'Graph'} · {selectedNodeIds.length > 1
+						? `${selectedNodeIds.length} selected`
+						: selectedNode
+							? selectedNode.label
+							: selectedEdgeIds.length > 1
+								? `${selectedEdgeIds.length} connections`
+								: selectedEdge
+									? 'connection'
+									: armedOutput
+										? 'output armed'
+										: 'no selection'}
 				</div>
 				<div class="zoom">
 					<Button size="sm" variant="outline" onclick={() => (zoom = Math.max(0.4, zoom * 0.9))}
@@ -1321,6 +1563,14 @@
 						<Button size="sm" onclick={importJson}>Apply JSON</Button>
 					</div>
 					{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
+				</div>
+			{:else if selectedNodeIds.length > 1}
+				<div class="panel">
+					<h2>{selectedNodeIds.length} nodes selected</h2>
+					<p class="help">
+						Drag left to right selects only what is fully inside. Drag right to left also selects
+						what the box touches.
+					</p>
 				</div>
 			{:else if selectedNode}
 				<div class="panel">

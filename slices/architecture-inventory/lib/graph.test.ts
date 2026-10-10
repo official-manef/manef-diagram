@@ -6,6 +6,8 @@ import {
 	diagramAt,
 	flowCard,
 	graphDot,
+	forceStep,
+	defaultForces,
 	layoutGraph,
 	parseImportedGraph,
 	routeEdges,
@@ -270,6 +272,57 @@ describe('architecture graph core', () => {
 		});
 		expect(sameGraph(parseImportedGraph(wrapped), defaultGraph)).toBe(true);
 		expect(() => parseImportedGraph('{"graph":{"nodes":[]}}')).toThrow(/contract/);
+	});
+
+	it('pulls a long link toward the requested distance', () => {
+		const graph = {
+			schemaVersion: 1 as const,
+			nodes: [
+				{
+					id: 'a',
+					label: 'A',
+					tags: [],
+					inputs: [{ id: 'in', label: 'in' }],
+					outputs: [{ id: 'out', label: 'out' }]
+				},
+				{
+					id: 'b',
+					label: 'B',
+					tags: [],
+					inputs: [{ id: 'in', label: 'in' }],
+					outputs: [{ id: 'out', label: 'out' }]
+				}
+			],
+			edges: [
+				{
+					id: 'ab',
+					source: 'a',
+					sourcePort: 'out',
+					target: 'b',
+					targetPort: 'in',
+					label: 'joins'
+				}
+			]
+		};
+		let positions: Record<string, { x: number; y: number }> = {
+			a: { x: 0, y: 0 },
+			b: { x: 500, y: 0 }
+		};
+		let velocity: Record<string, { x: number; y: number }> = {};
+		for (let step = 0; step < 30; step += 1) {
+			const next = forceStep(
+				graph,
+				positions,
+				velocity,
+				{ ...defaultForces, repel: 0, link: 100, linkDistance: 170 },
+				1
+			);
+			positions = next.positions;
+			velocity = next.velocity;
+		}
+		const distance = Math.hypot(positions.b.x - positions.a.x, positions.b.y - positions.a.y);
+		expect(distance).toBeLessThan(500);
+		expect(distance).toBeGreaterThan(80);
 	});
 
 	it('settles graph positions without dropping a node', () => {

@@ -8,6 +8,8 @@ export {
 	layoutGraph,
 	linkCount,
 	settleTick,
+	forceStep,
+	defaultForces,
 	flowCard,
 	graphDot,
 	graphNodeRadius,
