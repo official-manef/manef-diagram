@@ -21,6 +21,15 @@ export function inventoryCount(items: InventoryItem[], kind: InventoryKind): num
 	return items.filter((item) => item.kind === kind).length;
 }
 
+const INVENTORY_FILTERS = ['all', 'reference', 'repo', 'domain', 'hostname', 'convex'] as const;
+export type InventoryFilter = (typeof INVENTORY_FILTERS)[number];
+
+export function parseInventoryFilter(value: string): InventoryFilter | null {
+	return (INVENTORY_FILTERS as readonly string[]).includes(value)
+		? (value as InventoryFilter)
+		: null;
+}
+
 function sameInventory(node: ArchitectureNode, item: InventoryItem) {
 	if (node.id === item.id) return true;
 	return Boolean(

@@ -1,0 +1,860 @@
+/* Plain CSS, limited to the architecture editor root. Svelte does not compile <style src>. */
+.workspace {
+	--background: #0b0d10;
+	--foreground: #eef2f6;
+	--card: #12161b;
+	--card-foreground: #eef2f6;
+	--popover: #12161b;
+	--popover-foreground: #eef2f6;
+	--primary: #8273f6;
+	--primary-foreground: #f7f6ff;
+	--secondary: #171c22;
+	--secondary-foreground: #eef2f6;
+	--muted: #171c22;
+	--muted-foreground: #8f99a7;
+	--accent: #27213f;
+	--accent-foreground: #eef2f6;
+	--destructive: #ef7589;
+	--border: #282f38;
+	--input: #282f38;
+	--ring: #8273f6;
+	--canvas: #0e1115;
+	--surface-2: #171c22;
+	--surface-3: #1d232b;
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	height: 100dvh;
+	display: grid;
+	grid-template-rows: 54px minmax(0, 1fr);
+	overflow: hidden;
+	background: var(--background);
+	color: var(--foreground);
+	color-scheme: dark;
+}
+.workspace[data-theme='composio-light'] {
+	--background: #f5f6f8;
+	--foreground: #191b20;
+	--card: #ffffff;
+	--card-foreground: #191b20;
+	--popover: #ffffff;
+	--popover-foreground: #191b20;
+	--primary: #6959dd;
+	--primary-foreground: #ffffff;
+	--secondary: #f1f3f6;
+	--secondary-foreground: #191b20;
+	--muted: #f1f3f6;
+	--muted-foreground: #727b86;
+	--accent: #eeebff;
+	--accent-foreground: #191b20;
+	--destructive: #c95066;
+	--border: #e1e5ea;
+	--input: #e1e5ea;
+	--ring: #6959dd;
+	--canvas: #f7f8fa;
+	--surface-2: #fafbfc;
+	--surface-3: #f1f3f6;
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	color-scheme: light;
+}
+.workspace .topbar,
+.workspace .brand,
+.workspace .top-actions,
+.workspace .segmented,
+.workspace .diagram-path,
+.workspace .editor-heading,
+.workspace .port-row,
+.workspace .json-actions,
+.workspace .floating,
+.workspace .zoom {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+.workspace .topbar {
+	gap: 0.5rem;
+	border-bottom: 1px solid var(--border);
+	background: var(--card);
+	padding: 0 0.75rem;
+}
+.workspace .spacer {
+	flex: 1;
+}
+.workspace .brand {
+	min-width: 0;
+	gap: 0.5rem;
+}
+.workspace .brand h1 {
+	margin: 0;
+	font-size: 12.5px;
+	line-height: 1.15;
+}
+.workspace .brand small,
+.workspace .help,
+.workspace .inspector small {
+	color: var(--muted-foreground);
+	font-size: 10px;
+	line-height: 1.4;
+}
+.workspace .brand small {
+	display: block;
+	margin-top: 2px;
+}
+.workspace .logo {
+	display: grid;
+	width: 29px;
+	height: 29px;
+	flex: 0 0 auto;
+	place-items: center;
+	border-radius: 8px;
+	background: var(--foreground);
+	color: var(--background);
+	font-size: 11px;
+	font-weight: 800;
+}
+.workspace .segmented {
+	border: 1px solid var(--border);
+	border-radius: 9px;
+	background: var(--surface-2);
+	padding: 3px;
+}
+.workspace .segmented.full {
+	width: 100%;
+}
+.workspace .theme-select {
+	height: 32px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-2);
+	color: var(--foreground);
+	padding: 0 0.5rem;
+	font-size: 11px;
+}
+.workspace .topbar button,
+.workspace .segmented button,
+.workspace .floating button,
+.workspace .zoom button,
+.workspace .tabs button {
+	height: 32px;
+}
+.workspace .layout {
+	min-height: 0;
+	display: grid;
+	grid-template-columns: 235px minmax(0, 1fr) 330px;
+}
+.workspace .sidebar,
+.workspace .inspector {
+	min-height: 0;
+	overflow: auto;
+	background: var(--card);
+}
+.workspace .sidebar {
+	border-right: 1px solid var(--border);
+}
+.workspace .inspector {
+	border-left: 1px solid var(--border);
+}
+.workspace .sidebar section,
+.workspace .panel {
+	display: grid;
+	gap: 0.55rem;
+	padding: 12px;
+	border-bottom: 1px solid var(--border);
+}
+.workspace h2 {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: 9.5px;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+}
+.workspace .help,
+.workspace .empty p {
+	margin: 0;
+}
+.workspace .inventory-list {
+	display: grid;
+	gap: 0.45rem;
+}
+.workspace .metric {
+	display: flex;
+	justify-content: space-between;
+	border-bottom: 1px dashed var(--border);
+	padding: 5px 0;
+	font-size: 10px;
+}
+.workspace .metric span:last-child {
+	font-weight: 700;
+}
+.workspace .full-button {
+	width: 100%;
+}
+.workspace .canvas-shell {
+	position: relative;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	min-width: 0;
+	min-height: 0;
+	background: var(--canvas);
+}
+.workspace .viewport {
+	position: relative;
+	min-height: 0;
+	overflow: hidden;
+	cursor: grab;
+	touch-action: none;
+	background-image: radial-gradient(circle, var(--border) 0.9px, transparent 0.9px);
+	background-size: 22px 22px;
+}
+.workspace .viewport:active {
+	cursor: grabbing;
+}
+.workspace .world {
+	position: absolute;
+	inset: 0 auto auto 0;
+	width: 2400px;
+	height: 1800px;
+	transform-origin: 0 0;
+}
+.workspace .edges {
+	position: absolute;
+	inset: 0;
+	width: 2400px;
+	height: 1800px;
+	overflow: visible;
+	color: var(--muted-foreground);
+}
+.workspace .edges path.edge-line {
+	fill: none;
+	stroke: var(--muted-foreground);
+	stroke-width: 1.7;
+	pointer-events: none;
+}
+.workspace .edges path.edge-hit {
+	fill: none;
+	stroke: transparent;
+	stroke-width: 14;
+	cursor: pointer;
+}
+.workspace .edges.dots .edge-label {
+	display: none;
+}
+.workspace .edges.dots path.edge-line {
+	stroke: #8b95a3;
+	stroke-width: 1;
+	opacity: 0.7;
+}
+.workspace .edges.dots path.edge-line.hot {
+	stroke: var(--foreground);
+	stroke-width: 1.35;
+	opacity: 1;
+}
+.workspace .edges.dots path.edge-line.dim {
+	opacity: 0.12;
+}
+.workspace .edge-label {
+	fill: var(--muted-foreground);
+	stroke: var(--canvas);
+	stroke-width: 4px;
+	paint-order: stroke;
+	font-size: 9px;
+	pointer-events: none;
+}
+.workspace .edges path.edge-line.hot {
+	stroke: var(--primary);
+	stroke-width: 2.8;
+}
+.workspace .edges path.edge-line.dim {
+	opacity: 0.08;
+}
+.workspace .edges marker path {
+	fill: currentColor;
+}
+.workspace .node {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	overflow: visible;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--card);
+	box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
+	padding: 8px 10px;
+}
+.workspace .node.selected,
+.workspace .node.hot {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+.workspace .node.connecting {
+	outline: 2px solid #65c693;
+	outline-offset: 2px;
+}
+.workspace .node.dim {
+	opacity: 0.1;
+}
+.workspace .node.context {
+	border-style: dashed;
+}
+.workspace .node-head {
+	min-width: 0;
+}
+.workspace .node-select {
+	height: auto !important;
+	width: 100%;
+	justify-content: flex-start;
+	padding: 0;
+	white-space: normal !important;
+	text-align: left;
+}
+.workspace .node-select span {
+	display: grid;
+	min-width: 0;
+	gap: 0.15rem;
+}
+.workspace .node-select strong {
+	font-size: 11.5px;
+	font-weight: 750;
+	line-height: 1.25;
+	white-space: normal !important;
+}
+.workspace .node-select small {
+	display: block;
+	color: var(--muted-foreground);
+	font-size: 9.5px;
+	line-height: 1.3;
+	white-space: normal !important;
+}
+.workspace .node-tags {
+	display: flex;
+	gap: 0.25rem;
+	margin-top: 6px;
+	overflow: hidden;
+	color: var(--muted-foreground);
+	font-size: 8.5px;
+	white-space: nowrap;
+}
+.workspace .chip,
+.workspace .status,
+.workspace .mobile-card em {
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: var(--surface-2);
+	color: var(--muted-foreground);
+	padding: 0 0.35rem;
+	font-size: 8.5px;
+	font-style: normal;
+}
+.workspace .port-side {
+	position: absolute;
+	z-index: 2;
+	top: 10px;
+	bottom: 10px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 8px;
+}
+.workspace .port-side.inputs {
+	left: 0;
+	transform: translateX(-6px);
+	align-items: flex-start;
+}
+.workspace .port-side.outputs {
+	right: 0;
+	transform: translateX(6px);
+	align-items: flex-end;
+}
+.workspace .port {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 84px;
+	border: 0;
+	background: transparent;
+	color: var(--muted-foreground);
+	padding: 0;
+	cursor: pointer;
+}
+.workspace .port.out {
+	flex-direction: row-reverse;
+}
+.workspace .port-label {
+	overflow: hidden;
+	max-width: 70px;
+	border-radius: 3px;
+	background: var(--card);
+	padding: 1px 3px;
+	font-size: 8px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.workspace .socket {
+	width: 12px;
+	height: 12px;
+	flex: 0 0 auto;
+	border: 2px solid var(--card);
+	border-radius: 50%;
+	background: var(--muted-foreground);
+	box-shadow: 0 0 0 1px var(--border);
+}
+.workspace .port:hover .socket,
+.workspace .port.active .socket {
+	background: var(--primary);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.workspace .tag-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: var(--surface-2);
+	padding: 0.12rem 0.4rem;
+	font-size: 9px;
+}
+.workspace .tag-check input {
+	margin: 0;
+}
+.workspace .filter-wrap {
+	position: relative;
+}
+.workspace .filter-toggle,
+.workspace .clear-filters,
+.workspace .sort-row button,
+.workspace .active-tags button {
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-2);
+	color: var(--foreground);
+	cursor: pointer;
+}
+.workspace .filter-toggle {
+	display: flex;
+	width: 100%;
+	height: 32px;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 0.55rem;
+	font-size: 11px;
+}
+.workspace .filter-backdrop {
+	position: fixed;
+	z-index: 5;
+	inset: 0;
+	border: 0;
+	background: transparent;
+	cursor: default;
+}
+.workspace .filter-menu {
+	position: absolute;
+	z-index: 6;
+	top: calc(100% + 4px);
+	left: 0;
+	right: 0;
+	display: grid;
+	max-height: 320px;
+	gap: 0.35rem;
+	overflow: auto;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--card);
+	padding: 8px;
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+.workspace .filter-menu strong {
+	margin-top: 0.2rem;
+	color: var(--muted-foreground);
+	font-size: 9px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+.workspace .filter-menu .tag-check {
+	width: 100%;
+	border-radius: 6px;
+	justify-content: flex-start;
+}
+.workspace .sort-row {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	color: var(--muted-foreground);
+	font-size: 9px;
+}
+.workspace .sort-row button,
+.workspace .clear-filters,
+.workspace .active-tags button {
+	height: 22px;
+	padding: 0 0.4rem;
+	font-size: 9px;
+}
+.workspace .sort-row button[aria-pressed='true'] {
+	background: var(--primary);
+	color: var(--primary-foreground);
+}
+.workspace .clear-filters {
+	justify-self: start;
+}
+.workspace .active-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+	margin-top: 0.4rem;
+}
+.workspace .dot {
+	position: absolute;
+	z-index: 2;
+	width: 0;
+	height: 0;
+	overflow: visible;
+}
+.workspace .dot.dim {
+	opacity: 0.16;
+}
+.workspace .dot-hit {
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	transform: translate(calc(var(--r) * -1), -50%);
+	border: 0;
+	background: transparent;
+	color: var(--muted-foreground);
+	padding: 0;
+	cursor: grab;
+	font: inherit;
+}
+.workspace .dot-mark {
+	width: calc(var(--r) * 2);
+	height: calc(var(--r) * 2);
+	flex: 0 0 auto;
+	border-radius: 50%;
+	background: var(--dot);
+}
+.workspace .dot.selected .dot-mark,
+.workspace .dot.hot .dot-mark {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 45%, transparent);
+}
+.workspace .dot-label {
+	font-size: 11px;
+	font-weight: 450;
+	line-height: 1;
+	white-space: nowrap;
+}
+.workspace .dot.selected .dot-label,
+.workspace .dot.hot .dot-label {
+	color: var(--foreground);
+	font-weight: 600;
+}
+.workspace .panel .theme-select {
+	width: 100%;
+}
+.workspace .floating,
+.workspace .status,
+.workspace .zoom {
+	position: absolute;
+	z-index: 4;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--card);
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+.workspace .floating {
+	top: 10px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 4px;
+}
+.workspace .status {
+	left: 10px;
+	bottom: 10px;
+	padding: 6px 8px;
+	color: var(--muted-foreground);
+	font-size: 9.5px;
+}
+.workspace .zoom {
+	right: 10px;
+	bottom: 10px;
+	padding: 4px;
+}
+.workspace .zoom span {
+	min-width: 40px;
+	color: var(--muted-foreground);
+	font-size: 9px;
+	text-align: center;
+}
+.workspace .edge-strip {
+	display: flex;
+	flex-wrap: nowrap;
+	max-width: 100%;
+	height: 40px;
+	gap: 0.35rem;
+	overflow-x: auto;
+	border-top: 1px solid var(--border);
+	background: var(--card);
+	padding: 0.35rem;
+}
+.workspace .edge-strip button {
+	height: auto;
+	min-height: 1.75rem;
+	white-space: nowrap;
+}
+.workspace .tabs {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: flex;
+	border-bottom: 1px solid var(--border);
+	background: var(--card);
+}
+.workspace .tabs button {
+	flex: 1;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: var(--muted-foreground);
+	font-size: 10.5px;
+	cursor: pointer;
+}
+.workspace .tabs button.active {
+	border-bottom-color: var(--primary);
+	color: var(--foreground);
+}
+.workspace label {
+	display: grid;
+	gap: 4px;
+	color: var(--muted-foreground);
+	font-size: 9px;
+}
+.workspace textarea,
+.workspace .json {
+	width: 100%;
+	min-height: 4.5rem;
+	resize: vertical;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-2);
+	color: var(--foreground);
+	padding: 8px;
+	font:
+		9px/1.4 ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		monospace;
+}
+.workspace .json {
+	min-height: 520px;
+}
+.workspace .port-editor {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.workspace .port-row input {
+	min-width: 0;
+}
+.workspace .inventory-item {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.45rem;
+	align-items: center;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-2);
+	padding: 7px;
+}
+.workspace .inventory-item div {
+	display: grid;
+	min-width: 0;
+	gap: 0.15rem;
+}
+.workspace .inventory-item strong {
+	font-size: 10px;
+	word-break: break-word;
+}
+.workspace .empty {
+	padding: 25px 6px;
+	color: var(--muted-foreground);
+	font-size: 10px;
+	text-align: center;
+}
+.workspace .empty b {
+	display: block;
+	margin-bottom: 0.4rem;
+	color: var(--foreground);
+}
+.workspace .toast {
+	position: fixed;
+	z-index: 40;
+	right: 0.75rem;
+	bottom: 0.75rem;
+	max-width: min(28rem, calc(100% - 1.5rem));
+	border-radius: 10px;
+	background: var(--foreground);
+	color: var(--background);
+	padding: 0.65rem 0.85rem;
+	font-size: 0.85rem;
+}
+.workspace .empty-map {
+	position: absolute;
+	z-index: 3;
+	inset: 0;
+	display: grid;
+	place-content: center;
+	justify-items: center;
+	gap: 0.75rem;
+	padding: 1.5rem;
+	text-align: center;
+	background: color-mix(in srgb, var(--canvas) 88%, transparent);
+}
+.workspace .empty-map p {
+	margin: 0;
+	max-width: 22rem;
+}
+.workspace .mobile-map {
+	display: none;
+	gap: 0.65rem;
+	margin: 0;
+	padding: 0.75rem;
+	list-style: none;
+}
+.workspace .mobile-card {
+	display: flex;
+	width: 100%;
+	min-height: 44px;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--card);
+	color: inherit;
+	padding: 0.8rem 0.85rem;
+	text-align: left;
+}
+.workspace .mobile-card span {
+	display: grid;
+	min-width: 0;
+	gap: 0.15rem;
+}
+.workspace .mobile-card.selected {
+	outline: 2px solid var(--primary);
+}
+.workspace .mobile-edge {
+	margin: 0.35rem 0 0 0.2rem;
+	color: var(--muted-foreground);
+	font-size: 0.8rem;
+}
+.workspace .count {
+	margin-left: 0.25rem;
+	opacity: 0.7;
+}
+.workspace .diagram-path {
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+@media (max-width: 44rem) {
+	.workspace {
+		height: auto;
+		min-height: 100dvh;
+		overflow: visible;
+		grid-template-rows: auto auto;
+	}
+	.workspace .topbar {
+		height: auto;
+		flex-wrap: wrap;
+		padding: 0.65rem;
+	}
+	.workspace .brand {
+		flex: 1 1 12rem;
+	}
+	.workspace .spacer {
+		display: none;
+	}
+	.workspace .layout {
+		display: flex;
+		flex-direction: column;
+	}
+	.workspace .sidebar {
+		display: contents;
+	}
+	.workspace .sidebar > :not(.search-section) {
+		display: none;
+	}
+	.workspace .search-section {
+		order: 1;
+		border-bottom: 1px solid var(--border);
+		background: var(--card);
+	}
+	.workspace .canvas-shell {
+		order: 2;
+		height: auto;
+		min-height: 0;
+	}
+	.workspace .inspector {
+		order: 3;
+		width: auto;
+		border-left: 0;
+		border-top: 1px solid var(--border);
+	}
+	.workspace .viewport {
+		height: auto;
+		min-height: 0;
+		overflow: visible;
+		cursor: default;
+		touch-action: pan-y;
+		background-image: none;
+	}
+	.workspace .world,
+	.workspace .floating,
+	.workspace .status,
+	.workspace .zoom,
+	.workspace .edge-strip {
+		display: none;
+	}
+	.workspace .mobile-map {
+		display: grid;
+	}
+	.workspace .port-editor,
+	.workspace .json {
+		min-height: 12rem;
+	}
+	.workspace .port-editor {
+		grid-template-columns: 1fr;
+	}
+}

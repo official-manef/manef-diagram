@@ -13,6 +13,7 @@
 		layoutGraph,
 		flowCard,
 		graphNodeRadius,
+		linkCount,
 		parseGraphJson,
 		parseImportedGraph,
 		routeEdges,
@@ -20,9 +21,9 @@
 		relatedView,
 		searchInventory,
 		inventoryCount,
+		parseInventoryFilter,
 		settleTick,
 		traceGraph,
-		validateGraph,
 		buildDiagramViewUrl,
 		parseDiagramView,
 		tagGroup,
@@ -40,6 +41,16 @@
 		Point,
 		TraceMode
 	} from './types';
+	import {
+		appendPort,
+		createNode,
+		patchNode,
+		patchPort,
+		withEdgePatch,
+		withoutPort
+	} from './lib/edit';
+	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
+	import './editor.css';
 
 	let root = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
 	let diagramPath = $state<string[]>([]);
@@ -170,21 +181,7 @@
 			)
 		).sort(([a], [b]) => a.localeCompare(b))
 	);
-	const visibleTagGroups = $derived(
-		tagGroups
-			.map(([group, tags]) => {
-				const needle = tagQuery.trim().toLowerCase();
-				const matched = tags.filter((tag) => {
-					const name = tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag;
-					return !needle || `${name} ${tag}`.toLowerCase().includes(needle);
-				});
-				const sorted = [...matched].sort((a, b) =>
-					tagSort === 'count' ? tagCount(b) - tagCount(a) || a.localeCompare(b) : a.localeCompare(b)
-				);
-				return [group, sorted] as const;
-			})
-			.filter(([, tags]) => tags.length > 0)
-	);
+	const visibleTagGroups = $derived(filterTagGroups(tagGroups, tagQuery, tagSort, tagCount));
 	const inventoryItems = $derived(
 		searchInventory(
 			defaultInventory,
@@ -234,36 +231,12 @@
 		return items;
 	});
 
-	function facetChips(tags: string[]) {
-		const chips: string[] = [];
-		for (const namespace of ['kind', 'platform', 'project']) {
-			const tag = tags.find((item) => item.startsWith(`${namespace}:`));
-			if (tag) chips.push(tag.slice(namespace.length + 1));
-		}
-		return chips;
-	}
-
 	function tagCount(tag: string) {
 		return graph.nodes.filter((node) => node.tags.includes(tag)).length;
 	}
 
-	function tagLabel(tag: string) {
-		return tag.includes(':') ? tag.slice(tag.indexOf(':') + 1) : tag;
-	}
-
 	function nodeRadius(id: string) {
-		const links = graph.edges.filter((edge) => edge.source === id || edge.target === id).length;
-		return graphNodeRadius(links);
-	}
-
-	function dotColor(node: ArchitectureNode) {
-		if (node.status === 'private') return '#9aa3b2';
-		if (node.status === 'proposed') return '#d2a15a';
-		if (node.tags.includes('domain')) return '#3cb7d6';
-		if (node.tags.includes('brand')) return '#e0a24a';
-		if (node.tags.includes('docs')) return '#d08a4a';
-		if (node.tags.includes('infra')) return '#8b9bb4';
-		return '#4f8cff';
+		return graphNodeRadius(linkCount(graph, id));
 	}
 
 	function fitPoints(points: Record<string, Point>, ids: string[]) {
@@ -403,10 +376,7 @@
 	}
 
 	function updateNode(id: string, patch: Partial<ArchitectureNode>) {
-		commitVisible({
-			...graph,
-			nodes: graph.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node))
-		});
+		commitVisible(patchNode(graph, id, patch));
 	}
 
 	function updatePort(
@@ -415,28 +385,14 @@
 		portId: string,
 		patch: Partial<ArchitecturePort>
 	) {
-		const node = graph.nodes.find((item) => item.id === nodeId);
-		if (!node) return;
-		updateNode(nodeId, {
-			[direction]: node[direction].map((port) =>
-				port.id === portId ? { ...port, ...patch } : port
-			)
-		} as Partial<ArchitectureNode>);
+		commitVisible(patchPort(graph, nodeId, direction, portId, patch));
 	}
 
 	function addPort(nodeId: string, direction: 'inputs' | 'outputs') {
-		const node = graph.nodes.find((item) => item.id === nodeId);
-		if (!node) return;
-		const prefix = direction === 'inputs' ? 'in' : 'out';
-		const index = node[direction].length + 1;
-		updateNode(nodeId, {
-			[direction]: [...node[direction], { id: `${prefix}-${index}`, label: `${prefix} ${index}` }]
-		} as Partial<ArchitectureNode>);
+		commitVisible(appendPort(graph, nodeId, direction));
 	}
 
 	function removePort(nodeId: string, direction: 'inputs' | 'outputs', portId: string) {
-		const node = graph.nodes.find((item) => item.id === nodeId);
-		if (!node) return;
 		const connected = graph.edges.some((edge) =>
 			direction === 'inputs'
 				? edge.target === nodeId && edge.targetPort === portId
@@ -444,42 +400,18 @@
 		);
 		if (
 			connected &&
+			typeof confirm === 'function' &&
 			!confirm('This port has connections. Remove the port and those connections?')
 		) {
 			return;
 		}
-		commitVisible({
-			...graph,
-			nodes: graph.nodes.map((item) =>
-				item.id === nodeId
-					? { ...item, [direction]: item[direction].filter((port) => port.id !== portId) }
-					: item
-			),
-			edges: graph.edges.filter((edge) =>
-				direction === 'inputs'
-					? !(edge.target === nodeId && edge.targetPort === portId)
-					: !(edge.source === nodeId && edge.sourcePort === portId)
-			)
-		});
+		commitVisible(withoutPort(graph, nodeId, direction, portId));
 	}
 
 	function addNode() {
-		const baseId = `node-${graph.nodes.length + 1}`;
-		let id = baseId;
-		let suffix = 1;
-		while (graph.nodes.some((node) => node.id === id)) id = `${baseId}-${suffix++}`;
-		const node: ArchitectureNode = {
-			id,
-			label: 'New node',
-			subtitle: 'Describe this architecture item',
-			tags: ['custom'],
-			status: 'proposed',
-			level: 3,
-			inputs: [{ id: 'in', label: 'Consumes' }],
-			outputs: [{ id: 'out', label: 'Provides' }]
-		};
+		const node = createNode(graph);
 		commitVisible({ ...graph, nodes: [...graph.nodes, node] });
-		selectNode(id);
+		selectNode(node.id);
 	}
 
 	function connectTo(targetNodeId: string, targetPortId: string) {
@@ -607,24 +539,8 @@
 
 	function retargetEdge(patch: Partial<ArchitectureEdge>) {
 		if (!selectedEdge) return;
-		const nextEdge = { ...selectedEdge, ...patch };
-		if (patch.source) {
-			const source = graph.nodes.find((node) => node.id === nextEdge.source);
-			if (!source?.outputs.some((port) => port.id === nextEdge.sourcePort)) {
-				nextEdge.sourcePort = source?.outputs[0]?.id ?? nextEdge.sourcePort;
-			}
-		}
-		if (patch.target) {
-			const target = graph.nodes.find((node) => node.id === nextEdge.target);
-			if (!target?.inputs.some((port) => port.id === nextEdge.targetPort)) {
-				nextEdge.targetPort = target?.inputs[0]?.id ?? nextEdge.targetPort;
-			}
-		}
-		const next = {
-			...graph,
-			edges: graph.edges.map((edge) => (edge.id === nextEdge.id ? nextEdge : edge))
-		};
-		if (!validateGraph(next)) {
+		const next = withEdgePatch(graph, selectedEdge, patch);
+		if (!next) {
 			jsonMessage = 'That connection already exists or the port does not match.';
 			return;
 		}
@@ -1288,17 +1204,8 @@
 						aria-label="Inventory type"
 						value={inventoryKind}
 						onchange={(event) => {
-							const value = event.currentTarget.value;
-							if (
-								value === 'all' ||
-								value === 'reference' ||
-								value === 'repo' ||
-								value === 'domain' ||
-								value === 'hostname' ||
-								value === 'convex'
-							) {
-								inventoryKind = value;
-							}
+							const value = parseInventoryFilter(event.currentTarget.value);
+							if (value) inventoryKind = value;
 						}}
 					>
 						<option value="all">All</option>
@@ -1528,865 +1435,3 @@
 		</aside>
 	</div>
 </main>
-
-<style>
-	.workspace {
-		--background: #0b0d10;
-		--foreground: #eef2f6;
-		--card: #12161b;
-		--card-foreground: #eef2f6;
-		--popover: #12161b;
-		--popover-foreground: #eef2f6;
-		--primary: #8273f6;
-		--primary-foreground: #f7f6ff;
-		--secondary: #171c22;
-		--secondary-foreground: #eef2f6;
-		--muted: #171c22;
-		--muted-foreground: #8f99a7;
-		--accent: #27213f;
-		--accent-foreground: #eef2f6;
-		--destructive: #ef7589;
-		--border: #282f38;
-		--input: #282f38;
-		--ring: #8273f6;
-		--canvas: #0e1115;
-		--surface-2: #171c22;
-		--surface-3: #1d232b;
-		--color-background: var(--background);
-		--color-foreground: var(--foreground);
-		--color-card: var(--card);
-		--color-card-foreground: var(--card-foreground);
-		--color-popover: var(--popover);
-		--color-popover-foreground: var(--popover-foreground);
-		--color-primary: var(--primary);
-		--color-primary-foreground: var(--primary-foreground);
-		--color-secondary: var(--secondary);
-		--color-secondary-foreground: var(--secondary-foreground);
-		--color-muted: var(--muted);
-		--color-muted-foreground: var(--muted-foreground);
-		--color-accent: var(--accent);
-		--color-accent-foreground: var(--accent-foreground);
-		--color-destructive: var(--destructive);
-		--color-border: var(--border);
-		--color-input: var(--input);
-		--color-ring: var(--ring);
-		height: 100dvh;
-		display: grid;
-		grid-template-rows: 54px minmax(0, 1fr);
-		overflow: hidden;
-		background: var(--background);
-		color: var(--foreground);
-		color-scheme: dark;
-	}
-	.workspace[data-theme='composio-light'] {
-		--background: #f5f6f8;
-		--foreground: #191b20;
-		--card: #ffffff;
-		--card-foreground: #191b20;
-		--popover: #ffffff;
-		--popover-foreground: #191b20;
-		--primary: #6959dd;
-		--primary-foreground: #ffffff;
-		--secondary: #f1f3f6;
-		--secondary-foreground: #191b20;
-		--muted: #f1f3f6;
-		--muted-foreground: #727b86;
-		--accent: #eeebff;
-		--accent-foreground: #191b20;
-		--destructive: #c95066;
-		--border: #e1e5ea;
-		--input: #e1e5ea;
-		--ring: #6959dd;
-		--canvas: #f7f8fa;
-		--surface-2: #fafbfc;
-		--surface-3: #f1f3f6;
-		--color-background: var(--background);
-		--color-foreground: var(--foreground);
-		--color-card: var(--card);
-		--color-card-foreground: var(--card-foreground);
-		--color-popover: var(--popover);
-		--color-popover-foreground: var(--popover-foreground);
-		--color-primary: var(--primary);
-		--color-primary-foreground: var(--primary-foreground);
-		--color-secondary: var(--secondary);
-		--color-secondary-foreground: var(--secondary-foreground);
-		--color-muted: var(--muted);
-		--color-muted-foreground: var(--muted-foreground);
-		--color-accent: var(--accent);
-		--color-accent-foreground: var(--accent-foreground);
-		--color-destructive: var(--destructive);
-		--color-border: var(--border);
-		--color-input: var(--input);
-		--color-ring: var(--ring);
-		color-scheme: light;
-	}
-	.topbar,
-	.brand,
-	.top-actions,
-	.segmented,
-	.diagram-path,
-	.editor-heading,
-	.port-row,
-	.json-actions,
-	.floating,
-	.zoom {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-	}
-	.topbar {
-		gap: 0.5rem;
-		border-bottom: 1px solid var(--border);
-		background: var(--card);
-		padding: 0 0.75rem;
-	}
-	.spacer {
-		flex: 1;
-	}
-	.brand {
-		min-width: 0;
-		gap: 0.5rem;
-	}
-	.brand h1 {
-		margin: 0;
-		font-size: 12.5px;
-		line-height: 1.15;
-	}
-	.brand small,
-	.help,
-	.inspector small {
-		color: var(--muted-foreground);
-		font-size: 10px;
-		line-height: 1.4;
-	}
-	.brand small {
-		display: block;
-		margin-top: 2px;
-	}
-	.logo {
-		display: grid;
-		width: 29px;
-		height: 29px;
-		flex: 0 0 auto;
-		place-items: center;
-		border-radius: 8px;
-		background: var(--foreground);
-		color: var(--background);
-		font-size: 11px;
-		font-weight: 800;
-	}
-	.segmented {
-		border: 1px solid var(--border);
-		border-radius: 9px;
-		background: var(--surface-2);
-		padding: 3px;
-	}
-	.segmented.full {
-		width: 100%;
-	}
-	.theme-select {
-		height: 32px;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--surface-2);
-		color: var(--foreground);
-		padding: 0 0.5rem;
-		font-size: 11px;
-	}
-	.topbar :global(button),
-	.segmented :global(button),
-	.floating :global(button),
-	.zoom :global(button),
-	.tabs button {
-		height: 32px;
-	}
-	.layout {
-		min-height: 0;
-		display: grid;
-		grid-template-columns: 235px minmax(0, 1fr) 330px;
-	}
-	.sidebar,
-	.inspector {
-		min-height: 0;
-		overflow: auto;
-		background: var(--card);
-	}
-	.sidebar {
-		border-right: 1px solid var(--border);
-	}
-	.inspector {
-		border-left: 1px solid var(--border);
-	}
-	.sidebar section,
-	.panel {
-		display: grid;
-		gap: 0.55rem;
-		padding: 12px;
-		border-bottom: 1px solid var(--border);
-	}
-	h2 {
-		margin: 0;
-		color: var(--muted-foreground);
-		font-size: 9.5px;
-		letter-spacing: 0.07em;
-		text-transform: uppercase;
-	}
-	.help,
-	.empty p {
-		margin: 0;
-	}
-	.inventory-list {
-		display: grid;
-		gap: 0.45rem;
-	}
-	.metric {
-		display: flex;
-		justify-content: space-between;
-		border-bottom: 1px dashed var(--border);
-		padding: 5px 0;
-		font-size: 10px;
-	}
-	.metric span:last-child {
-		font-weight: 700;
-	}
-	:global(.full-button) {
-		width: 100%;
-	}
-	.canvas-shell {
-		position: relative;
-		display: grid;
-		grid-template-rows: minmax(0, 1fr) auto;
-		min-width: 0;
-		min-height: 0;
-		background: var(--canvas);
-	}
-	.viewport {
-		position: relative;
-		min-height: 0;
-		overflow: hidden;
-		cursor: grab;
-		touch-action: none;
-		background-image: radial-gradient(circle, var(--border) 0.9px, transparent 0.9px);
-		background-size: 22px 22px;
-	}
-	.viewport:active {
-		cursor: grabbing;
-	}
-	.world {
-		position: absolute;
-		inset: 0 auto auto 0;
-		width: 2400px;
-		height: 1800px;
-		transform-origin: 0 0;
-	}
-	.edges {
-		position: absolute;
-		inset: 0;
-		width: 2400px;
-		height: 1800px;
-		overflow: visible;
-		color: var(--muted-foreground);
-	}
-	.edges path.edge-line {
-		fill: none;
-		stroke: var(--muted-foreground);
-		stroke-width: 1.7;
-		pointer-events: none;
-	}
-	.edges path.edge-hit {
-		fill: none;
-		stroke: transparent;
-		stroke-width: 14;
-		cursor: pointer;
-	}
-	.edges.dots .edge-label {
-		display: none;
-	}
-	.edges.dots path.edge-line {
-		stroke: #8b95a3;
-		stroke-width: 1;
-		opacity: 0.7;
-	}
-	.edges.dots path.edge-line.hot {
-		stroke: var(--foreground);
-		stroke-width: 1.35;
-		opacity: 1;
-	}
-	.edges.dots path.edge-line.dim {
-		opacity: 0.12;
-	}
-	.edge-label {
-		fill: var(--muted-foreground);
-		stroke: var(--canvas);
-		stroke-width: 4px;
-		paint-order: stroke;
-		font-size: 9px;
-		pointer-events: none;
-	}
-	.edges path.edge-line.hot {
-		stroke: var(--primary);
-		stroke-width: 2.8;
-	}
-	.edges path.edge-line.dim {
-		opacity: 0.08;
-	}
-	.edges marker path {
-		fill: currentColor;
-	}
-	.node {
-		position: absolute;
-		display: flex;
-		flex-direction: column;
-		overflow: visible;
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: var(--card);
-		box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
-		padding: 8px 10px;
-	}
-	.node.selected,
-	.node.hot {
-		outline: 2px solid var(--primary);
-		outline-offset: 2px;
-	}
-	.node.connecting {
-		outline: 2px solid #65c693;
-		outline-offset: 2px;
-	}
-	.node.dim {
-		opacity: 0.1;
-	}
-	.node.context {
-		border-style: dashed;
-	}
-	.node-head {
-		min-width: 0;
-	}
-	:global(.node-select) {
-		height: auto !important;
-		width: 100%;
-		justify-content: flex-start;
-		padding: 0;
-		white-space: normal !important;
-		text-align: left;
-	}
-	:global(.node-select) span {
-		display: grid;
-		min-width: 0;
-		gap: 0.15rem;
-	}
-	:global(.node-select) strong {
-		font-size: 11.5px;
-		font-weight: 750;
-		line-height: 1.25;
-		white-space: normal !important;
-	}
-	:global(.node-select) small {
-		display: block;
-		color: var(--muted-foreground);
-		font-size: 9.5px;
-		line-height: 1.3;
-		white-space: normal !important;
-	}
-	.node-tags {
-		display: flex;
-		gap: 0.25rem;
-		margin-top: 6px;
-		overflow: hidden;
-		color: var(--muted-foreground);
-		font-size: 8.5px;
-		white-space: nowrap;
-	}
-	.chip,
-	.status,
-	.mobile-card em {
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		background: var(--surface-2);
-		color: var(--muted-foreground);
-		padding: 0 0.35rem;
-		font-size: 8.5px;
-		font-style: normal;
-	}
-	.port-side {
-		position: absolute;
-		z-index: 2;
-		top: 10px;
-		bottom: 10px;
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 8px;
-	}
-	.port-side.inputs {
-		left: 0;
-		transform: translateX(-6px);
-		align-items: flex-start;
-	}
-	.port-side.outputs {
-		right: 0;
-		transform: translateX(6px);
-		align-items: flex-end;
-	}
-	.port {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		max-width: 84px;
-		border: 0;
-		background: transparent;
-		color: var(--muted-foreground);
-		padding: 0;
-		cursor: pointer;
-	}
-	.port.out {
-		flex-direction: row-reverse;
-	}
-	.port-label {
-		overflow: hidden;
-		max-width: 70px;
-		border-radius: 3px;
-		background: var(--card);
-		padding: 1px 3px;
-		font-size: 8px;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.socket {
-		width: 12px;
-		height: 12px;
-		flex: 0 0 auto;
-		border: 2px solid var(--card);
-		border-radius: 50%;
-		background: var(--muted-foreground);
-		box-shadow: 0 0 0 1px var(--border);
-	}
-	.port:hover .socket,
-	.port.active .socket {
-		background: var(--primary);
-		box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
-	}
-	.tag-check {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		background: var(--surface-2);
-		padding: 0.12rem 0.4rem;
-		font-size: 9px;
-	}
-	.tag-check input {
-		margin: 0;
-	}
-	.filter-wrap {
-		position: relative;
-	}
-	.filter-toggle,
-	.clear-filters,
-	.sort-row button,
-	.active-tags button {
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--surface-2);
-		color: var(--foreground);
-		cursor: pointer;
-	}
-	.filter-toggle {
-		display: flex;
-		width: 100%;
-		height: 32px;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0 0.55rem;
-		font-size: 11px;
-	}
-	.filter-backdrop {
-		position: fixed;
-		z-index: 5;
-		inset: 0;
-		border: 0;
-		background: transparent;
-		cursor: default;
-	}
-	.filter-menu {
-		position: absolute;
-		z-index: 6;
-		top: calc(100% + 4px);
-		left: 0;
-		right: 0;
-		display: grid;
-		max-height: 320px;
-		gap: 0.35rem;
-		overflow: auto;
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: var(--card);
-		padding: 8px;
-		box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
-	}
-	.filter-menu strong {
-		margin-top: 0.2rem;
-		color: var(--muted-foreground);
-		font-size: 9px;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-	}
-	.filter-menu .tag-check {
-		width: 100%;
-		border-radius: 6px;
-		justify-content: flex-start;
-	}
-	.sort-row {
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
-		color: var(--muted-foreground);
-		font-size: 9px;
-	}
-	.sort-row button,
-	.clear-filters,
-	.active-tags button {
-		height: 22px;
-		padding: 0 0.4rem;
-		font-size: 9px;
-	}
-	.sort-row button[aria-pressed='true'] {
-		background: var(--primary);
-		color: var(--primary-foreground);
-	}
-	.clear-filters {
-		justify-self: start;
-	}
-	.active-tags {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.3rem;
-		margin-top: 0.4rem;
-	}
-	.dot {
-		position: absolute;
-		z-index: 2;
-		width: 0;
-		height: 0;
-		overflow: visible;
-	}
-	.dot.dim {
-		opacity: 0.16;
-	}
-	.dot-hit {
-		position: absolute;
-		top: 0;
-		left: 0;
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		transform: translate(calc(var(--r) * -1), -50%);
-		border: 0;
-		background: transparent;
-		color: var(--muted-foreground);
-		padding: 0;
-		cursor: grab;
-		font: inherit;
-	}
-	.dot-mark {
-		width: calc(var(--r) * 2);
-		height: calc(var(--r) * 2);
-		flex: 0 0 auto;
-		border-radius: 50%;
-		background: var(--dot);
-	}
-	.dot.selected .dot-mark,
-	.dot.hot .dot-mark {
-		box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot) 45%, transparent);
-	}
-	.dot-label {
-		font-size: 11px;
-		font-weight: 450;
-		line-height: 1;
-		white-space: nowrap;
-	}
-	.dot.selected .dot-label,
-	.dot.hot .dot-label {
-		color: var(--foreground);
-		font-weight: 600;
-	}
-	.panel .theme-select {
-		width: 100%;
-	}
-	.floating,
-	.status,
-	.zoom {
-		position: absolute;
-		z-index: 4;
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: var(--card);
-		box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
-	}
-	.floating {
-		top: 10px;
-		left: 50%;
-		transform: translateX(-50%);
-		padding: 4px;
-	}
-	.status {
-		left: 10px;
-		bottom: 10px;
-		padding: 6px 8px;
-		color: var(--muted-foreground);
-		font-size: 9.5px;
-	}
-	.zoom {
-		right: 10px;
-		bottom: 10px;
-		padding: 4px;
-	}
-	.zoom span {
-		min-width: 40px;
-		color: var(--muted-foreground);
-		font-size: 9px;
-		text-align: center;
-	}
-	.edge-strip {
-		display: flex;
-		flex-wrap: nowrap;
-		max-width: 100%;
-		height: 40px;
-		gap: 0.35rem;
-		overflow-x: auto;
-		border-top: 1px solid var(--border);
-		background: var(--card);
-		padding: 0.35rem;
-	}
-	.edge-strip :global(button) {
-		height: auto;
-		min-height: 1.75rem;
-		white-space: nowrap;
-	}
-	.tabs {
-		position: sticky;
-		top: 0;
-		z-index: 2;
-		display: flex;
-		border-bottom: 1px solid var(--border);
-		background: var(--card);
-	}
-	.tabs button {
-		flex: 1;
-		border: 0;
-		border-bottom: 2px solid transparent;
-		background: transparent;
-		color: var(--muted-foreground);
-		font-size: 10.5px;
-		cursor: pointer;
-	}
-	.tabs button.active {
-		border-bottom-color: var(--primary);
-		color: var(--foreground);
-	}
-	label {
-		display: grid;
-		gap: 4px;
-		color: var(--muted-foreground);
-		font-size: 9px;
-	}
-	textarea,
-	.json {
-		width: 100%;
-		min-height: 4.5rem;
-		resize: vertical;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--surface-2);
-		color: var(--foreground);
-		padding: 8px;
-		font:
-			9px/1.4 ui-monospace,
-			SFMono-Regular,
-			Menlo,
-			monospace;
-	}
-	.json {
-		min-height: 520px;
-	}
-	.port-editor {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-	}
-	.port-row :global(input) {
-		min-width: 0;
-	}
-	.inventory-item {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 0.45rem;
-		align-items: center;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--surface-2);
-		padding: 7px;
-	}
-	.inventory-item div {
-		display: grid;
-		min-width: 0;
-		gap: 0.15rem;
-	}
-	.inventory-item strong {
-		font-size: 10px;
-		word-break: break-word;
-	}
-	.empty {
-		padding: 25px 6px;
-		color: var(--muted-foreground);
-		font-size: 10px;
-		text-align: center;
-	}
-	.empty b {
-		display: block;
-		margin-bottom: 0.4rem;
-		color: var(--foreground);
-	}
-	.toast {
-		position: fixed;
-		z-index: 40;
-		right: 0.75rem;
-		bottom: 0.75rem;
-		max-width: min(28rem, calc(100% - 1.5rem));
-		border-radius: 10px;
-		background: var(--foreground);
-		color: var(--background);
-		padding: 0.65rem 0.85rem;
-		font-size: 0.85rem;
-	}
-	.empty-map {
-		position: absolute;
-		z-index: 3;
-		inset: 0;
-		display: grid;
-		place-content: center;
-		justify-items: center;
-		gap: 0.75rem;
-		padding: 1.5rem;
-		text-align: center;
-		background: color-mix(in srgb, var(--canvas) 88%, transparent);
-	}
-	.empty-map p {
-		margin: 0;
-		max-width: 22rem;
-	}
-	.mobile-map {
-		display: none;
-		gap: 0.65rem;
-		margin: 0;
-		padding: 0.75rem;
-		list-style: none;
-	}
-	.mobile-card {
-		display: flex;
-		width: 100%;
-		min-height: 44px;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 0.75rem;
-		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: var(--card);
-		color: inherit;
-		padding: 0.8rem 0.85rem;
-		text-align: left;
-	}
-	.mobile-card span {
-		display: grid;
-		min-width: 0;
-		gap: 0.15rem;
-	}
-	.mobile-card.selected {
-		outline: 2px solid var(--primary);
-	}
-	.mobile-edge {
-		margin: 0.35rem 0 0 0.2rem;
-		color: var(--muted-foreground);
-		font-size: 0.8rem;
-	}
-	.count {
-		margin-left: 0.25rem;
-		opacity: 0.7;
-	}
-	.diagram-path {
-		min-width: 0;
-		flex-wrap: wrap;
-	}
-
-	@media (max-width: 44rem) {
-		.workspace {
-			height: auto;
-			min-height: 100dvh;
-			overflow: visible;
-			grid-template-rows: auto auto;
-		}
-		.topbar {
-			height: auto;
-			flex-wrap: wrap;
-			padding: 0.65rem;
-		}
-		.brand {
-			flex: 1 1 12rem;
-		}
-		.spacer {
-			display: none;
-		}
-		.layout {
-			display: flex;
-			flex-direction: column;
-		}
-		.sidebar {
-			display: contents;
-		}
-		.sidebar > :not(.search-section) {
-			display: none;
-		}
-		.search-section {
-			order: 1;
-			border-bottom: 1px solid var(--border);
-			background: var(--card);
-		}
-		.canvas-shell {
-			order: 2;
-			height: auto;
-			min-height: 0;
-		}
-		.inspector {
-			order: 3;
-			width: auto;
-			border-left: 0;
-			border-top: 1px solid var(--border);
-		}
-		.viewport {
-			height: auto;
-			min-height: 0;
-			overflow: visible;
-			cursor: default;
-			touch-action: pan-y;
-			background-image: none;
-		}
-		.world,
-		.floating,
-		.status,
-		.zoom,
-		.edge-strip {
-			display: none;
-		}
-		.mobile-map {
-			display: grid;
-		}
-		.port-editor,
-		.json {
-			min-height: 12rem;
-		}
-		.port-editor {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>
