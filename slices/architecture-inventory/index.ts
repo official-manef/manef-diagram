@@ -9,6 +9,7 @@ export {
 	layoutGraph,
 	settleTick,
 	flowCard,
+	graphDot,
 	routeEdges,
 	sameGraph,
 	relatedView,
