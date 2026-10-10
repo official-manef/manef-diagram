@@ -27,6 +27,13 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 10. Namespaced tag facets combine alternatives within a namespace and intersect namespaces, including arbitrary user-supplied namespace names.
 11. A node may contain a child diagram of the same contract. Selecting that node again opens it, up to three levels deep. The public seed keeps nine services and adds their public modules. A seeded child describes this product and does not add private infrastructure.
 
+## Landing ownership — 2026-10-11
+
+- The ecosystem homepage belongs to `manef.dev`. Diagram's root is a product landing
+  with an explicit `/app` entry point, guide, features and a link back to MANEF.
+- Existing `/products`, `/guide`, `/audit` and `/workspace` reference/demo routes stay
+  available. This correction does not change graph data, storage or authentication.
+
 ## Revision evidence — 2026-10-09
 
 - `diagram.manef.dev` on the public map has a component diagram: public directory, public map, demo workspace, graph contract, and the MCP read API. Other public services do not invent an inner diagram. A component diagram can contain another one, up to three levels, but the seed only fills the first.

@@ -14,15 +14,15 @@
 
 <div class="eco" data-theme={themePreference.theme}>
 	<header class="public-header">
-		<a class="brand" href={resolve('/')}>MANEF</a>
+		<a class="brand" href={resolve('/')}>Manef Diagram</a>
 		<nav class="public-nav" aria-label="Public">
 			<a
 				href={resolve('/products')}
-				aria-current={path.startsWith('/products') ? 'page' : undefined}>Products</a
+				aria-current={path.startsWith('/products') ? 'page' : undefined}>Map directory</a
 			>
 			<a href={resolve('/guide')} aria-current={path === '/guide' ? 'page' : undefined}>Guide</a>
 			<a href={resolve('/audit')} aria-current={path === '/audit' ? 'page' : undefined}>Audit</a>
-			<a href={resolve('/workspace')}>Workspace</a>
+			<a href={resolve('/workspace')}>Demo workspace</a>
 		</nav>
 		<div class="row">
 			<button
@@ -48,7 +48,7 @@
 	</header>
 	{@render children()}
 	<footer class="public-footer">
-		<span>Public map and a labeled demo. Proposals are not live hosts.</span>
-		<a href={resolve('/audit')}>Read the audit</a>
+		<span>Manef Diagram · Architecture maps and a separate demo workspace.</span>
+		<a href="https://manef.dev">MANEF ecosystem ↗</a>
 	</footer>
 </div>

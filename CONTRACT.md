@@ -8,6 +8,13 @@ This is the maintained map of shared invariants and their authoritative files. R
 at the start of each session. It records the current template, not a hypothetical client
 application. Detailed implementation guidance lives in [architecture](docs/architecture.md).
 
+## Public landing ownership
+
+`https://manef.dev` owns the MANEF ecosystem landing. `https://diagram.manef.dev/`
+introduces Manef Diagram and links to its canonical application at `/app`. The
+directory, guide, audit and browser-local demo routes remain available as map references;
+they do not turn this product's root into the ecosystem homepage.
+
 ## Authentication provider boundary
 
 MANEF targets the existing WorkOS project for its shared production identity. The WorkOS adapter and

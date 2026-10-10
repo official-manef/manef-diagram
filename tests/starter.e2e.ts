@@ -61,6 +61,20 @@ test('branding, sharing metadata and asset files agree across navigation', async
 	request
 }) => {
 	await page.goto('/');
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Manef Diagram', exact: true })
+	).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Start mapping', exact: true })).toHaveAttribute(
+		'href',
+		'/app'
+	);
+	await expect(page.getByRole('link', { name: 'MANEF ecosystem ↗', exact: true })).toHaveAttribute(
+		'href',
+		'https://manef.dev'
+	);
+	await expect(page.getByRole('heading', { name: 'One studio. Separate products.' })).toHaveCount(
+		0
+	);
 	await expect(page.locator('html')).toHaveAttribute('lang', appConfig.locale);
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'index,follow');
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
