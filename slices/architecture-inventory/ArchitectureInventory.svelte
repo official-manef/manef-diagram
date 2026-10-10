@@ -52,6 +52,14 @@
 	} from './lib/edit';
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
 	import { panForZoom } from './lib/camera';
+	import {
+		createNodeView,
+		isDiagramKind,
+		kindGroups,
+		mermaidSource,
+		viewAsJson,
+		viewAsMarkdown
+	} from './lib/diagram-views';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import './editor.css';
 
@@ -92,6 +100,9 @@
 	});
 
 	let diagramMode = $state<DiagramMode>('flow');
+	let openView = $state<{ nodeId: string; viewId: string } | null>(null);
+	let viewHost = $state<HTMLDivElement | null>(null);
+	let viewError = $state('');
 	let traceMode = $state<TraceMode>('direct');
 	let focusMode = $state(false);
 	let search = $state('');
@@ -194,6 +205,13 @@
 	const highlightedNodeIds = $derived(new Set(trace.nodeIds));
 	const highlightedEdgeIds = $derived(new Set(trace.edgeIds));
 	const selectedNode = $derived(graph.nodes.find((node) => node.id === selectedNodeId));
+	const activeView = $derived.by(() => {
+		const opened = openView;
+		if (!opened) return null;
+		const node = graph.nodes.find((item) => item.id === opened.nodeId);
+		return node?.views?.find((view) => view.id === opened.viewId) ?? null;
+	});
+	const diagramKindGroups = kindGroups();
 	const selectedEdge = $derived(graph.edges.find((edge) => edge.id === selectedEdgeId));
 	const allTags = $derived([...new Set(graph.nodes.flatMap((node) => node.tags))].sort());
 	const tagGroups = $derived(
@@ -343,6 +361,7 @@
 	}
 
 	function showFlow() {
+		openView = null;
 		stopSettle();
 		const from: Record<string, Point> = {};
 		for (const node of graph.nodes) {
@@ -831,7 +850,104 @@
 		settleHandle = requestAnimationFrame(step);
 	}
 
+	function replaceView(patch: Partial<NonNullable<typeof activeView>>) {
+		const opened = openView;
+		if (!opened) return;
+		const node = graph.nodes.find((item) => item.id === opened.nodeId);
+		if (!node?.views) return;
+		commitVisible(
+			patchNode(graph, node.id, {
+				views: node.views.map((view) => (view.id === opened.viewId ? { ...view, ...patch } : view))
+			})
+		);
+	}
+
+	function addDiagramView(kind: string) {
+		if (!isDiagramKind(kind)) return;
+		const node = selectedNode;
+		if (!node) {
+			actionMessage = 'Select a node, then add a view.';
+			return;
+		}
+		const view = createNodeView(kind, node.label);
+		commitVisible(patchNode(graph, node.id, { views: [...(node.views ?? []), view] }));
+		openView = { nodeId: node.id, viewId: view.id };
+		viewError = '';
+	}
+
+	function setViewFormat(format: 'md' | 'json') {
+		if (!activeView || activeView.format === format) return;
+		try {
+			const body = mermaidSource(activeView);
+			replaceView({
+				format,
+				source:
+					format === 'json'
+						? viewAsJson({ ...activeView, format: 'md', source: body })
+						: viewAsMarkdown({ title: activeView.title, source: body })
+			});
+			viewError = '';
+		} catch (error) {
+			viewError = error instanceof Error ? error.message : 'Could not convert this view.';
+		}
+	}
+
+	function removeView() {
+		const opened = openView;
+		if (!opened) return;
+		const node = graph.nodes.find((item) => item.id === opened.nodeId);
+		if (!node?.views) return;
+		commitVisible(
+			patchNode(graph, node.id, {
+				views: node.views.filter((view) => view.id !== opened.viewId)
+			})
+		);
+		openView = null;
+		viewError = '';
+	}
+
+	$effect(() => {
+		const view = activeView;
+		const host = viewHost;
+		const theme = appliedTheme;
+		if (!view || !host) return;
+		let source = '';
+		try {
+			source = mermaidSource(view);
+		} catch (error) {
+			viewError = error instanceof Error ? error.message : 'Could not read this view.';
+			host.innerHTML = '';
+			return;
+		}
+		let cancel = false;
+		const renderId = `mmd-${crypto.randomUUID()}`;
+		void import('mermaid')
+			.then(async (mod) => {
+				if (cancel) return;
+				const mermaid = mod.default;
+				mermaid.initialize({
+					startOnLoad: false,
+					securityLevel: 'strict',
+					theme: theme === 'composio-dark' ? 'dark' : 'neutral',
+					fontFamily: 'inherit'
+				});
+				const drawn = await mermaid.render(renderId, source);
+				if (cancel) return;
+				host.innerHTML = drawn.svg;
+				viewError = '';
+			})
+			.catch((error: unknown) => {
+				if (cancel) return;
+				host.innerHTML = '';
+				viewError = error instanceof Error ? error.message : 'This diagram could not be drawn.';
+			});
+		return () => {
+			cancel = true;
+		};
+	});
+
 	function startSettle() {
+		openView = null;
 		const fromFlow = diagramMode !== 'graph';
 		const seed: Record<string, Point> = {};
 		for (const node of graph.nodes) {
@@ -1005,68 +1121,89 @@
 				>
 			</div>
 		</div>
-		<div class="segmented" aria-label="Diagram mode">
-			<Button
-				data-interactive
-				variant={diagramMode === 'flow' ? 'default' : 'ghost'}
-				aria-pressed={diagramMode === 'flow'}
-				disabled={!hydrated}
-				size="sm"
-				onclick={showFlow}>Flow</Button
+		<div class="mode-center">
+			<div class="segmented" aria-label="Diagram mode">
+				<Button
+					data-interactive
+					variant={diagramMode === 'flow' && !activeView ? 'default' : 'ghost'}
+					aria-pressed={diagramMode === 'flow' && !activeView}
+					disabled={!hydrated}
+					size="sm"
+					onclick={showFlow}>Flow</Button
+				>
+				<Button
+					data-interactive
+					variant={diagramMode === 'graph' && !activeView ? 'default' : 'ghost'}
+					aria-pressed={diagramMode === 'graph' && !activeView}
+					disabled={!hydrated}
+					size="sm"
+					onclick={startSettle}>Graph</Button
+				>
+			</div>
+			<select
+				class="theme-select"
+				aria-label="Add view"
+				onchange={(event) => {
+					const value = event.currentTarget.value;
+					event.currentTarget.value = '';
+					addDiagramView(value);
+				}}
 			>
-			<Button
-				data-interactive
-				variant={diagramMode === 'graph' ? 'default' : 'ghost'}
-				aria-pressed={diagramMode === 'graph'}
-				disabled={!hydrated}
-				size="sm"
-				onclick={startSettle}>Graph</Button
-			>
-		</div>
-		{#if diagramPath.length > 0}
-			<nav class="diagram-path" aria-label="Diagram level">
-				{#each crumbs as crumb (crumb.depth)}
-					{#if crumb.depth < diagramPath.length}
-						<Button size="sm" variant="ghost" onclick={() => showDiagram(crumb.depth)}
-							>{crumb.label}</Button
-						>
-						<span aria-hidden="true">/</span>
-					{:else}
-						<span aria-current="page">{crumb.label}</span>
-					{/if}
+				<option value="">Add view</option>
+				{#each diagramKindGroups as group (group.group)}
+					<optgroup label={group.group}>
+						{#each group.kinds as kind (kind.id)}
+							<option value={kind.id}>{kind.label}</option>
+						{/each}
+					</optgroup>
 				{/each}
-			</nav>
-		{/if}
-		<div class="spacer"></div>
-		<select
-			class="theme-select"
-			aria-label="Color theme"
-			value={editorTheme}
-			onchange={(event) => {
-				const value = event.currentTarget.value;
-				if (value === 'composio-dark' || value === 'composio-light' || value === 'system') {
-					applyEditorTheme(value);
-				}
-			}}
-		>
-			<option value="composio-dark">Dark</option>
-			<option value="composio-light">Light</option>
-			<option value="system">System</option>
-		</select>
-		<div class="top-actions">
-			<Button data-interactive variant="outline" size="sm" onclick={addNode}>+ Node</Button>
-			<Button data-interactive variant="outline" size="sm" onclick={exportJson}>Export</Button>
-			<Button data-interactive variant="outline" size="sm" onclick={() => fileInput?.click()}
-				>Import</Button
+			</select>
+		</div>
+		<div class="top-end">
+			{#if diagramPath.length > 0}
+				<nav class="diagram-path" aria-label="Diagram level">
+					{#each crumbs as crumb (crumb.depth)}
+						{#if crumb.depth < diagramPath.length}
+							<Button size="sm" variant="ghost" onclick={() => showDiagram(crumb.depth)}
+								>{crumb.label}</Button
+							>
+							<span aria-hidden="true">/</span>
+						{:else}
+							<span aria-current="page">{crumb.label}</span>
+						{/if}
+					{/each}
+				</nav>
+			{/if}
+			<select
+				class="theme-select"
+				aria-label="Color theme"
+				value={editorTheme}
+				onchange={(event) => {
+					const value = event.currentTarget.value;
+					if (value === 'composio-dark' || value === 'composio-light' || value === 'system') {
+						applyEditorTheme(value);
+					}
+				}}
 			>
-			<input
-				bind:this={fileInput}
-				type="file"
-				accept="application/json"
-				hidden
-				onchange={importFile}
-			/>
-			<Button data-interactive variant="outline" size="sm" onclick={shareView}>Share view</Button>
+				<option value="composio-dark">Dark</option>
+				<option value="composio-light">Light</option>
+				<option value="system">System</option>
+			</select>
+			<div class="top-actions">
+				<Button data-interactive variant="outline" size="sm" onclick={addNode}>+ Node</Button>
+				<Button data-interactive variant="outline" size="sm" onclick={exportJson}>Export</Button>
+				<Button data-interactive variant="outline" size="sm" onclick={() => fileInput?.click()}
+					>Import</Button
+				>
+				<input
+					bind:this={fileInput}
+					type="file"
+					accept="application/json"
+					hidden
+					onchange={importFile}
+				/>
+				<Button data-interactive variant="outline" size="sm" onclick={shareView}>Share view</Button>
+			</div>
 		</div>
 	</header>
 	{#if actionMessage}<p class="toast" role="status">{actionMessage}</p>{/if}
@@ -1226,6 +1363,17 @@
 				}}
 				onwheel={handleWheel}
 			>
+				{#if activeView}
+					<div class="mermaid-view" data-interactive>
+						<div class="view-bar">
+							<strong>{activeView.title}</strong>
+							<span>{activeView.format === 'md' ? 'Markdown' : 'JSON'}</span>
+							<Button size="sm" variant="outline" onclick={() => (openView = null)}>Map</Button>
+						</div>
+						{#if viewError}<p class="help">{viewError}</p>{/if}
+						<div class="view-canvas" bind:this={viewHost}></div>
+					</div>
+				{/if}
 				{#if visibleNodes.length === 0}
 					<div class="empty-map">
 						<p>No services match{search.trim() ? ` “${search.trim()}”` : ' these tags'}.</p>
@@ -1670,6 +1818,46 @@
 							>Add component diagram</Button
 						>
 					{/if}
+					<div class="view-editor">
+						<span>Views</span>
+						{#if selectedNode.views?.length}
+							<div class="view-list">
+								{#each selectedNode.views as view (view.id)}
+									<button
+										type="button"
+										class:active={openView?.viewId === view.id}
+										onclick={() => (openView = { nodeId: selectedNode.id, viewId: view.id })}
+										>{view.title}</button
+									>
+								{/each}
+							</div>
+						{:else}
+							<p class="help">
+								Add a view from the center menu. Markdown or JSON, one diagram per view.
+							</p>
+						{/if}
+						{#if activeView && openView?.nodeId === selectedNode.id}
+							<div class="segmented">
+								<button
+									type="button"
+									aria-pressed={activeView.format === 'md'}
+									onclick={() => setViewFormat('md')}>Markdown</button
+								>
+								<button
+									type="button"
+									aria-pressed={activeView.format === 'json'}
+									onclick={() => setViewFormat('json')}>JSON</button
+								>
+							</div>
+							<textarea
+								class="view-source"
+								aria-label="Diagram source"
+								spellcheck="false"
+								value={activeView.source}
+								oninput={(event) => replaceView({ source: event.currentTarget.value })}></textarea>
+							<Button size="sm" variant="outline" onclick={removeView}>Remove view</Button>
+						{/if}
+					</div>
 					<label>
 						<span>Label</span>
 						<Input

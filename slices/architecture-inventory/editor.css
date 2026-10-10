@@ -105,10 +105,91 @@
 	gap: 0.35rem;
 }
 .workspace .topbar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	align-items: center;
 	gap: 0.5rem;
 	border-bottom: 1px solid var(--border);
 	background: var(--card);
 	padding: 0 0.75rem;
+}
+.workspace .mode-center,
+.workspace .top-end {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 0;
+}
+.workspace .mode-center {
+	justify-self: center;
+}
+.workspace .top-end {
+	justify-self: end;
+}
+.workspace .mermaid-view {
+	position: absolute;
+	inset: 0;
+	z-index: 8;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	overflow: auto;
+	background: var(--canvas);
+	padding: 12px;
+}
+.workspace .view-bar,
+.workspace .view-list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+}
+.workspace .view-bar {
+	color: var(--foreground);
+	font-size: 12px;
+}
+.workspace .view-bar span,
+.workspace .view-editor > span {
+	color: var(--muted-foreground);
+	font-size: 10px;
+}
+.workspace .view-canvas {
+	display: grid;
+	flex: 1;
+	place-items: center;
+	min-height: 240px;
+}
+.workspace .view-canvas svg {
+	max-width: 100%;
+	height: auto;
+}
+.workspace .view-editor {
+	display: grid;
+	gap: 0.4rem;
+}
+.workspace .view-list button {
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--foreground);
+	padding: 0.15rem 0.5rem;
+	font-size: 10px;
+}
+.workspace .view-list button.active {
+	background: var(--foreground);
+	color: var(--background);
+}
+.workspace .view-source {
+	width: 100%;
+	min-height: 9rem;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-2);
+	color: var(--foreground);
+	padding: 0.5rem;
+	font-family: ui-monospace, monospace;
+	font-size: 11px;
+	resize: vertical;
 }
 .workspace .spacer {
 	flex: 1;
@@ -873,6 +954,7 @@
 		grid-template-rows: auto auto;
 	}
 	.workspace .topbar {
+		display: flex;
 		height: auto;
 		flex-wrap: wrap;
 		padding: 0.65rem;
