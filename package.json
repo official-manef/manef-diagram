@@ -94,6 +94,7 @@
 		"convex": "1.45.0",
 		"convex-svelte": "0.14.0",
 		"jose": "6.2.12",
+		"mermaid": "^12.1.0",
 		"openid-client": "6.8.8",
 		"zod": "4.5.4"
 	},

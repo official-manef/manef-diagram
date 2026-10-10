@@ -7,6 +7,7 @@ import type {
 	TraceMode,
 	TraceResult
 } from '../types';
+import { isNodeView } from './diagram-views';
 
 export const MAX_DIAGRAM_DEPTH = 3;
 
@@ -60,6 +61,8 @@ function validateGraphAt(value: unknown, depth: number): value is ArchitectureGr
 			!raw.inputs.every(isPort) ||
 			!Array.isArray(raw.outputs) ||
 			!raw.outputs.every(isPort) ||
+			(raw.views !== undefined &&
+				(!Array.isArray(raw.views) || !raw.views.every((view) => isNodeView(view)))) ||
 			(raw.child !== undefined && !validateGraphAt(raw.child, depth + 1))
 		) {
 			return false;
@@ -134,6 +137,8 @@ export function cloneGraph(graph: ArchitectureGraph): ArchitectureGraph {
 			};
 			if (node.child) copy.child = cloneGraph(node.child);
 			else delete copy.child;
+			if (node.views) copy.views = node.views.map((view) => ({ ...view }));
+			else delete copy.views;
 			return copy;
 		}),
 		edges: graph.edges.map((edge) => ({ ...edge, tags: edge.tags ? [...edge.tags] : undefined }))
@@ -836,7 +841,9 @@ export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
 				inputs: node.inputs.map((port) => port.label),
 				outputs: node.outputs.map((port) => port.label),
 				child: node.child ? signature(node.child) : '',
-				inventoryRef: node.inventoryRef ? `${node.inventoryRef.kind}:${node.inventoryRef.key}` : ''
+				inventoryRef: node.inventoryRef ? `${node.inventoryRef.kind}:${node.inventoryRef.key}` : '',
+				views:
+					node.views?.map((view) => `${view.id}:${view.kind}:${view.format}:${view.source}`) ?? []
 			})),
 			edges: graph.edges.map((edge) => ({
 				id: edge.id,

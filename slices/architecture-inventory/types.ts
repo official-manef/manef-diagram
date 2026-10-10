@@ -6,6 +6,14 @@ export type ArchitecturePort = {
 
 export type NodeStatus = 'active' | 'proposed' | 'private';
 
+export type NodeView = {
+	id: string;
+	kind: string;
+	title: string;
+	format: 'md' | 'json';
+	source: string;
+};
+
 export type ArchitectureNode = {
 	id: string;
 	label: string;
@@ -18,6 +26,8 @@ export type ArchitectureNode = {
 	outputs: ArchitecturePort[];
 	/** Another diagram of this same contract. Absent when the node has no components. */
 	child?: ArchitectureGraph;
+	/** Extra Mermaid diagrams for this node, authored as Markdown or JSON. */
+	views?: NodeView[];
 	/** Set when this node was added from the inventory, so the same record is not added twice. */
 	inventoryRef?: InventoryRef;
 };
