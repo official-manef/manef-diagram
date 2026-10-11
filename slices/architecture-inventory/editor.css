@@ -41,6 +41,7 @@
 	--color-ring: var(--ring);
 	height: 100dvh;
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
 	grid-template-rows: 54px minmax(0, 1fr);
 	overflow: hidden;
 	background: var(--background);
@@ -932,10 +933,31 @@
 .workspace .mobile-card.selected {
 	outline: 2px solid var(--primary);
 }
+.workspace .mobile-card.hot,
+.workspace .mobile-edge.hot {
+	border-color: var(--primary);
+}
 .workspace .mobile-edge {
+	display: block;
+	width: 100%;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--surface-2);
+	padding: 0.5rem;
+	text-align: left;
 	margin: 0.35rem 0 0 0.2rem;
 	color: var(--muted-foreground);
 	font-size: 0.8rem;
+}
+.workspace .mobile-edge[aria-pressed='true'] {
+	outline: 2px solid var(--primary);
+}
+.workspace .mobile-tools,
+.workspace .mobile-help,
+.workspace .mobile-inspect,
+.workspace .mobile-port-action,
+.workspace .mobile-physics {
+	display: none;
 }
 .workspace .count {
 	margin-left: 0.25rem;
@@ -946,7 +968,7 @@
 	flex-wrap: wrap;
 }
 
-@media (max-width: 44rem) {
+@media (max-width: 64rem) {
 	.workspace {
 		height: auto;
 		min-height: 100dvh;
@@ -959,6 +981,69 @@
 		flex-wrap: wrap;
 		padding: 0.65rem;
 	}
+	.workspace .mode-center,
+	.workspace .top-end,
+	.workspace .top-actions {
+		flex-wrap: wrap;
+		max-width: 100%;
+	}
+	.workspace .top-end {
+		width: 100%;
+	}
+	.workspace .top-actions {
+		flex: 1 1 12rem;
+	}
+	.workspace .brand > div,
+	.workspace .layout,
+	.workspace .sidebar,
+	.workspace .inspector,
+	.workspace .mobile-map > li {
+		min-width: 0;
+	}
+	.workspace .brand small,
+	.workspace .diagram-path,
+	.workspace .panel,
+	.workspace .mobile-card,
+	.workspace .mobile-edge,
+	.workspace .mobile-inspect,
+	.workspace .mobile-tools {
+		overflow-wrap: anywhere;
+	}
+	.workspace button,
+	.workspace select,
+	.workspace input:not([type='checkbox']),
+	.workspace .tag-check {
+		min-height: 44px;
+	}
+	.workspace button {
+		min-width: 44px;
+		height: auto;
+		white-space: normal;
+	}
+	.workspace input:not([type='checkbox']),
+	.workspace textarea,
+	.workspace select {
+		max-width: 100%;
+		font-size: 16px;
+	}
+	.workspace .help,
+	.workspace label,
+	.workspace h2,
+	.workspace .metric,
+	.workspace .tabs button,
+	.workspace .tag-check,
+	.workspace .filter-toggle {
+		font-size: 14px;
+	}
+	.workspace .filter-menu {
+		position: relative;
+		top: auto;
+		margin-top: 0.5rem;
+		max-height: 50dvh;
+	}
+	.workspace .filter-backdrop {
+		display: none;
+	}
 	.workspace .brand {
 		flex: 1 1 12rem;
 	}
@@ -970,10 +1055,9 @@
 		flex-direction: column;
 	}
 	.workspace .sidebar {
-		display: contents;
-	}
-	.workspace .sidebar > :not(.search-section) {
-		display: none;
+		order: 1;
+		overflow: visible;
+		border-right: 0;
 	}
 	.workspace .search-section {
 		order: 1;
@@ -981,6 +1065,7 @@
 		background: var(--card);
 	}
 	.workspace .canvas-shell {
+		display: block;
 		order: 2;
 		height: auto;
 		min-height: 0;
@@ -999,6 +1084,50 @@
 		touch-action: pan-y;
 		background-image: none;
 	}
+	.workspace .empty-map {
+		position: relative;
+		min-height: 12rem;
+	}
+	.workspace .mobile-tools {
+		position: sticky;
+		top: 0;
+		z-index: 9;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		background: var(--card);
+		padding: 0.65rem;
+	}
+	.workspace .mobile-tools a {
+		flex: 1 1 8rem;
+		min-width: 0;
+	}
+	.workspace .mobile-inspect,
+	.workspace .mobile-tools a {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0.5rem;
+		color: var(--primary);
+		text-decoration: underline;
+	}
+	.workspace .mobile-help {
+		display: block;
+		margin: 0;
+		padding: 0.65rem;
+		font-size: 14px;
+	}
+	.workspace .mobile-port-action {
+		display: inline-flex;
+	}
+	.workspace .port-editor > .mobile-help {
+		padding: 0;
+	}
+	.workspace #diagram-inspector,
+	.workspace #diagram-map {
+		scroll-margin-top: 6rem;
+	}
 	.workspace .world,
 	.workspace .floating,
 	.workspace .toolbar,
@@ -1010,6 +1139,63 @@
 	}
 	.workspace .mobile-map {
 		display: grid;
+	}
+	.workspace .mobile-card {
+		flex-wrap: wrap;
+	}
+	.workspace .mobile-card > span:first-child {
+		flex: 1 1 10rem;
+	}
+	.workspace .mobile-edge {
+		margin-left: 0;
+	}
+	.workspace .mermaid-view {
+		position: relative;
+		min-width: 0;
+	}
+	.workspace .viewport.has-view .mobile-map {
+		display: none;
+	}
+	.workspace.phone-canvas .viewport:not(.has-view) {
+		height: max(26rem, 65dvh);
+		overflow: hidden;
+		touch-action: none;
+	}
+	.workspace.phone-canvas .world {
+		display: block;
+	}
+	.workspace.phone-canvas .mobile-map {
+		display: none;
+	}
+	.workspace.phone-canvas .toolbar {
+		display: flex;
+		flex-wrap: wrap;
+		left: 0.5rem;
+		right: 0.5rem;
+		bottom: 0.5rem;
+		transform: none;
+	}
+	.workspace.phone-canvas .mobile-physics {
+		display: inline-flex;
+	}
+	.workspace.phone-canvas .forces.phone-open {
+		display: grid;
+		top: 0.5rem;
+		left: 0.5rem;
+		right: 0.5rem;
+		width: auto;
+		max-height: calc(100% - 8rem);
+		overflow: auto;
+		font-size: 14px;
+	}
+	.workspace.phone-canvas .forces label,
+	.workspace.phone-canvas .forces button {
+		font-size: 14px;
+	}
+	.workspace .viewport.has-view .world,
+	.workspace .viewport.has-view .toolbar,
+	.workspace .viewport.has-view .forces {
+		display: none;
 	}
 	.workspace .port-editor,
 	.workspace .json {

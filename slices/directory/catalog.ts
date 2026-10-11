@@ -49,7 +49,7 @@ export const products: Product[] = [
 			'Flow and graph editing',
 			'Component diagrams',
 			'Project, platform, and kind facets',
-			'MCP tools in source',
+			'Read-only MCP graph tools',
 			'Portable views'
 		],
 		truth:

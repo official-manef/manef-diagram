@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { mcpConnections } from './config';
 import { executeRemoteTool, listRemoteTools } from './client';
 import { statusMcpResponse } from './server';
+import { GRAPH_TOOL_NAMES } from '$features/architecture-inventory';
 
 const connection = {
 	alias: 'test',
@@ -143,6 +144,7 @@ test('official stateless MCP server advertises read-only graph tools', async () 
 	const data = await response.json();
 	const tools = data.result.tools;
 	const names = tools.map((tool: { name: string }) => tool.name);
+	expect(names.toSorted()).toEqual([...GRAPH_TOOL_NAMES].sort());
 	expect(names).toContain('graph_status');
 	expect(names).toContain('graph_trace');
 	expect(names).toContain('graph_query');
