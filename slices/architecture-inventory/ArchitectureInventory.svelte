@@ -62,6 +62,7 @@
 	} from './lib/diagram-views';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import './editor.css';
+	import { themePreference } from '$lib/theme.svelte';
 
 	let root = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
 	let diagramPath = $state<string[]>([]);
@@ -89,14 +90,6 @@
 		}
 		jsonText = JSON.stringify(diagramAt(root, diagramPath) ?? root, null, 2);
 		hydrated = true;
-		const savedTheme = localStorage.getItem('manef-diagram-theme');
-		if (
-			savedTheme === 'composio-dark' ||
-			savedTheme === 'composio-light' ||
-			savedTheme === 'system'
-		) {
-			applyEditorTheme(savedTheme);
-		}
 	});
 
 	let diagramMode = $state<DiagramMode>('flow');
@@ -126,8 +119,16 @@
 	let zoom = $state(0.72);
 	let pan = $state({ x: 32, y: 28 });
 	let overrides = $state<Record<string, Point>>({});
-	let editorTheme = $state<'composio-dark' | 'composio-light' | 'system'>('composio-dark');
-	let appliedTheme = $state<'composio-dark' | 'composio-light'>('composio-dark');
+	const editorTheme = $derived(
+		themePreference.preference === 'system'
+			? 'system'
+			: themePreference.preference === 'dark'
+				? 'composio-dark'
+				: 'composio-light'
+	);
+	const appliedTheme = $derived(
+		themePreference.theme === 'dark' ? 'composio-dark' : 'composio-light'
+	);
 	let inspectorTab = $state<'details' | 'inventory' | 'json'>('details');
 	let nodeDrag = $state<{
 		nodeId: string;
@@ -181,14 +182,9 @@
 	});
 
 	function applyEditorTheme(next: 'composio-dark' | 'composio-light' | 'system') {
-		editorTheme = next;
-		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		appliedTheme = next === 'system' ? (prefersDark ? 'composio-dark' : 'composio-light') : next;
-		try {
-			localStorage.setItem('manef-diagram-theme', next);
-		} catch {
-			/* the choice still applies for this visit */
-		}
+		themePreference.setTheme(
+			next === 'system' ? 'system' : next === 'composio-dark' ? 'dark' : 'light'
+		);
 	}
 
 	const positions = $derived(layoutGraph(graph, diagramMode));

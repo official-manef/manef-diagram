@@ -61,14 +61,17 @@ These are examples, not strings to copy into states that do not support the clai
 Semantic tokens such as `--background`, `--foreground`, `--primary`, `--muted`,
 `--destructive`, `--border` and `--ring` have light/dark definitions in `layout.css`.
 Use their Tailwind utilities instead of local color literals. The current base radius
-is `0.75rem`; control and layout radii derive from it. UI text uses the configured
+is `0.5rem`; control and layout radii derive from it. UI text uses the configured
 sans-serif stack, with monospace reserved for code or technical values.
 
 Shell dimensions also come from tokens: `--app-touch-target`, `--app-topbar-height`,
 `--app-mobile-dock-height`, grid minimum widths and rail card width. Change these tokens
 when changing the shared rhythm, rather than patching every consuming component.
-Dark tokens exist; verify the selected product's theme behavior rather than assuming
-a theme preference is already persisted.
+`src/lib/theme.svelte.ts` owns the light/dark/system preference, persisted at
+`manef-theme-v1` when storage is available. It reads legacy preferences without deleting
+local demo data. Public pages, the editor and app chrome use this same state; feature
+styles alias semantic tokens and keep their own functional geometry. Change shared
+colors in `layout.css`, rather than copying a palette into a page.
 
 Keep the existing font and Lucide icon family unless the brand or usability task calls
 for a change. Do not add fonts, icon packs, images or animation libraries for novelty.

@@ -8,6 +8,7 @@
 	import Activity from '@lucide/svelte/icons/activity';
 	import Settings from '@lucide/svelte/icons/settings';
 	import { appConfig } from '$lib/config/app';
+	import { themePreference } from '$lib/theme.svelte';
 	import { assets } from '../../../assets.config';
 	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
 	import Check from '@lucide/svelte/icons/check';
@@ -100,6 +101,16 @@
 				</ol>
 			</nav>
 
+			<Button
+				variant="ghost"
+				class="h-11 shrink-0"
+				disabled={!ready}
+				aria-label="Toggle color theme"
+				onclick={() =>
+					themePreference.setTheme(themePreference.theme === 'dark' ? 'light' : 'dark')}
+			>
+				{themePreference.theme === 'dark' ? 'Light' : 'Dark'}
+			</Button>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger
 					disabled={!ready}

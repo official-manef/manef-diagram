@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { siteLinks } from '$lib/config/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { ecosystem } from './store.svelte';
@@ -164,7 +165,9 @@
 			<p class="eyebrow">Demo graph</p>
 			<h1>Workspace diagram</h1>
 		</div>
-		<a class="btn" href={resolve('/app')}>Open the public map</a>
+		<a class="btn" href={siteLinks.origin + '/app'} rel="external" target="_top"
+			>Open the public map</a
+		>
 	</header>
 	{#if preview}
 		<p class="notice">
@@ -216,13 +219,13 @@
 							y1={point(edge.source).y}
 							x2={point(edge.target).x}
 							y2={point(edge.target).y}
-							stroke="#9aa894"
+							stroke="var(--muted-foreground)"
 							stroke-width="1.5"
 						/>
 						<text
 							x={(point(edge.source).x + point(edge.target).x) / 2}
 							y={(point(edge.source).y + point(edge.target).y) / 2}
-							fill="#667063"
+							fill="var(--muted-foreground)"
 							font-size="11"
 						>
 							{edge.label}
@@ -536,7 +539,9 @@
 			<p class="eyebrow">Local playground</p>
 			<h1>Ten tools, no token</h1>
 		</div>
-		<a class="btn" href={resolve('/guide?section=mcp')}>Read the MCP guide</a>
+		<a class="btn" href={siteLinks.origin + '/guide?section=mcp'} rel="external" target="_top"
+			>Read the MCP guide</a
+		>
 	</header>
 	<p class="notice">
 		This does not POST to /api/mcp/server. Results say simulation and persisted false.
@@ -611,8 +616,12 @@
 			<button class="btn" type="button" onclick={() => ecosystem.toggleSignIn()}>
 				{demo.profile.signedIn ? 'Simulated sign-out' : 'Simulated sign-in'}
 			</button>
-			<a class="btn primary" href={resolve('/auth/login')} data-sveltekit-reload
-				>Sign in with MANEF</a
+			<a
+				class="btn primary"
+				href={siteLinks.origin + '/auth/login'}
+				rel="external"
+				target="_top"
+				data-sveltekit-reload>Sign in with MANEF</a
 			>
 			<p class="muted">
 				The simulation does not create a MANEF session. The link does, when sign-in is configured.
@@ -673,7 +682,9 @@
 			<p class="eyebrow">{demo.workspace}</p>
 			<h1>Overview</h1>
 		</div>
-		<a class="btn" href={resolve('/app')}>Open the public map</a>
+		<a class="btn" href={siteLinks.origin + '/app'} rel="external" target="_top"
+			>Open the public map</a
+		>
 	</header>
 	<div class="grid4">
 		<article class="card stat">
@@ -696,16 +707,25 @@
 	<div class="grid2" style="margin-top: 16px">
 		<section class="card stack">
 			<h2>Try the demo</h2>
-			<p><a href={resolve('/app')}>1. Open the public map.</a> That graph is the shipped seed.</p>
 			<p>
-				<a href={resolve('/workspace/[surface]', { surface: 'registry' })}
+				<a href={siteLinks.origin + '/app'} rel="external" target="_top">1. Open the public map.</a> That
+				graph is the shipped seed.
+			</p>
+			<p>
+				<a href={resolve('/embed/workspace/[[surface]]', { surface: 'registry' })}
 					>2. Install a catalog app in this demo.</a
 				>
 			</p>
 			<p>
-				<a href={resolve('/workspace/[surface]', { surface: 'context' })}>3. Add a context card.</a>
+				<a href={resolve('/embed/workspace/[[surface]]', { surface: 'context' })}
+					>3. Add a context card.</a
+				>
 			</p>
-			<p><a href={resolve('/audit')}>4. Read what is still unverified.</a></p>
+			<p>
+				<a href={siteLinks.origin + '/audit'} rel="external" target="_top"
+					>4. Read what is still unverified.</a
+				>
+			</p>
 		</section>
 		<section class="card stack">
 			<h2>Activity</h2>

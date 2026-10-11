@@ -38,6 +38,42 @@ The workflow sets the backend variable and deploys the checked-in Convex schema,
 functions, and authentication configuration. It does not perform user login or prove
 real consent, callback, refresh, or private-data acceptance; step 6 remains required.
 
+## Live configuration check — 2026-10-11
+
+The WorkOS connector verified MANEF Production
+`environment_01M3X9NDHZNFHTFSTZ0F0B3XWE` and public application client
+`client_01M3X9NDW4TE0P8DN6XS246PVM`. The allowed application redirect is already
+`https://diagram.manef.dev/auth/callback`.
+
+Google's web OAuth client is
+`356006447800-u3d5j0ciuvrjs4vsfqhsgj5ubhajo24c.apps.googleusercontent.com`.
+In **that client's Google Cloud Authorized redirect URIs**, register the exact
+WorkOS Google callback shown by the integration:
+
+```text
+https://auth.workos.com/sso/oauth/google/or1RB58sR8SS48KuIUjjp52iu/callback
+```
+
+This is not the application's callback. WorkOS cannot register an authorized URI
+inside Google Cloud through its OAuth-credentials update API. WorkOS currently shows
+the credentials as `Valid`, but its callback validation returned `success: false`
+and the browser returned Google Error 400 `redirect_uri_mismatch` before consent.
+The available Google Cloud console failed to load the OAuth client list. No Google
+client secret was retrieved, replaced or copied into source.
+
+After saving the URI in Google Cloud, run WorkOS `verifyRedirectUri` in Production
+again, then perform a real login from `/apps/notes`. Verify consent, callback,
+refresh, create/edit/delete a disposable note, logout and isolation using two accounts.
+Do not accept a successful hosted-login redirect as proof of the private backend.
+The linked Convex public query responds and anonymous private queries reject access;
+its deployed WorkOS JWT configuration is still unverified. The repository deploy
+workflow has no configured Actions secret as of this check. See the deployment order
+above before enabling private writes. Public client/environment IDs and callback
+URLs are identifiers, not credentials.
+
+[WorkOS Google setup](https://workos.com/docs/integrations/google-oauth) documents
+the two separate callbacks and Google-side registration.
+
 ## Security contract
 
 The browser is sent to WorkOS AuthKit with state and S256 PKCE. The consumed encrypted

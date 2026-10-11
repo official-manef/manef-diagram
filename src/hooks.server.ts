@@ -1,5 +1,6 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { appConfig } from '$lib/config/app';
+import { siteLinks } from '$lib/config/navigation';
 
 if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(appConfig.locale)) {
 	throw new Error('Set a valid language tag in appConfig.locale.');
@@ -11,13 +12,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 		transformPageChunk: ({ html }) => html.replace('%app.locale%', appConfig.locale)
 	});
 	response.headers.set('X-Content-Type-Options', 'nosniff');
-	// Allow same-origin framing so the diagram can be embedded in sibling MANEF surfaces.
-	// Cross-origin embedding remains governed by the Content-Security-Policy frame-ancestors.
-	response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+	const embedded = event.route.id === '/embed/workspace/[[surface]]';
+	// The public demo may be framed by MANEF; private pages keep the existing policy.
+	if (!embedded) response.headers.set('X-Frame-Options', 'SAMEORIGIN');
 	if (!response.headers.has('Content-Security-Policy'))
 		response.headers.set(
 			'Content-Security-Policy',
-			"frame-ancestors 'self' https://*.manef.dev https://mso.rahmanef.com"
+			embedded
+				? `frame-ancestors 'self' ${siteLinks.ecosystemOrigin}`
+				: "frame-ancestors 'self' https://*.manef.dev https://mso.rahmanef.com"
 		);
 	if (!response.headers.has('Referrer-Policy'))
 		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

@@ -1,44 +1,8 @@
-/* Plain CSS, limited to the architecture editor root. Svelte does not compile <style src>. */
+/* Editor geometry is local; UI colors come from the shared theme tokens. */
 .workspace {
-	--background: #0b0d10;
-	--foreground: #eef2f6;
-	--card: #12161b;
-	--card-foreground: #eef2f6;
-	--popover: #12161b;
-	--popover-foreground: #eef2f6;
-	--primary: #8273f6;
-	--primary-foreground: #f7f6ff;
-	--secondary: #171c22;
-	--secondary-foreground: #eef2f6;
-	--muted: #171c22;
-	--muted-foreground: #8f99a7;
-	--accent: #27213f;
-	--accent-foreground: #eef2f6;
-	--destructive: #ef7589;
-	--border: #282f38;
-	--input: #282f38;
-	--ring: #8273f6;
-	--canvas: #0e1115;
-	--surface-2: #171c22;
-	--surface-3: #1d232b;
-	--color-background: var(--background);
-	--color-foreground: var(--foreground);
-	--color-card: var(--card);
-	--color-card-foreground: var(--card-foreground);
-	--color-popover: var(--popover);
-	--color-popover-foreground: var(--popover-foreground);
-	--color-primary: var(--primary);
-	--color-primary-foreground: var(--primary-foreground);
-	--color-secondary: var(--secondary);
-	--color-secondary-foreground: var(--secondary-foreground);
-	--color-muted: var(--muted);
-	--color-muted-foreground: var(--muted-foreground);
-	--color-accent: var(--accent);
-	--color-accent-foreground: var(--accent-foreground);
-	--color-destructive: var(--destructive);
-	--color-border: var(--border);
-	--color-input: var(--input);
-	--color-ring: var(--ring);
+	--canvas: var(--background);
+	--surface-2: var(--secondary);
+	--surface-3: color-mix(in srgb, var(--foreground) 8%, var(--background));
 	height: 100dvh;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
@@ -46,49 +10,6 @@
 	overflow: hidden;
 	background: var(--background);
 	color: var(--foreground);
-	color-scheme: dark;
-}
-.workspace[data-theme='composio-light'] {
-	--background: #f5f6f8;
-	--foreground: #191b20;
-	--card: #ffffff;
-	--card-foreground: #191b20;
-	--popover: #ffffff;
-	--popover-foreground: #191b20;
-	--primary: #6959dd;
-	--primary-foreground: #ffffff;
-	--secondary: #f1f3f6;
-	--secondary-foreground: #191b20;
-	--muted: #f1f3f6;
-	--muted-foreground: #727b86;
-	--accent: #eeebff;
-	--accent-foreground: #191b20;
-	--destructive: #c95066;
-	--border: #e1e5ea;
-	--input: #e1e5ea;
-	--ring: #6959dd;
-	--canvas: #f7f8fa;
-	--surface-2: #fafbfc;
-	--surface-3: #f1f3f6;
-	--color-background: var(--background);
-	--color-foreground: var(--foreground);
-	--color-card: var(--card);
-	--color-card-foreground: var(--card-foreground);
-	--color-popover: var(--popover);
-	--color-popover-foreground: var(--popover-foreground);
-	--color-primary: var(--primary);
-	--color-primary-foreground: var(--primary-foreground);
-	--color-secondary: var(--secondary);
-	--color-secondary-foreground: var(--secondary-foreground);
-	--color-muted: var(--muted);
-	--color-muted-foreground: var(--muted-foreground);
-	--color-accent: var(--accent);
-	--color-accent-foreground: var(--accent-foreground);
-	--color-destructive: var(--destructive);
-	--color-border: var(--border);
-	--color-input: var(--input);
-	--color-ring: var(--ring);
-	color-scheme: light;
 }
 .workspace .topbar,
 .workspace .brand,
@@ -357,7 +278,7 @@
 	display: none;
 }
 .workspace .edges.dots path.edge-line {
-	stroke: #8b95a3;
+	stroke: var(--muted-foreground);
 	stroke-width: calc(1px * var(--link, 1));
 	opacity: 0.7;
 }
@@ -395,7 +316,7 @@
 	border: 1px solid var(--border);
 	border-radius: 10px;
 	background: var(--card);
-	box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
+	box-shadow: 0 14px 38px var(--shadow-color);
 	cursor: pointer;
 	padding: 8px 10px;
 }
@@ -405,7 +326,7 @@
 	outline-offset: 2px;
 }
 .workspace .node.connecting {
-	outline: 2px solid #65c693;
+	outline: 2px solid var(--success);
 	outline-offset: 2px;
 }
 .workspace .node.dim {
@@ -578,7 +499,7 @@
 	border-radius: 10px;
 	background: var(--card);
 	padding: 8px;
-	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+	box-shadow: 0 16px 40px var(--shadow-color);
 }
 .workspace .filter-menu strong {
 	margin-top: 0.2rem;
@@ -654,12 +575,12 @@
 	pointer-events: none;
 }
 .workspace .marquee.window {
-	border: 1.5px solid #4f8cff;
-	background: color-mix(in srgb, #4f8cff 16%, transparent);
+	border: 1.5px solid var(--ring);
+	background: color-mix(in srgb, var(--ring) 16%, transparent);
 }
 .workspace .marquee.crossing {
-	border: 1.5px dashed #3cba8b;
-	background: color-mix(in srgb, #3cba8b 16%, transparent);
+	border: 1.5px dashed var(--success);
+	background: color-mix(in srgb, var(--success) 16%, transparent);
 }
 .workspace .forces {
 	position: absolute;
@@ -744,7 +665,7 @@
 	border: 1px solid var(--border);
 	border-radius: 10px;
 	background: var(--card);
-	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+	box-shadow: 0 10px 28px var(--shadow-color);
 }
 .workspace .toolbar {
 	left: 50%;

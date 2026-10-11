@@ -1,33 +1,21 @@
 .eco {
-	--bg: #f7f8f5;
-	--surface: #fff;
-	--surface2: #f0f2ed;
-	--ink: #20251f;
-	--muted: #666e63;
-	--line: #e0e4db;
-	--accent: #d6f58c;
-	--accent-ink: #344713;
-	--dark: #1c251d;
-	--shadow: 0 18px 50px #13200b0d;
-	--radius: 14px;
+	--bg: var(--background);
+	--surface: var(--card);
+	--surface2: var(--secondary);
+	--ink: var(--foreground);
+	--muted: var(--muted-foreground);
+	--line: var(--border);
+	--accent: var(--foreground);
+	--accent-ink: var(--background);
+	--dark: var(--foreground);
+	--shadow: 0 18px 50px var(--shadow-color);
+	--radius: 0;
 	--sidebar: 216px;
 	color: var(--ink);
 	background: var(--bg);
 	font-size: 14px;
 	line-height: 1.55;
 	min-height: 100dvh;
-}
-.eco[data-theme='dark'] {
-	--bg: #161b17;
-	--surface: #202722;
-	--surface2: #2a322b;
-	--ink: #eff3e9;
-	--muted: #b2bcad;
-	--line: #3c473d;
-	--accent: #d6f58c;
-	--accent-ink: #25370a;
-	--dark: #0d130f;
-	color-scheme: dark;
 }
 .eco h1,
 .eco h2,
@@ -140,16 +128,16 @@
 	color: var(--muted);
 }
 .eco .pill.green {
-	background: #e7f0da;
-	color: #3c5723;
+	background: color-mix(in srgb, var(--success) 12%, var(--surface));
+	color: var(--success);
 }
 .eco .pill.orange {
-	background: #fbedd9;
-	color: #86591d;
+	background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+	color: var(--warning);
 }
 .eco .pill.blue {
-	background: #e8eff8;
-	color: #375f85;
+	background: color-mix(in srgb, var(--info) 12%, var(--surface));
+	color: var(--info);
 }
 .eco .card {
 	background: var(--surface);
@@ -255,28 +243,28 @@
 	font-weight: 700;
 }
 .eco .mark.lime {
-	background: #eaf3d9;
-	color: #456126;
+	background: color-mix(in srgb, var(--success) 12%, var(--surface));
+	color: var(--success);
 }
 .eco .mark.blue {
-	background: #e9f0f8;
-	color: #4c7299;
+	background: color-mix(in srgb, var(--info) 12%, var(--surface));
+	color: var(--info);
 }
 .eco .mark.purple {
-	background: #eee8f4;
-	color: #7a6096;
+	background: color-mix(in srgb, var(--violet) 12%, var(--surface));
+	color: var(--violet);
 }
 .eco .mark.orange {
-	background: #faedde;
-	color: #a06d40;
+	background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+	color: var(--warning);
 }
 .eco .mark.pink {
-	background: #f8e9f1;
-	color: #98637e;
+	background: color-mix(in srgb, var(--pink) 12%, var(--surface));
+	color: var(--pink);
 }
 .eco .mark.teal {
-	background: #e1efe9;
-	color: #4e8472;
+	background: color-mix(in srgb, var(--success) 12%, var(--surface));
+	color: var(--success);
 }
 .eco .public-section {
 	padding: 42px 0;
@@ -423,7 +411,7 @@
 	color: var(--muted);
 }
 .eco .demo-node.selected {
-	border-color: #7f9d4f;
+	border-color: var(--ring);
 }
 .eco .demo-node.dim {
 	opacity: 0.4;
@@ -466,29 +454,12 @@
 	outline-offset: 3px;
 }
 
-/* MANEF's studio palette and editorial rhythm apply to the product landing. */
-.eco.studio {
-	--bg: #f4f4f7;
-	--surface: #f4f4f7;
-	--surface2: #ebebee;
-	--ink: #171719;
-	--muted: #656568;
-	--line: #d8d8db;
-	--radius: 0;
-}
-.eco.studio[data-theme='dark'] {
-	--bg: #171719;
-	--surface: #171719;
-	--surface2: #232326;
-	--ink: #f4f4f7;
-	--muted: #b7b7bc;
-	--line: #3d3d42;
-}
+/* Public pages share MANEF tokens; the landing adds editorial scale. */
 .eco.studio .public-header,
 .eco.studio .public-main,
 .eco.studio .public-footer {
-	max-width: 1380px;
-	padding-inline: clamp(20px, 3.5vw, 64px);
+	max-width: var(--site-width);
+	padding-inline: var(--site-gutter);
 }
 .eco.studio .public-header {
 	min-height: 58px;
@@ -500,12 +471,12 @@
 	display: inline-flex;
 	align-items: center;
 }
-.eco.studio .hero {
+.eco.landing .hero {
 	grid-template-columns: minmax(0, 1fr);
 	min-height: min(820px, calc(100svh - 58px));
 	padding-block: clamp(72px, 12vw, 176px) clamp(64px, 8vw, 112px);
 }
-.eco.studio .hero h1 {
+.eco.landing .hero h1 {
 	max-width: 13ch;
 	font-size: clamp(56px, 9vw, 140px);
 	font-weight: 760;
@@ -514,7 +485,7 @@
 	text-wrap: balance;
 	margin: 24px 0 32px;
 }
-.eco.studio .lead {
+.eco.landing .lead {
 	max-width: 900px;
 	font-size: clamp(17px, 2vw, 23px);
 	line-height: 1.55;
@@ -528,23 +499,23 @@
 	border-color: var(--ink);
 	font-weight: 680;
 }
-.eco.studio .public-section {
+.eco.landing .public-section {
 	padding-block: clamp(64px, 9vw, 144px);
 }
-.eco.studio .public-section > h2 {
+.eco.landing .public-section > h2 {
 	max-width: 20ch;
 	font-size: clamp(34px, 5vw, 72px);
 	line-height: 1;
 	text-wrap: balance;
 	margin: 20px 0 40px;
 }
-.eco.studio .grid4 {
+.eco.landing .grid4 {
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 0;
 	border-top: 1px solid var(--line);
 	border-left: 1px solid var(--line);
 }
-.eco.studio .grid4 .card {
+.eco.landing .grid4 .card {
 	min-height: 180px;
 	padding: clamp(24px, 3vw, 36px);
 	border-top: 0;
@@ -608,7 +579,7 @@
 	padding: 0;
 }
 .eco dialog::backdrop {
-	background: #18221670;
+	background: color-mix(in srgb, var(--foreground) 40%, transparent);
 }
 .eco .dialog-body {
 	padding: 20px;
@@ -723,14 +694,14 @@
 	.eco .toast {
 		max-width: calc(100vw - 40px);
 	}
-	.eco.studio .grid4 {
+	.eco.landing .grid4 {
 		grid-template-columns: 1fr;
 	}
-	.eco.studio .hero {
+	.eco.landing .hero {
 		min-height: 0;
 		padding-block: 64px;
 	}
-	.eco.studio .grid4 .card {
+	.eco.landing .grid4 .card {
 		min-height: auto;
 	}
 	.eco .map-svg {

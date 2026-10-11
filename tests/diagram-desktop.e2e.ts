@@ -2,18 +2,25 @@ import { expect, test } from '@playwright/test';
 
 test('demo forms and canvas keep natural sizes beside taller cards', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 1000 });
-	await page.goto('/workspace/ops');
+	await page.goto('/embed/workspace/ops');
 	const save = page.getByRole('button', { name: 'Save plan locally' });
 	await expect(save).toBeEnabled();
 	expect((await save.boundingBox())!.height).toBeLessThanOrEqual(48);
-	await page.goto('/workspace/diagram');
+	await page.goto('/embed/workspace/diagram');
 	await expect(page.locator('.demo-node').first()).toBeVisible();
 	expect((await page.locator('.demo-map').boundingBox())!.height).toBeLessThanOrEqual(800);
 });
 
 test('public and demo headings retain hierarchy after CSS reset', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 1000 });
-	for (const route of ['/', '/products', '/products/diagram', '/guide', '/audit', '/workspace']) {
+	for (const route of [
+		'/',
+		'/products',
+		'/products/diagram',
+		'/guide',
+		'/audit',
+		'/embed/workspace'
+	]) {
 		await page.goto(route);
 		await expect(page.locator('h1').first()).toBeVisible();
 		const style = await page
@@ -40,7 +47,10 @@ test('desktop MCP guide has a compact sidebar, aligned content and numbered inst
 		const article = await page.locator('article').boundingBox();
 		expect(nav!.width).toBe(200);
 		expect(article!.width).toBeGreaterThan(nav!.width * 2);
-		await expect(page.locator('main')).toHaveCSS('padding-left', '28px');
+		await expect(page.locator('main')).toHaveCSS(
+			'padding-left',
+			String(Number((width * 0.035).toFixed(2))) + 'px'
+		);
 		await expect(page.locator('.mcp-connection > ol')).toHaveCSS('list-style-type', 'decimal');
 		await expect(page.locator('.mcp-connection ul')).toHaveCSS('list-style-type', 'disc');
 		await expect(page.getByRole('heading', { name: 'Troubleshooting' })).toHaveCSS(

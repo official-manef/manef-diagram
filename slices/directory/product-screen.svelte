@@ -1,16 +1,10 @@
 <script lang="ts">
+	import { workspaceUrl } from '$lib/config/navigation';
 	import { resolve } from '$app/paths';
 	import PublicFrame from './public-frame.svelte';
 	import type { Product } from './catalog';
 
 	let { product }: { product: Product } = $props();
-	const demo = $derived(
-		product.id === 'diagram'
-			? resolve('/app')
-			: resolve('/workspace/[surface]', {
-					surface: product.id === 'docs' ? 'developers' : product.id
-				})
-	);
 </script>
 
 <PublicFrame>
@@ -21,9 +15,15 @@
 				<h1 style="margin: 12px 0">{product.headline}</h1>
 				<p class="lead">{product.description}</p>
 				<div class="row" style="margin-top: 20px">
-					<a class="btn primary" href={demo}
-						>{product.id === 'diagram' ? 'Open the public map' : 'Open demo'}</a
-					>
+					{#if product.id === 'diagram'}
+						<a class="btn primary" href={resolve('/app')}>Open the public map</a>
+					{:else}
+						<a
+							class="btn primary"
+							href={workspaceUrl(product.id === 'docs' ? 'developers' : product.id)}
+							rel="external">Open demo ↗</a
+						>
+					{/if}
 					{#if product.live}
 						<a class="btn" href={product.live} rel="external noreferrer">Known link</a>
 					{/if}

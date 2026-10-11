@@ -1,3 +1,4 @@
+import { publicNavigation } from './navigation';
 import { appConfig } from './app';
 import { assets } from '../../../assets.config';
 
@@ -73,7 +74,10 @@ export function robotsDocument(seo: ReturnType<typeof seoSettings>) {
 
 export function sitemapDocument(seo: ReturnType<typeof seoSettings>) {
 	// Public discovery only. The demo workspace and /apps shell stay out of the sitemap.
-	const paths = ['/', '/products', '/guide', '/audit'];
+	const paths = [
+		'/',
+		...publicNavigation.filter((item) => item.href.startsWith('/')).map((item) => item.href)
+	];
 	const location = seo.indexable
 		? paths.map((path) => `<url><loc>${seo.origin}${path}</loc></url>`).join('')
 		: '';

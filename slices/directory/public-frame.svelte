@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { publicNavigation } from '$lib/config/navigation';
+	import { siteLinks } from '$lib/config/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
@@ -12,17 +14,23 @@
 	onMount(() => themePreference.init());
 </script>
 
-<div class="eco" class:studio={path === '/'} data-theme={themePreference.theme}>
+<div class="eco studio" class:landing={path === '/'} data-theme={themePreference.theme}>
 	<header class="public-header">
 		<a class="brand" href={resolve('/')}>Manef Diagram</a>
 		<nav class="public-nav" aria-label="Public">
-			<a
-				href={resolve('/products')}
-				aria-current={path.startsWith('/products') ? 'page' : undefined}>Map directory</a
-			>
-			<a href={resolve('/guide')} aria-current={path === '/guide' ? 'page' : undefined}>Guide</a>
-			<a href={resolve('/audit')} aria-current={path === '/audit' ? 'page' : undefined}>Audit</a>
-			<a href={resolve('/workspace')}>Demo workspace</a>
+			{#each publicNavigation as item (item.href)}
+				{#if item.external}
+					<a href={item.href} rel="external">{item.label} ↗</a>
+				{:else}
+					<a
+						href={resolve(item.href)}
+						aria-current={path === item.href ||
+						(item.href === '/products' && path.startsWith('/products/'))
+							? 'page'
+							: undefined}>{item.label}</a
+					>
+				{/if}
+			{/each}
 		</nav>
 		<div class="row">
 			<button
@@ -48,7 +56,7 @@
 	</header>
 	{@render children()}
 	<footer class="public-footer">
-		<span>Manef Diagram · Architecture maps and a separate demo workspace.</span>
-		<a href="https://manef.dev">MANEF ecosystem ↗</a>
+		<span>Manef Diagram · Architecture maps. The ecosystem workspace lives at MANEF.</span>
+		<a href={siteLinks.ecosystemOrigin} rel="external">MANEF ecosystem ↗</a>
 	</footer>
 </div>
