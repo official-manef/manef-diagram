@@ -109,5 +109,7 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
   and secret-free client configuration copying remain covered by browser regression tests.
 - Desktop regression coverage checks headings on the landing, directory, product,
   guide, audit and workspace, plus guide columns at 1440px and 1024px.
+- Demo card stacks keep their content at natural heights; the diagram canvas does
+  not stretch to the inspector height. Browser checks bound form buttons and canvas size.
 - Production visual acceptance requires screenshots of all main UI route families,
   representative light/dark themes, and a mobile regression check after deployment.

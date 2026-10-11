@@ -99,6 +99,7 @@
 .eco .stack {
 	display: grid;
 	gap: 20px;
+	align-content: start;
 }
 .eco .btn {
 	display: inline-flex;
@@ -474,6 +475,7 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.7fr);
 	gap: 16px;
+	align-items: start;
 }
 .eco .crumbs {
 	display: flex;

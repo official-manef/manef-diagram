@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test';
 
+test('demo forms and canvas keep natural sizes beside taller cards', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 1000 });
+	await page.goto('/workspace/ops');
+	const save = page.getByRole('button', { name: 'Save plan locally' });
+	await expect(save).toBeEnabled();
+	expect((await save.boundingBox())!.height).toBeLessThanOrEqual(48);
+	await page.goto('/workspace/diagram');
+	await expect(page.locator('.demo-node').first()).toBeVisible();
+	expect((await page.locator('.demo-map').boundingBox())!.height).toBeLessThanOrEqual(800);
+});
+
 test('public and demo headings retain hierarchy after CSS reset', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	for (const route of ['/', '/products', '/products/diagram', '/guide', '/audit', '/workspace']) {
