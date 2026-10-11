@@ -85,3 +85,16 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 - Narrow screens list the services at full size instead of scaling the desktop canvas down. The landing page shows those services. `/apps/*` speaks as the MANEF map: MANEF sign-in, no starter workspace, no library-version dashboard.
 - Live sign-in redirects to WorkOS AuthKit. Direct Google OIDC stays the compatibility adapter. Consent, callback, refresh, and owner-isolated notes are still an acceptance gate.
 - `POST /api/mcp/server` is the MCP route. An unauthenticated production POST returned 401. Tool output was not exercised. The handler reads the public seed only.
+
+### Codex MCP acceptance — 2026-10-11
+
+- Replacement token: installed Codex 0.160.1 MCP runtime reported bearerToken /
+  connected and called all ten read-only tools successfully on production 99adbbe.
+- Light load: 24 graph_status calls, concurrency two, all succeeded in 4,039 ms;
+  p50 270 ms / p95 351 ms / max 929 ms. Health check after 65 seconds passed.
+- Public landing and MCP guide now provide a copyable secret-free Codex table,
+  masked PowerShell token entry, relaunch instructions and token-rotation troubleshooting.
+- Remaining acceptance: desktop UI click-through, physical-phone Safari, larger
+  capacity testing and distributed rate limiting. No production 429 was observed;
+  this run does not establish a global ceiling or prove recovery from throttling.
+- Detailed inputs, expected results and limits: [AI/MCP](ai-mcp.md).
