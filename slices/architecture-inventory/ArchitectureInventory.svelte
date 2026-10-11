@@ -1413,7 +1413,7 @@
 					</div>
 				{/if}
 				{#if visibleNodes.length === 0}
-					<div class="empty-map">
+					<div class="empty-map" data-interactive>
 						<p>No services match{search.trim() ? ` “${search.trim()}”` : ' these tags'}.</p>
 						<Button
 							size="sm"

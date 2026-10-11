@@ -88,6 +88,11 @@ test('320px phone retains graph controls, canvas navigation and inspector editin
 	await page.getByRole('button', { name: 'Layers', exact: true }).click();
 	await expectNoOverflow(page);
 	await page.getByRole('button', { name: 'Physics', exact: true }).click();
+	await page.getByRole('textbox', { name: 'Search graph' }).fill('no-such-service');
+	await expect(page.getByText('No services match', { exact: false })).toBeVisible();
+	await page.getByRole('button', { name: 'Clear search and tags', exact: true }).click();
+	await expect(page.getByRole('textbox', { name: 'Search graph' })).toHaveValue('');
+	await expect(page.locator('.world')).toBeVisible();
 	await page.getByRole('button', { name: 'List', exact: true }).click();
 	await expect(page.locator('.world')).toBeHidden();
 	await page.getByRole('textbox', { name: 'Search graph' }).fill('no-such-service');
