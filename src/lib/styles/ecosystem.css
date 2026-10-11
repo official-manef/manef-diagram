@@ -40,6 +40,26 @@
 .eco h3 {
 	letter-spacing: -0.035em;
 	line-height: 1.16;
+	font-weight: 700;
+}
+.eco h1 {
+	font-size: clamp(28px, 3vw, 40px);
+}
+.eco h2 {
+	font-size: 24px;
+}
+.eco h3 {
+	font-size: 18px;
+}
+.eco ol,
+.eco ul {
+	padding-left: 1.5rem;
+}
+.eco ol {
+	list-style: decimal;
+}
+.eco ul {
+	list-style: disc;
 }
 .eco a {
 	color: inherit;
@@ -301,6 +321,12 @@
 .eco .public-section {
 	padding: 42px 0;
 	border-top: 1px solid var(--line);
+}
+.eco .public-main.public-section {
+	padding-inline: 28px;
+}
+.eco .public-section > h2 {
+	margin: 8px 0 20px;
 }
 .eco .public-footer {
 	display: flex;

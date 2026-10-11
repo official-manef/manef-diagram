@@ -129,10 +129,6 @@ bearer_token_env_var = "MCP_DIAGRAM_TOKEN"`;
 		cursor: pointer;
 		padding: 0.65rem 0;
 	}
-	ol,
-	ul {
-		padding-left: 1.5rem;
-	}
 	li {
 		margin: 0.5rem 0;
 	}

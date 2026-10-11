@@ -9,11 +9,12 @@
 </script>
 
 <PublicFrame>
-	<main class="public-main public-section grid2">
+	<main class="public-main public-section guide-layout">
 		<nav aria-label="Guide sections">
 			{#each guideSections as item (item.id)}
 				<p>
 					<a
+						class="nav-item"
 						href={resolve(`/guide?section=${item.id}`)}
 						aria-current={section === item.id ? 'page' : undefined}>{item.title}</a
 					>
@@ -69,3 +70,18 @@
 		</article>
 	</main>
 </PublicFrame>
+
+<style>
+	.guide-layout {
+		display: grid;
+		grid-template-columns: 200px minmax(0, 1fr);
+		gap: 40px;
+		align-items: start;
+	}
+	@media (max-width: 900px) {
+		.guide-layout {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 24px;
+		}
+	}
+</style>
