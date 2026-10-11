@@ -28,7 +28,7 @@
 					<span class="muted">Search</span>
 					<input aria-label="Search products" bind:value={query} />
 				</label>
-				<select aria-label="Maturity" bind:value={level}>
+				<select class="btn" aria-label="Maturity" bind:value={level}>
 					<option value="all">All</option>
 					<option value="source">Source</option>
 					<option value="external">Existing product</option>

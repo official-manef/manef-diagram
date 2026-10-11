@@ -98,3 +98,16 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
   capacity testing and distributed rate limiting. No production 429 was observed;
   this run does not establish a global ceiling or prove recovery from throttling.
 - Detailed inputs, expected results and limits: [AI/MCP](ai-mcp.md).
+
+### Desktop style acceptance — 2026-10-11
+
+- Public pages and demo workspace headings explicitly retain their size and weight
+  after the Tailwind reset. Product filters reuse the existing control style.
+- The guide uses a 200px section navigation column and a flexible article on desktop,
+  with one column below 900px. Standalone public sections keep header-aligned padding.
+- MCP instructions show numbered steps and tool lists show bullets. Existing endpoint
+  and secret-free client configuration copying remain covered by browser regression tests.
+- Desktop regression coverage checks headings on the landing, directory, product,
+  guide, audit and workspace, plus guide columns at 1440px and 1024px.
+- Production visual acceptance requires screenshots of all main UI route families,
+  representative light/dark themes, and a mobile regression check after deployment.

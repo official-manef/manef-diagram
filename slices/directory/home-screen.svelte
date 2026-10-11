@@ -44,7 +44,9 @@
 			<p class="eyebrow">For AI assistants and developers</p>
 			<h2>Connect Diagram through MCP</h2>
 			<McpConnection />
-			<p><a class="btn" href={resolve('/guide?section=mcp')}>Read the MCP guide</a></p>
+			<p style="margin-top: 18px">
+				<a class="btn" href={resolve('/guide?section=mcp')}>Read the MCP guide</a>
+			</p>
 		</section>
 		<section class="public-section">
 			<h2>Start with the public map</h2>
