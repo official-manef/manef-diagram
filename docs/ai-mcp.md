@@ -179,6 +179,52 @@ Do not paste tokens into the public map, portable URLs or the simulated workspac
 401 means missing/invalid token, 404 disabled server, 503 missing server configuration,
 and 429 rate limiting. The workspace playground remains a browser-local simulation.
 
+### Connect Codex CLI and desktop with the replacement token
+
+Codex CLI and desktop on the same host share `~/.codex/config.toml`.
+Use [Codex's documented Streamable HTTP bearer configuration](https://developers.openai.com/codex/mcp).
+The deployment owner provides the current token privately; it is not available from
+this public guide. The server variable is `MCP_SERVER_TOKEN`; the client variable
+below is `MCP_DIAGRAM_TOKEN`. Their secret values must match.
+
+1. Enter the token in the environment of the computer running Codex. On Windows,
+   this prompt masks input and keeps the value out of command history:
+
+   ```powershell
+   $env:MCP_DIAGRAM_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Diagram token' -AsSecureString)).Password
+   ```
+
+2. Register the server once (this command contains no credential):
+
+   ```sh
+   codex mcp add diagram --url https://diagram.manef.dev/api/mcp/server --bearer-token-env-var MCP_DIAGRAM_TOKEN
+   ```
+
+   Alternatively, add this table once to `~/.codex/config.toml`:
+
+   ```toml
+   [mcp_servers.diagram]
+   url = "https://diagram.manef.dev/api/mcp/server"
+   bearer_token_env_var = "MCP_DIAGRAM_TOKEN"
+   ```
+
+3. Launch `codex` from that shell. For desktop, fully quit the app and launch its
+   installed executable from the same environment. Setting a terminal variable
+   does not update an already-running app or a remote host. Configure each host
+   separately through its private secret environment. Do not put a literal token
+   in TOML, a URL, a committed environment file, or a chat message.
+4. Refresh MCP tools and expect all ten names below. Call `graph_status` with `{}`.
+   Get public node IDs from `graph_list_nodes` before calling trace/view tools.
+   `codex mcp list` checks registration, not an authenticated tool connection.
+5. After rotation, replace the client environment value and restart/reconnect.
+   401 usually means a missing, retired or wrong token; check which host launched
+   the client. 429 means wait at least one minute before retrying. Do not use
+   `codex mcp login diagram`: this endpoint has no OAuth login flow.
+
+After closing that client, clear a temporary PowerShell token with
+`Remove-Item Env:MCP_DIAGRAM_TOKEN`. This does not revoke a running child's copy;
+close the child or update the server credential to revoke it.
+
 ### Connect with the official TypeScript client
 
 Use the installed `@modelcontextprotocol/sdk` dependency. Set `MCP_DIAGRAM_TOKEN` in
@@ -215,7 +261,35 @@ count. A 429 requires waiting before retrying. Limits are process-local, not a
 distributed production quota. A background GET for an event stream returns 405 on
 this stateless endpoint; successful POST discovery/calls remain the acceptance signal.
 
-### Production acceptance — 2026-10-11
+### Codex runtime and light load acceptance — 2026-10-11
+
+The replacement production token passed all ten tools through the installed
+Codex 0.160.1 app-server MCP runtime, using its direct tool-call API with an
+in-memory test context and no model turn. Registration reported
+`bearerToken` / `connected`, and all ten tool annotations were read-only and
+non-destructive. This tests the installed client's MCP transport and calls;
+click-through of the already-running desktop UI was not tested.
+
+Tested production revision: `99adbbe37b0f0b3c721721414debfca79d6c1740`,
+deployment `dpl_5SVUPJVaao5kqzfDwtJrj7MCq3Mh`, at 12:26–12:29 WIB.
+Counts stayed at 23 nodes / 22 edges; the portable view remained unpersisted.
+Invalid tool input was rejected; anonymous and invalid-token requests returned
+401, and a valid token with an untrusted Origin returned 403. The retired-token
+401 check was completed separately during rotation on the same release.
+
+A bounded load test reused that Codex connection: 24 `graph_status` calls,
+at most two outstanding, in 4,039 ms. All 24 succeeded, with zero errors or
+observed 429 responses. Warm-call latency was p50 270 ms, p95 351 ms and max
+929 ms. The first functional call took 6,973 ms and is excluded from these
+warm-load percentiles. A health call after a 65-second cooldown passed with
+unchanged counts, and the test client closed.
+
+This small sample establishes functional behavior under light load, not
+capacity or a global rate ceiling. No 429 recovery was exercised because no
+429 occurred. The process-local guard can be spread across serverless instances;
+a distributed limiter is required before relying on a shared production quota.
+
+### Initial SDK production acceptance — 2026-10-11
 
 The official SDK client `1.30.0` completed initialize, discovery of all ten tools,
 and successful calls to every tool at `https://diagram.manef.dev/api/mcp/server`.
