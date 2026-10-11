@@ -121,12 +121,12 @@ bunx wrangler deploy --env pilot
 
 The pilot is noindex and uses its own HTTPS origin and MCP secret. Configure
 `MCP_SERVER_TOKEN` using the host secret store; do not commit it. Convex is linked for
-public health and anonymous-denial checks. Authentication stays disabled until a valid
-WorkOS key is supplied and an independent `AUTH_SESSION_SECRET` is installed. The exact
-pilot `/auth/callback` was registered on 2026-10-11 without changing the production
-callback or its default status. Never enable
-auth with the known rejected production credential. Private Convex CRUD, refresh/logout
-and account isolation remain separate acceptance gates. The cloud integration recipe
+public health and private authentication. On 2026-10-11, the owner authorized reuse of
+the existing Diagram Convex WorkOS credential, which was validated and installed as a
+Worker secret with an independent `AUTH_SESSION_SECRET`. Authentication is enabled on
+the pilot. The exact pilot `/auth/callback` is registered and the production callback
+remains default. Vercel still has the rejected old credential and was not changed.
+Private inventory and two-account isolation remain separate acceptance gates. The cloud integration recipe
 flag `CLOUDFLARE_ENABLED` does not select the hosting adapter.
 
 Compare the pilot with production using alternating samples from the same client and
@@ -136,14 +136,14 @@ change production DNS until the user authorizes migration after the acceptance r
 
 The deployed pilot and acceptance results are in [pilot QA](cloudflare-pilot-qa.md).
 `secrets.required` declares names only and keeps generated types independent of local
-secret files. Add the WorkOS/session names there when enabling authentication.
+secret files. It includes the MCP token, WorkOS API key and session secret names.
 Use the pilot's own token; Vercel environment edits do not update Worker secrets.
 For CLI deployment, `bunx wrangler secret put MCP_SERVER_TOKEN --env pilot` prompts
 privately. Local `.dev.vars.pilot` is ignored by Git and must never be attached to a PR.
 The adapter-generated `_headers` must accompany static assets so immutable bundles
 retain their cache policy. Wrangler handles this; direct API uploads must include it.
 
-After the owner supplies the valid WorkOS Production credential, install Worker secrets
+For a new deployment, install valid WorkOS Production Worker secrets
 `WORKOS_API_KEY` and `AUTH_SESSION_SECRET` (32 independent random bytes, base64url).
 Check the key against the existing Production client before setting `AUTH_ENABLED=true`
 and redeploying. Then verify Google login, session reload, refresh, logout, private

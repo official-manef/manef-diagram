@@ -58,7 +58,8 @@ async function authenticate(
 			...grant
 		}),
 		signal: AbortSignal.timeout(10000),
-		redirect: 'error'
+		// Manual mode keeps provider credentials on the fixed host across Workers and Node.
+		redirect: 'manual'
 	});
 	if (!response.ok) throw new Error('WorkOS could not complete authentication.');
 	const text = await response.text();
