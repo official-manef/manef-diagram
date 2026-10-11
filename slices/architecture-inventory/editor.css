@@ -967,7 +967,7 @@
 	flex-wrap: wrap;
 }
 
-@media (max-width: 44rem) {
+@media (max-width: 64rem) {
 	.workspace {
 		height: auto;
 		min-height: 100dvh;

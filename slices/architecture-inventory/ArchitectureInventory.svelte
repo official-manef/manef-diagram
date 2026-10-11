@@ -993,7 +993,7 @@
 	}
 
 	function startPan(event: PointerEvent) {
-		const narrow = window.matchMedia('(max-width: 44rem)').matches;
+		const narrow = window.matchMedia('(max-width: 64rem)').matches;
 		if (narrow && (!mobileCanvas || activeView)) return;
 		if (event.target instanceof Element && event.target.closest('[data-interactive]')) return;
 		if (event.button === 1 || (narrow && event.button === 0)) {
@@ -1096,7 +1096,7 @@
 	}
 
 	function handleWheel(event: WheelEvent) {
-		if (window.matchMedia('(max-width: 44rem)').matches && (!mobileCanvas || activeView)) return;
+		if (window.matchMedia('(max-width: 64rem)').matches && (!mobileCanvas || activeView)) return;
 		event.preventDefault();
 		zoomAt(event.clientX, event.clientY, zoom * (event.deltaY < 0 ? 1.08 : 0.92));
 	}

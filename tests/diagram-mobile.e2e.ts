@@ -11,9 +11,12 @@ async function expectNoOverflow(page: import('@playwright/test').Page) {
 test('320px phone retains graph controls, canvas navigation and inspector editing', async ({
 	page
 }) => {
-	await page.setViewportSize({ width: 320, height: 720 });
+	await page.setViewportSize({ width: 844, height: 390 });
 	await page.goto('/app');
 	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
+	await expect(page.getByRole('navigation', { name: 'Phone diagram controls' })).toBeVisible();
+	await expectNoOverflow(page);
+	await page.setViewportSize({ width: 320, height: 720 });
 	await expectNoOverflow(page);
 	for (const name of ['+ Node', 'Export', 'Import', 'Share view']) {
 		const box = await page.getByRole('button', { name, exact: true }).boundingBox();
