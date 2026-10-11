@@ -102,6 +102,7 @@ test('phone workspace navigation opens, closes and reaches the demo inspector', 
 	await search.click();
 	const palette = page.getByRole('dialog', { name: 'Command palette', exact: true });
 	await expect(palette).toBeVisible();
+	await expect(palette.getByRole('link', { name: 'Audit', exact: true })).toHaveCount(1);
 	const paletteBox = (await palette.boundingBox())!;
 	expect(paletteBox.x).toBeGreaterThanOrEqual(0);
 	expect(paletteBox.y).toBeGreaterThanOrEqual(0);

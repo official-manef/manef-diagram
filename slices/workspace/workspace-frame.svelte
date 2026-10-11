@@ -37,7 +37,6 @@
 		{ label: 'Home', href: resolve('/') },
 		{ label: 'Products', href: resolve('/products') },
 		{ label: 'Guide', href: resolve('/guide') },
-		{ label: 'Audit', href: resolve('/audit') },
 		{ label: 'Public map', href: resolve('/app') },
 		...groups.flatMap((group) => group.items.map((item) => ({ label: item.nav, href: item.href })))
 	];
