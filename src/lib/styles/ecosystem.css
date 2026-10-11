@@ -653,6 +653,9 @@
 	.eco {
 		overflow-wrap: anywhere;
 	}
+	.eco table {
+		min-width: 720px;
+	}
 	.eco .btn,
 	.eco .btn.small,
 	.eco .nav-item,
