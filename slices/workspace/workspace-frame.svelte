@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { siteLinks } from '$lib/config/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
@@ -20,28 +21,42 @@
 
 	const path = $derived(page.url.pathname);
 	const crumb = $derived(
-		path === '/workspace' ? 'Overview' : (path.split('/').at(-1) ?? 'Workspace')
+		path === '/embed/workspace' ? 'Overview' : (path.split('/').at(-1) ?? 'Workspace')
 	);
 	const go = (surface: WorkspaceSurfaceId) =>
-		surface === 'overview' ? resolve('/workspace') : resolve('/workspace/[surface]', { surface });
+		resolve('/embed/workspace/[[surface]]', {
+			surface: surface === 'overview' ? undefined : surface
+		});
 	const groups = workspaceNavGroups().map((group) => {
-		const items = group.items.map((item) => ({ nav: item.nav, href: go(item.id) }));
+		const items: ({ nav: string; id: WorkspaceSurfaceId } | { nav: string; external: string })[] =
+			group.items.map((item) => ({
+				nav: item.nav,
+				id: item.id
+			}));
 		if (group.label === 'Operate') {
 			const settings = items.pop();
-			items.push({ nav: 'Audit', href: resolve('/audit') });
+			items.push({ nav: 'Audit', external: siteLinks.origin + '/audit' });
 			if (settings) items.push(settings);
 		}
 		return { label: group.label, items };
 	});
+	$effect(() => {
+		const publicPath = page.url.pathname.replace(/^\/embed\/workspace(?=\/|$)/, '/workspace');
+		if (window.parent !== window)
+			window.parent.postMessage(
+				{ type: 'manef-workspace-navigation', path: publicPath },
+				siteLinks.ecosystemOrigin
+			);
+	});
 	const commands = [
-		{ label: 'Home', href: resolve('/') },
-		{ label: 'Products', href: resolve('/products') },
-		{ label: 'Guide', href: resolve('/guide') },
-		{ label: 'Public map', href: resolve('/app') },
-		...groups.flatMap((group) => group.items.map((item) => ({ label: item.nav, href: item.href })))
+		{ nav: 'Home', external: siteLinks.ecosystemOrigin },
+		{ nav: 'Products', external: siteLinks.origin + '/products' },
+		{ nav: 'Guide', external: siteLinks.origin + '/guide' },
+		{ nav: 'Public map', external: siteLinks.origin + '/app' },
+		...groups.flatMap((group) => group.items)
 	];
 	const matches = $derived(
-		commands.filter((item) => item.label.toLowerCase().includes(paletteQuery.trim().toLowerCase()))
+		commands.filter((item) => item.nav.toLowerCase().includes(paletteQuery.trim().toLowerCase()))
 	);
 
 	onMount(() => {
@@ -90,7 +105,7 @@
 <div class="eco" data-theme={ecosystem.theme}>
 	<div class="app-shell">
 		<aside class="sidebar">
-			<a class="brand" href={resolve('/')}>MANEF</a>
+			<a class="brand" href={siteLinks.ecosystemOrigin} rel="external" target="_top">MANEF</a>
 			<label class="field">
 				Demo workspace
 				<select
@@ -113,13 +128,17 @@
 			<div id="workspace-navigation" class="workspace-navigation" class:open={navigationOpen}>
 				{#each groups as group (group.label)}
 					<p class="nav-label">{group.label}</p>
-					{#each group.items as item (item.href)}
-						<a
-							class="nav-item"
-							onclick={() => (navigationOpen = false)}
-							href={item.href}
-							aria-current={path === item.href ? 'page' : undefined}>{item.nav}</a
-						>
+					{#each group.items as item (item.nav)}
+						{#if 'external' in item}
+							<a class="nav-item" href={item.external} rel="external" target="_top">{item.nav}</a>
+						{:else}
+							<a
+								class="nav-item"
+								onclick={() => (navigationOpen = false)}
+								href={go(item.id)}
+								aria-current={path === go(item.id) ? 'page' : undefined}>{item.nav}</a
+							>
+						{/if}
 					{/each}
 				{/each}
 				<div class="side-foot">
@@ -145,7 +164,9 @@
 		</aside>
 		<div class="app-main">
 			<p class="crumbs">
-				<a href={resolve('/')}>Home</a> <span>/</span> <span>Workspace</span> <span>/</span>
+				<a href={siteLinks.ecosystemOrigin} rel="external" target="_top">Home</a> <span>/</span>
+				<span>Workspace</span>
+				<span>/</span>
 				<span>{crumb}</span>
 			</p>
 			<p class="notice" style="margin: 14px 0 18px">
@@ -173,8 +194,17 @@
 					<input aria-label="Search pages" bind:value={paletteQuery} />
 				</label>
 				<div class="commands">
-					{#each matches as item (item.href + item.label)}
-						<a href={item.href} onclick={() => (ecosystem.palette = false)}>{item.label}</a>
+					{#each matches as item (item.nav)}
+						{#if 'external' in item}
+							<a
+								href={item.external}
+								rel="external"
+								target="_top"
+								onclick={() => (ecosystem.palette = false)}>{item.nav}</a
+							>
+						{:else}
+							<a href={go(item.id)} onclick={() => (ecosystem.palette = false)}>{item.nav}</a>
+						{/if}
 					{:else}
 						<p class="muted">No page matches.</p>
 					{/each}

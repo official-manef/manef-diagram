@@ -3,6 +3,10 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async (event) => {
 	event.depends('app:session');
+	if (event.url.pathname.startsWith('/embed/workspace')) {
+		event.setHeaders({ 'cache-control': 'private, no-store' });
+		return { auth: { enabled: false, session: null } };
+	}
 	event.setHeaders({ 'cache-control': 'private, no-store' });
 	return { auth: { enabled: authConfiguration().enabled, session: await readSession(event) } };
 };

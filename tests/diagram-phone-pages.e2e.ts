@@ -7,7 +7,7 @@ const routes = [
 	'/guide',
 	'/guide?section=mcp',
 	'/audit',
-	'/workspace',
+	'/embed/workspace',
 	...['mso', 'diagram', 'registry', 'connectors', 'models', 'ops', 'docs', 'labs'].map(
 		(id) => `/products/${id}`
 	),
@@ -23,7 +23,7 @@ const routes = [
 		'developers',
 		'labs',
 		'settings'
-	].map((id) => `/workspace/${id}`),
+	].map((id) => `/embed/workspace/${id}`),
 	...['dashboard', 'live-data', 'notes', 'assistant', 'settings'].map((id) => `/apps/${id}`)
 ];
 
@@ -69,7 +69,7 @@ test('phone workspace navigation opens, closes and reaches the demo inspector', 
 	page
 }) => {
 	await page.setViewportSize({ width: 320, height: 720 });
-	await page.goto('/workspace');
+	await page.goto('/embed/workspace');
 	const navigation = page.getByRole('button', { name: 'Workspace navigation', exact: true });
 	await expect(page.locator('#workspace-navigation')).toBeHidden();
 	await expect(navigation).toBeEnabled();

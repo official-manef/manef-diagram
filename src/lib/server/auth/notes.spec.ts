@@ -10,6 +10,32 @@ const identity = (subject: string) => ({
 	tokenIdentifier: `https://accounts.google.com|${subject}`
 });
 
+test('WorkOS owners remain isolated across accounts and legacy issuers, regardless of email', async () => {
+	const t = convexTest(schema, modules);
+	const issuer = 'https://api.workos.com/user_management/client_test';
+	const alice = t.withIdentity({
+		issuer,
+		subject: 'alice',
+		tokenIdentifier: `${issuer}|alice`,
+		email: 'same@example.com'
+	});
+	const bob = t.withIdentity({
+		issuer,
+		subject: 'bob',
+		tokenIdentifier: `${issuer}|bob`,
+		email: 'same@example.com'
+	});
+	const legacy = t.withIdentity({ ...identity('alice'), email: 'same@example.com' });
+	const id = await alice.mutation(api.notes.create, { body: 'WorkOS-only QA draft' });
+	expect(await alice.query(api.notes.list)).toHaveLength(1);
+	expect(await bob.query(api.notes.list)).toEqual([]);
+	expect(await legacy.query(api.notes.list)).toEqual([]);
+	await expect(bob.mutation(api.notes.update, { id, body: 'Other owner' })).rejects.toThrow(
+		'Note not found'
+	);
+	await expect(legacy.mutation(api.notes.remove, { id })).rejects.toThrow('Note not found');
+});
+
 test('notes deny anonymous reads and all mutations', async () => {
 	const t = convexTest(schema, modules);
 	const alice = t.withIdentity(identity('alice'));

@@ -31,8 +31,30 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 
 - The ecosystem homepage belongs to `manef.dev`. Diagram's root is a product landing
   with an explicit `/app` entry point, guide, features and a link back to MANEF.
-- Existing `/products`, `/guide`, `/audit` and `/workspace` reference/demo routes stay
-  available. This correction does not change graph data, storage or authentication.
+- `/products`, `/guide` and `/audit` remain Diagram references. The ecosystem workspace
+  belongs to `manef.dev/workspace`; Diagram's old workspace addresses redirect to that
+  host, retaining the selected surface and query. MANEF embeds one Svelte demo module
+  from `/embed/workspace`. Local demo data remains on the Diagram origin.
+
+## Shared theme, workspace ownership and authentication QA — 2026-10-11
+
+- One palette and one light/dark/system preference apply to public pages, the editor
+  and app chrome. Legacy preference migration and blocked storage must keep navigation
+  and editor controls usable. Public navigation and canonical workspace links share
+  a single registry; the embedded module reuses the existing surface registry and UI.
+- The MANEF host validates navigation messages against the exact Diagram origin and
+  iframe source, retains browser Back navigation, and leaves cross-product links at
+  the top level. The embedded route is noindex and loads no private session or Convex
+  client. This is a browser-local simulation, not a deployed multi-tenant workspace.
+- Live Convex status and anonymous private-read rejection passed on the linked
+  `dutiful-zebra-689` deployment. WorkOS Production and the application's callback
+  match, but Google returned `redirect_uri_mismatch`; WorkOS `verifyRedirectUri`
+  returned false for its Google callback. Configuration state `Valid` is not login
+  acceptance. Real consent, callback, refresh, private CRUD and two-account isolation
+  remain blocked. See [WorkOS sign-in](workos-login.md) for the precise repair.
+- Backend WorkOS JWT deployment remains unverified: the connected Convex API rejected
+  its credential, and repository Actions secrets metadata contains no deployment key.
+  Do not operate on another connected Convex project to work around that limitation.
 
 ## Phone canvas and MCP guide — 2026-10-11
 

@@ -35,7 +35,9 @@ function fresh(): Record<string, WorkspaceState> {
 
 class EcosystemStore {
 	active = $state('Product studio');
-	theme = $state<'light' | 'dark'>('light');
+	get theme() {
+		return themePreference.theme;
+	}
 	workspaces = $state<Record<string, WorkspaceState>>(fresh());
 	toast = $state('');
 	palette = $state(false);
@@ -54,13 +56,6 @@ class EcosystemStore {
 				if (saved.workspaces && saved.active && saved.workspaces[saved.active]) {
 					this.workspaces = saved.workspaces;
 					this.active = saved.active;
-					this.theme = themePreference.ready
-						? themePreference.theme
-						: saved.theme === 'dark'
-							? 'dark'
-							: 'light';
-					themePreference.theme = this.theme;
-					themePreference.ready = true;
 				}
 			}
 		} catch {
@@ -96,9 +91,7 @@ class EcosystemStore {
 	}
 
 	setTheme(theme: 'light' | 'dark') {
-		this.theme = theme;
-		themePreference.theme = theme;
-		themePreference.ready = true;
+		themePreference.setTheme(theme);
 		this.persist();
 	}
 

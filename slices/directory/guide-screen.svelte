@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { workspaceUrl } from '$lib/config/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PublicFrame from './public-frame.svelte';
@@ -25,8 +26,8 @@
 			{#if section === 'navigation'}
 				<h1>A home, not a maze of subdomains.</h1>
 				<p class="muted">
-					Public pages discover products. The workspace is a demo shell. The public service map
-					stays at /app.
+					Public pages discover products. The ecosystem workspace belongs to MANEF. The public
+					service map stays at /app.
 				</p>
 			{:else if section === 'identity'}
 				<h1>Sign-in is not this switch.</h1>
@@ -60,13 +61,14 @@
 			{:else}
 				<h1>Open the map. Then the demo.</h1>
 				<p class="muted">
-					Start at Products, open Diagram for the public map, then use the workspace to try catalog,
-					routing, and context without publishing any of it.
+					Start at Products, open Diagram for the public map, then use the MANEF workspace to try
+					catalog, routing, and context without publishing any of it.
 				</p>
 				<p class="muted">
 					Ctrl or Cmd K inside the workspace searches pages. Export the demo before you reset it.
 				</p>
 			{/if}
+			<p><a class="btn" href={workspaceUrl()} rel="external">Open MANEF workspace ↗</a></p>
 		</article>
 	</main>
 </PublicFrame>

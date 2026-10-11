@@ -12,8 +12,11 @@ application. Detailed implementation guidance lives in [architecture](docs/archi
 
 `https://manef.dev` owns the MANEF ecosystem landing. `https://diagram.manef.dev/`
 introduces Manef Diagram and links to its canonical application at `/app`. The
-directory, guide, audit and browser-local demo routes remain available as map references;
-they do not turn this product's root into the ecosystem homepage.
+directory, guide and audit remain available as map references. The ecosystem demo's
+canonical URL is `https://manef.dev/workspace`; legacy Diagram workspace URLs redirect
+to MANEF. One Svelte implementation is served at `/embed/workspace/[[surface]]` for
+the MANEF host, with no session or backend connection. Its browser-local state remains
+on the Diagram origin, and every surface remains explicitly a simulation.
 
 ## Authentication provider boundary
 
@@ -34,30 +37,35 @@ JWT configuration, and real production consent are separate acceptance gates.
   when selected. Google auth/private notes, BYOK AI and remote MCP are implemented opt-ins. GCP service
   adapters and Cloudflare Workers remain recipes; Node hosting is implemented.
 - Workspace and settings examples are local UI state. They provide no identity, ownership
-  or tenancy guarantee. Google subjects own private notes. Payment/email lifecycle acceptance
+  or tenancy guarantee. Verified issuer and subject own private notes. Payment/email lifecycle acceptance
   remains product work; provider credentials and product deployment need tenant-specific setup.
 
 ## Authoritative inputs
 
-| Concern                             | Source of truth                                                         |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| Runtime and dependencies            | `package.json`, `bun.lock`, `.node-version`                             |
-| Release identity                    | `version.json`; synchronize with `bun run version:bump`                 |
-| Public brand and metadata           | `src/lib/config/app.ts`, `src/lib/config/metadata.ts`                   |
-| Feature definitions and navigation  | Slice definitions and `slices/app-shell/registry.ts`                    |
-| Theme and reusable UI               | `src/routes/layout.css`, `src/lib/components/`                          |
-| Assets and generation inputs        | `assets.config.ts`; outputs follow [assets.md](docs/assets.md)          |
-| Backend schema and API              | `src/convex/`; `_generated/` is CLI-produced and committed              |
-| Private integration selection       | `src/lib/server/integrations/config.ts`                                 |
-| Authentication                      | `src/lib/server/auth/`, `src/convex/auth.config.ts`                     |
-| AI/MCP selection and request access | `src/lib/server/ai/`, `src/lib/server/mcp/`, `src/lib/server/access.ts` |
-| Environment requirements            | `.env.example`, [consumer matrix](docs/environment.md)                  |
+| Concern                              | Source of truth                                                           |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| Runtime and dependencies             | `package.json`, `bun.lock`, `.node-version`                               |
+| Release identity                     | `version.json`; synchronize with `bun run version:bump`                   |
+| Public brand and metadata            | `src/lib/config/app.ts`, `src/lib/config/metadata.ts`                     |
+| Feature definitions and navigation   | Slice definitions and `slices/app-shell/registry.ts`                      |
+| Theme and reusable UI                | `src/routes/layout.css`, `src/lib/theme.svelte.ts`, `src/lib/components/` |
+| Public links and workspace ownership | `src/lib/config/navigation.ts`, `slices/workspace/surfaces.ts`            |
+| Assets and generation inputs         | `assets.config.ts`; outputs follow [assets.md](docs/assets.md)            |
+| Backend schema and API               | `src/convex/`; `_generated/` is CLI-produced and committed                |
+| Private integration selection        | `src/lib/server/integrations/config.ts`                                   |
+| Authentication                       | `src/lib/server/auth/`, `src/convex/auth.config.ts`                       |
+| AI/MCP selection and request access  | `src/lib/server/ai/`, `src/lib/server/mcp/`, `src/lib/server/access.ts`   |
+| Environment requirements             | `.env.example`, [consumer matrix](docs/environment.md)                    |
 
 Do not duplicate version pins, menus, brand constants or provider checks in other files.
 Ordinary feature-local copy stays local; sharing configuration does not require turning
 every value into a global option. Indexing needs `PUBLIC_SEO_INDEXABLE=true` and an
 explicit origin; preview sites and demo app routes remain noindex. Metadata and crawler
 documents share the SEO settings in `src/lib/config/metadata.ts`.
+
+The landing, directory, guide, audit, editor and app chrome consume the same semantic
+light/dark tokens and theme preference. Legacy editor theme names are compatibility
+aliases, not separate palettes. Blocked browser storage uses a memory-only preference.
 
 ## Trust and runtime boundaries
 

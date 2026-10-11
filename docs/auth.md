@@ -5,6 +5,12 @@ stay in the MANEF WorkOS integration; the app uses its WorkOS credentials. The f
 sections document the retained direct-Google compatibility adapter, not the MANEF
 production rollout.
 
+Local backend regression coverage also verifies two distinct WorkOS subjects and
+the same subject under different issuers: sharing an email never grants note access.
+These test identities are synthetic; this does not replace production login and
+private CRUD acceptance, currently blocked by the Google callback in
+[WorkOS sign-in](workos-login.md#live-configuration-check--2026-10-11).
+
 ## Direct Google compatibility adapter
 
 The starter includes a Google OpenID Connect flow and a small private Convex notes

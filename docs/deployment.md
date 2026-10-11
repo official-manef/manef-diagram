@@ -154,6 +154,21 @@ authentication, private-data, AI/MCP and provider flows in their real environmen
 DOKU/Resend transports still need durable operation records, callback handling and
 sandbox lifecycle verification before becoming a product's public payment/email flow.
 
+## MANEF workspace host rollout
+
+Deploy the reusable `/embed/workspace` module on Diagram first, keeping the old demo
+addresses working during rollout. Next deploy the MANEF `/workspace` host and verify
+the actual iframe, navigation and browser Back. Only then activate Diagram's 308
+redirects. Rollback reverses that order: restore Diagram's legacy route before removing
+the MANEF host. These frontend changes require no schema or private-data migration.
+
+MANEF validates the configurable public `NEXT_PUBLIC_DIAGRAM_ORIGIN` (default
+`https://diagram.manef.dev`); messages must match that exact origin and the iframe's
+window. Diagram's embedding policy permits MANEF. The child owns demo storage on its
+existing origin; the parent reads no stored data. Browser storage restrictions retain
+the existing memory-only fallback. This hosted module depends on Diagram availability.
+The host does not add cross-subdomain sign-in or claim operational installations.
+
 ## Verify and recover
 
 Verify the expected commit, landing/app/error routes, keyboard/mobile behavior,

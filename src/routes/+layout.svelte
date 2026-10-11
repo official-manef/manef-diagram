@@ -1,5 +1,8 @@
 <script lang="ts">
 	import './layout.css';
+	import { onMount } from 'svelte';
+	import { themePreference } from '$lib/theme.svelte';
+	import { siteLinks } from '$lib/config/navigation';
 	import { appConfig } from '$lib/config/app';
 	import { assets, assetMimeType } from '../../assets.config';
 	import { pageMetadata, pageIndexable, seoSettings } from '$lib/config/metadata';
@@ -9,7 +12,20 @@
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
-	const convexUrl = env.PUBLIC_CONVEX_URL;
+	onMount(() => {
+		themePreference.init();
+		const media = window.matchMedia('(prefers-color-scheme: dark)');
+		const sync = () => themePreference.sync();
+		media.addEventListener('change', sync);
+		return () => media.removeEventListener('change', sync);
+	});
+	$effect(() => {
+		document.documentElement.dataset.theme = themePreference.theme;
+		document.documentElement.classList.toggle('dark', themePreference.theme === 'dark');
+	});
+	const convexUrl = page.url.pathname.startsWith('/embed/workspace')
+		? undefined
+		: env.PUBLIC_CONVEX_URL;
 	if (convexUrl) {
 		setupConvex(convexUrl);
 		setupAuth(() => ({
@@ -42,8 +58,8 @@
 	const metadata = $derived(
 		pageMetadata(
 			page.error ? { title: `${page.status}` } : page.data.meta,
-			page.url.pathname,
-			seo.origin
+			page.url.pathname.replace(/^\/embed\/workspace(?=\/|$)/, '/workspace'),
+			page.url.pathname.startsWith('/embed/workspace') ? siteLinks.ecosystemOrigin : seo.origin
 		)
 	);
 </script>
