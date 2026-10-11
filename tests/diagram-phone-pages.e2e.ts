@@ -38,6 +38,16 @@ test('all 33 main pages reflow on narrow phones', async ({ page }) => {
 				await page.evaluate(() => document.documentElement.scrollWidth),
 				route
 			).toBeLessThanOrEqual(width);
+			if (route === '/audit') {
+				const table = page.getByRole('table');
+				expect((await table.boundingBox())!.width).toBeGreaterThanOrEqual(720);
+				const scrollArea = await table.evaluate((el) => ({
+					width: el.parentElement!.getBoundingClientRect().width,
+					overflow: getComputedStyle(el.parentElement!).overflowX
+				}));
+				expect(scrollArea.width).toBeLessThanOrEqual(width);
+				expect(scrollArea.overflow).toBe('auto');
+			}
 			if (!route.startsWith('/app')) {
 				const sizes = await page
 					.locator('button, .btn, .nav-item, .public-nav a')

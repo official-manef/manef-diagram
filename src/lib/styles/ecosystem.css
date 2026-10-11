@@ -653,6 +653,14 @@
 	.eco {
 		overflow-wrap: anywhere;
 	}
+	.eco table {
+		min-width: 720px;
+		overflow-wrap: normal;
+	}
+	.eco .public-nav a {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
 	.eco .btn,
 	.eco .btn.small,
 	.eco .nav-item,
