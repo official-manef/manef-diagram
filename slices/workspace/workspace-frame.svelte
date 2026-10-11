@@ -76,8 +76,14 @@
 	}
 
 	function openPalette(dialog: HTMLDialogElement) {
+		const opener = document.activeElement;
 		dialog.showModal();
-		return { destroy: () => dialog.close() };
+		return {
+			destroy: () => {
+				dialog.close();
+				if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+			}
+		};
 	}
 </script>
 
