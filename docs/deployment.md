@@ -135,6 +135,8 @@ Free account's CPU limit can affect SSR/MCP; measure before choosing a paid plan
 change production DNS until the user authorizes migration after the acceptance report.
 
 The deployed pilot and acceptance results are in [pilot QA](cloudflare-pilot-qa.md).
+`secrets.required` declares names only and keeps generated types independent of local
+secret files. Add the WorkOS/session names there when enabling authentication.
 Use the pilot's own token; Vercel environment edits do not update Worker secrets.
 For CLI deployment, `bunx wrangler secret put MCP_SERVER_TOKEN --env pilot` prompts
 privately. Local `.dev.vars.pilot` is ignored by Git and must never be attached to a PR.
