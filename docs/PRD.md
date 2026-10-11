@@ -36,6 +36,16 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
 
 ## Phone canvas and MCP guide — 2026-10-11
 
+- The Diagram landing follows manef.dev's monochrome studio palette, editorial
+  headings, ruled feature grid and square primary actions. Product copy and /app,
+  guide and MCP entry points remain specific to Diagram; the graph editor retains
+  its working layout. Both themes must reflow at 320/390px and desktop widths.
+- Every main public, demo and /apps page must remain inside a 320/390px phone.
+  Mobile buttons/navigation use at least 44px targets; text fields use 16px text.
+  Demo navigation collapses so content starts above the fold. Demo nodes support
+  tap/keyboard selection with links between map and inspector; phone scrolling
+  must not move stored node positions. Audit tables may scroll within their card.
+
 - Phones keep the readable service list and can switch to the bounded visual canvas.
   Empty-space dragging pans the phone canvas; zoom, fit, selection and physics controls
   remain available. Scroll outside the canvas to move through the page.

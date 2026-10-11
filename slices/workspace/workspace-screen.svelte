@@ -82,6 +82,7 @@
 	function startDrag(event: PointerEvent, node: DemoNode) {
 		if (event.button !== 0) return;
 		selectedId = node.id;
+		if (event.pointerType === 'touch' || window.matchMedia('(max-width: 900px)').matches) return;
 		const originX = node.x;
 		const originY = node.y;
 		const startX = event.clientX;
@@ -206,7 +207,7 @@
 		{/each}
 	</div>
 	<div class="split">
-		<div class="demo-map">
+		<div class="demo-map" id="demo-map">
 			<div class="map-wrap" style="position: relative; width: 1100px; height: 760px">
 				<svg class="map-svg" viewBox="0 0 1100 760" aria-hidden="true">
 					{#each visibleEdges as edge (edge.id)}
@@ -235,6 +236,7 @@
 						class:dim={tracedIds !== null && !tracedIds.includes(node.id)}
 						style="left: {node.x}px; top: {node.y}px"
 						type="button"
+						onclick={() => (selectedId = node.id)}
 						onpointerdown={(event) => startDrag(event, node)}
 					>
 						<strong>{node.label}</strong>
@@ -245,8 +247,10 @@
 				{/each}
 			</div>
 		</div>
-		<aside class="card stack">
+		<a class="btn phone-only" href="#demo-inspector">Inspect selected node ↓</a>
+		<aside class="card stack" id="demo-inspector">
 			<h2>Inspector</h2>
+			<a class="btn phone-only" href="#demo-map">Back to demo map ↑</a>
 			{#if selected}
 				<p><strong>{selected.label}</strong></p>
 				<p class="muted">{selected.id} · drag the card, or nudge it.</p>

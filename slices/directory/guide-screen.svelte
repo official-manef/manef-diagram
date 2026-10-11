@@ -79,6 +79,11 @@
 		align-items: start;
 	}
 	@media (max-width: 900px) {
+		nav {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+		}
 		.guide-layout {
 			grid-template-columns: minmax(0, 1fr);
 			gap: 24px;

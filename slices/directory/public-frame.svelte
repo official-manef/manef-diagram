@@ -12,7 +12,7 @@
 	onMount(() => themePreference.init());
 </script>
 
-<div class="eco" data-theme={themePreference.theme}>
+<div class="eco" class:studio={path === '/'} data-theme={themePreference.theme}>
 	<header class="public-header">
 		<a class="brand" href={resolve('/')}>Manef Diagram</a>
 		<nav class="public-nav" aria-label="Public">
