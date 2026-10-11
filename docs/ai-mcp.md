@@ -240,8 +240,15 @@ arguments. The portable graph test reused a returned public node. Server counts 
 unchanged afterward. Empty trace seeds returned a tool error; anonymous and invalid-token
 POSTs returned 401, and an authenticated request with an untrusted Origin returned 403.
 The client closed successfully. Configuration checks confirmed an enabled server,
-encrypted token of valid length and the correct public origin. The token currently
-targets production and preview; it was not changed as part of this acceptance run.
+encrypted token of valid length and the correct public origin. The credential targets
+production and preview; the initial acceptance run used the existing token.
+
+To rotate a credential, update the private `MCP_SERVER_TOKEN` value, then redeploy the
+affected environments and update client secret settings. An environment edit alone
+does not change already-built deployments. Verify that the old token returns 401 on
+the production endpoint and repeat discovery and all ten calls with the new token.
+Check retained deployment URLs separately; their environment snapshots can differ.
+Use secret-management operations that suppress decrypted values in tool output.
 
 This proves the controlled read-only endpoint using the official SDK, not compatibility
 with every client UI, OAuth, private inventory or persisted writes. Keep credentials
