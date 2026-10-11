@@ -37,7 +37,6 @@
 		{ label: 'Home', href: resolve('/') },
 		{ label: 'Products', href: resolve('/products') },
 		{ label: 'Guide', href: resolve('/guide') },
-		{ label: 'Audit', href: resolve('/audit') },
 		{ label: 'Public map', href: resolve('/app') },
 		...groups.flatMap((group) => group.items.map((item) => ({ label: item.nav, href: item.href })))
 	];
@@ -74,6 +73,17 @@
 				text: 'Kept in this panel only. No ticket was opened and no agent was called.'
 			}
 		];
+	}
+
+	function openPalette(dialog: HTMLDialogElement) {
+		const opener = document.activeElement;
+		dialog.showModal();
+		return {
+			destroy: () => {
+				dialog.close();
+				if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+			}
+		};
 	}
 </script>
 
@@ -152,7 +162,11 @@
 	</div>
 
 	{#if ecosystem.palette}
-		<dialog open aria-label="Command palette" onclose={() => (ecosystem.palette = false)}>
+		<dialog
+			use:openPalette
+			aria-label="Command palette"
+			onclose={() => (ecosystem.palette = false)}
+		>
 			<div class="dialog-body">
 				<label class="search">
 					<span class="muted">Pages</span>
