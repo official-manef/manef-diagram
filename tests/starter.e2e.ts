@@ -46,7 +46,7 @@ test('navigation loads feature code on demand and announces the pending screen',
 	try {
 		const navigation = nav.getByRole('link', { name: 'Assistant', exact: true }).click();
 		await expect(page.getByRole('status')).toContainText('Loading Assistant');
-		expect(requested).toBeGreaterThan(0);
+		await expect.poll(() => requested).toBeGreaterThan(0);
 		release();
 		await navigation;
 		await expect(page.getByRole('heading', { name: 'Assistant', exact: true })).toBeVisible();
