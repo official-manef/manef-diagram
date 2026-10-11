@@ -79,6 +79,7 @@ test('disabled auth requires no provider configuration and never yields a sessio
 });
 
 test('session cookies are encrypted, bounded and separate from the safe server session result', async () => {
+	vi.useFakeTimers();
 	const current = event();
 	await establishSession(current, config(), tokens());
 	const [name, value, options] = current.set.mock.calls[0] as unknown as [

@@ -8,6 +8,8 @@
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 	let paletteQuery = $state('');
+	let navigationOpen = $state(false);
+	let hydrated = $state(false);
 	let supportText = $state('');
 	let supportLog = $state<{ role: 'you' | 'demo'; text: string }[]>([
 		{
@@ -44,12 +46,14 @@
 	);
 
 	onMount(() => {
+		hydrated = true;
 		ecosystem.init();
 		const onKey = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
 				event.preventDefault();
 				ecosystem.palette = true;
 			} else if (event.key === 'Escape') {
+				navigationOpen = false;
 				ecosystem.palette = false;
 				ecosystem.supportOpen = false;
 			}
@@ -88,34 +92,45 @@
 					<option>Sandbox</option>
 				</select>
 			</label>
-			{#each groups as group (group.label)}
-				<p class="nav-label">{group.label}</p>
-				{#each group.items as item (item.href)}
-					<a
-						class="nav-item"
-						href={item.href}
-						aria-current={path === item.href ? 'page' : undefined}>{item.nav}</a
-					>
+			<button
+				class="btn phone-only"
+				type="button"
+				aria-expanded={navigationOpen}
+				aria-controls="workspace-navigation"
+				disabled={!hydrated}
+				onclick={() => (navigationOpen = !navigationOpen)}>Workspace navigation</button
+			>
+			<div id="workspace-navigation" class="workspace-navigation" class:open={navigationOpen}>
+				{#each groups as group (group.label)}
+					<p class="nav-label">{group.label}</p>
+					{#each group.items as item (item.href)}
+						<a
+							class="nav-item"
+							onclick={() => (navigationOpen = false)}
+							href={item.href}
+							aria-current={path === item.href ? 'page' : undefined}>{item.nav}</a
+						>
+					{/each}
 				{/each}
-			{/each}
-			<div class="side-foot">
-				<button class="btn small" type="button" onclick={() => (ecosystem.palette = true)}
-					>Search · Ctrl K</button
-				>
-				<button
-					class="btn small"
-					type="button"
-					onclick={() => (ecosystem.supportOpen = !ecosystem.supportOpen)}
-				>
-					Simulated support
-				</button>
-				<button
-					class="btn small"
-					type="button"
-					onclick={() => ecosystem.setTheme(ecosystem.theme === 'dark' ? 'light' : 'dark')}
-				>
-					{ecosystem.theme === 'dark' ? 'Light theme' : 'Dark theme'}
-				</button>
+				<div class="side-foot">
+					<button class="btn small" type="button" onclick={() => (ecosystem.palette = true)}
+						>Search · Ctrl K</button
+					>
+					<button
+						class="btn small"
+						type="button"
+						onclick={() => (ecosystem.supportOpen = !ecosystem.supportOpen)}
+					>
+						Simulated support
+					</button>
+					<button
+						class="btn small"
+						type="button"
+						onclick={() => ecosystem.setTheme(ecosystem.theme === 'dark' ? 'light' : 'dark')}
+					>
+						{ecosystem.theme === 'dark' ? 'Light theme' : 'Dark theme'}
+					</button>
+				</div>
 			</div>
 		</aside>
 		<div class="app-main">

@@ -36,5 +36,6 @@
 				</tbody>
 			</table>
 		</div>
+		<p class="muted phone-only">Swipe the table horizontally to read all columns.</p>
 	</main>
 </PublicFrame>

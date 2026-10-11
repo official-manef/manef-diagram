@@ -10,30 +10,21 @@
 	<main class="public-main">
 		<section class="hero">
 			<div>
-				<p class="eyebrow">Architecture workspace</p>
+				<p class="eyebrow">MANEF / Architecture workspace</p>
 				<h1>Manef Diagram</h1>
 				<p class="lead">
 					Map services, explore dependencies, and open component diagrams in one interactive
 					workspace. Start with the public MANEF map, then edit or import your own graph.
 				</p>
 				<div class="row" style="margin-top: 22px">
-					<a class="btn lime" href={resolve('/app')}>Start mapping</a>
+					<a class="btn primary" href={resolve('/app')}>Start mapping</a>
 					<a class="btn" href={resolve('/guide')}>Read the guide</a>
 				</div>
-			</div>
-			<div class="hero-canvas" aria-hidden="true">
-				<div class="hero-node one">
-					<strong>Services</strong><small>Explore dependencies</small>
-				</div>
-				<div class="hero-node two">
-					<strong>Components</strong><small>Open nested diagrams</small>
-				</div>
-				<div class="hero-node three"><strong>Context</strong><small>Search and filter</small></div>
 			</div>
 		</section>
 		<section class="public-section">
 			<p class="eyebrow">Inside Diagram</p>
-			<h2 style="margin: 8px 0 18px">Explore, edit, and share your architecture.</h2>
+			<h2>Explore, edit, and share your architecture.</h2>
 			<div class="grid4">
 				{#each diagram.features as feature (feature)}
 					<article class="card"><h3>{feature}</h3></article>
