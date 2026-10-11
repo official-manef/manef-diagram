@@ -680,16 +680,19 @@
 	async function shareView() {
 		try {
 			const edited = !sameGraph(root, defaultGraph);
-			const url = buildDiagramViewUrl({
-				graph: edited ? root : undefined,
-				query: search,
-				tags: activeTags,
-				seeds: selectedNodeId ? [selectedNodeId] : [],
-				open: diagramPath,
-				mode: diagramMode,
-				trace: traceMode,
-				focus: focusMode
-			});
+			const url = buildDiagramViewUrl(
+				{
+					graph: edited ? root : undefined,
+					query: search,
+					tags: activeTags,
+					seeds: selectedNodeId ? [selectedNodeId] : [],
+					open: diagramPath,
+					mode: diagramMode,
+					trace: traceMode,
+					focus: focusMode
+				},
+				window.location.origin
+			);
 			const parsed = new URL(url);
 			history.replaceState(history.state, '', `${parsed.pathname}${parsed.search}`);
 			try {

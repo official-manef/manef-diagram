@@ -165,8 +165,11 @@ test('official stateless MCP server advertises read-only graph tools', async () 
 		...call,
 		params: { name: 'graph_query', arguments: { status: 'proposed' } }
 	};
-	const queryOutput = await (await statusMcpResponse(request(query), query)).json();
+	const queryOutput = await (
+		await statusMcpResponse(request(query), query, 'https://pilot.example.com')
+	).json();
 	const result = JSON.parse(queryOutput.result.content[0].text);
+	expect(new URL(result.viewUrl).origin).toBe('https://pilot.example.com');
 	expect(result.nodes.every((node: { status: string }) => node.status === 'proposed')).toBe(true);
 	expect(JSON.parse(new URL(result.viewUrl).searchParams.get('graph')!)).toEqual({
 		schemaVersion: 1,

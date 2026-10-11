@@ -156,7 +156,7 @@ test('landing and guide explain the real MCP transport and copy its endpoint', a
 	await expect(page.getByRole('status')).toHaveText('Endpoint copied.');
 	await expect(page.locator('html')).toHaveAttribute(
 		'data-copied-mcp',
-		'https://diagram.manef.dev/api/mcp/server'
+		'https://architecture.manef.dev/api/mcp/server'
 	);
 	await page.getByText('10 read-only graph tools', { exact: true }).click();
 	await expect(page.getByText('graph_create_portable_view', { exact: true })).toBeVisible();
@@ -171,7 +171,7 @@ test('landing and guide explain the real MCP transport and copy its endpoint', a
 	await expect(page.getByRole('status')).toHaveText('Codex configuration copied.');
 	await expect(page.locator('html')).toHaveAttribute(
 		'data-copied-mcp',
-		'[mcp_servers.diagram]\nurl = "https://diagram.manef.dev/api/mcp/server"\nbearer_token_env_var = "MCP_DIAGRAM_TOKEN"'
+		'[mcp_servers.diagram]\nurl = "https://architecture.manef.dev/api/mcp/server"\nbearer_token_env_var = "MCP_DIAGRAM_TOKEN"'
 	);
 	await expectNoOverflow(page);
 });
@@ -190,7 +190,7 @@ test('MCP copy denial offers a manual endpoint without claiming success', async 
 	await page.getByRole('button', { name: 'Copy MCP endpoint' }).click();
 	await expect(page.getByRole('status')).toContainText('Copy was blocked.');
 	await expect(page.getByLabel('MCP endpoint')).toHaveValue(
-		'https://diagram.manef.dev/api/mcp/server'
+		'https://architecture.manef.dev/api/mcp/server'
 	);
 	await page.getByText('Set up Codex with the new token', { exact: true }).click();
 	await page.getByRole('button', { name: 'Copy Codex configuration' }).click();

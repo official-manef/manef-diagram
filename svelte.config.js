@@ -1,5 +1,6 @@
 import vercel from '@sveltejs/adapter-vercel';
 import node from '@sveltejs/adapter-node';
+import cloudflare from '@sveltejs/adapter-cloudflare';
 
 function deploymentAdapter() {
 	const target = process.env.DEPLOY_TARGET ?? 'vercel';
@@ -8,8 +9,10 @@ function deploymentAdapter() {
 			return vercel();
 		case 'node':
 			return node();
+		case 'cloudflare':
+			return cloudflare({ platformProxy: { environment: 'pilot' } });
 		default:
-			throw new Error(`Unsupported DEPLOY_TARGET "${target}". Choose vercel or node.`);
+			throw new Error(`Unsupported DEPLOY_TARGET "${target}". Choose vercel, node or cloudflare.`);
 	}
 }
 

@@ -3,13 +3,14 @@
 The starter builds for Vercel by default or a standalone Node server when
 `DEPLOY_TARGET=node`. Set this variable in the shell or hosting **build environment**;
 an empty or unsupported value fails configuration instead of choosing another host.
-Bun manages dependencies and build scripts. Production server code runs on Node.
+Bun manages dependencies and build scripts. Vercel/standalone server code runs on Node;
+the explicit Cloudflare target runs in Workers.
 
-| Target                             | Build selection                  | Output / runtime                                   |
-| ---------------------------------- | -------------------------------- | -------------------------------------------------- |
-| Vercel                             | Unset or `DEPLOY_TARGET=vercel`  | Vercel adapter output and supported Node functions |
-| VPS, container host, GCP Cloud Run | `DEPLOY_TARGET=node`             | `build/`, started with `node build`                |
-| Cloudflare Workers                 | Product integration recipe below | No supported build target in this template yet     |
+| Target                             | Build selection                 | Output / runtime                                        |
+| ---------------------------------- | ------------------------------- | ------------------------------------------------------- |
+| Vercel                             | Unset or `DEPLOY_TARGET=vercel` | Vercel adapter output and supported Node functions      |
+| VPS, container host, GCP Cloud Run | `DEPLOY_TARGET=node`            | `build/`, started with `node build`                     |
+| Cloudflare Workers pilot           | `DEPLOY_TARGET=cloudflare`      | `.svelte-kit/cloudflare/`; isolated `pilot` environment |
 
 ## Verified production origin
 
@@ -104,14 +105,47 @@ process's counter as a distributed limit.
 Cloudflare DNS/CDN can front the Node deployment without changing its adapter. Keep
 authenticated responses private and preserve streaming and origin behavior.
 
-Deploying the app inside **Workers** requires a separate verified integration. Use the
-maintained `@sveltejs/adapter-cloudflare`, a Wrangler configuration with an explicit
-compatibility date and `nodejs_compat`, then validate build size, runtime bindings and
-the APIs used by OIDC, crypto, AI and HTTP MCP clients. Node compatibility includes
-partial implementations and stubs; the flag alone is not a compatibility guarantee.
-Run local Worker tests and a product preview covering enabled flows before adding
-`cloudflare` to the accepted targets. The template deliberately has no untested
-Wrangler deployment file or Workers support claim.
+The isolated Workers pilot uses `@sveltejs/adapter-cloudflare` 7.x for SvelteKit 2,
+the explicit `pilot` environment in `wrangler.jsonc`, and `nodejs_compat`. The Vercel
+default and production domain remain unchanged. Node compatibility is not a guarantee
+that every optional provider works; accept each enabled flow on the actual Worker.
+
+```sh
+DEPLOY_TARGET=cloudflare bun run verify
+bunx wrangler types --env pilot --include-runtime false
+bunx wrangler deploy --env pilot --dry-run --outdir .wrangler/dry-run
+bunx wrangler dev --env pilot --port 8787
+# Only with the MANEF account's deployment credentials:
+bunx wrangler deploy --env pilot
+```
+
+The pilot is noindex and uses its own HTTPS origin and MCP secret. Configure
+`MCP_SERVER_TOKEN` using the host secret store; do not commit it. Convex is linked for
+public health and anonymous-denial checks. Authentication stays disabled until a valid
+WorkOS key is supplied and an independent `AUTH_SESSION_SECRET` is installed. The exact
+pilot `/auth/callback` was registered on 2026-10-11 without changing the production
+callback or its default status. Never enable
+auth with the known rejected production credential. Private Convex CRUD, refresh/logout
+and account isolation remain separate acceptance gates. The cloud integration recipe
+flag `CLOUDFLARE_ENABLED` does not select the hosting adapter.
+
+Compare the pilot with production using alternating samples from the same client and
+matching page/tool inputs; record p50/p95, failures and cold/warm conditions. A Workers
+Free account's CPU limit can affect SSR/MCP; measure before choosing a paid plan. Do not
+change production DNS until the user authorizes migration after the acceptance report.
+
+The deployed pilot and acceptance results are in [pilot QA](cloudflare-pilot-qa.md).
+Use the pilot's own token; Vercel environment edits do not update Worker secrets.
+For CLI deployment, `bunx wrangler secret put MCP_SERVER_TOKEN --env pilot` prompts
+privately. Local `.dev.vars.pilot` is ignored by Git and must never be attached to a PR.
+The adapter-generated `_headers` must accompany static assets so immutable bundles
+retain their cache policy. Wrangler handles this; direct API uploads must include it.
+
+After the owner supplies the valid WorkOS Production credential, install Worker secrets
+`WORKOS_API_KEY` and `AUTH_SESSION_SECRET` (32 independent random bytes, base64url).
+Check the key against the existing Production client before setting `AUTH_ENABLED=true`
+and redeploying. Then verify Google login, session reload, refresh, logout, private
+Convex CRUD and two-user isolation. Do not reuse the pilot's session secret in production.
 
 ## Web and Convex deployment
 

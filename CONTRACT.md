@@ -35,7 +35,8 @@ JWT configuration, and real production consent are separate acceptance gates.
   barrels. Routes are thin framework adapters; the existing app page family uses one registry.
 - Payments and email are disabled transport building blocks, preferring DOKU and Resend
   when selected. Google auth/private notes, BYOK AI and remote MCP are implemented opt-ins. GCP service
-  adapters and Cloudflare Workers remain recipes; Node hosting is implemented.
+  adapters remain recipes; Node hosting and an isolated Cloudflare Workers pilot target
+  are implemented. Workers acceptance is separate from Vercel production acceptance.
 - Workspace and settings examples are local UI state. They provide no identity, ownership
   or tenancy guarantee. Verified issuer and subject own private notes. Payment/email lifecycle acceptance
   remains product work; provider credentials and product deployment need tenant-specific setup.

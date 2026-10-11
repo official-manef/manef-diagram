@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	consumeBurst(`mcp-server:${token}`);
 	const body = await readJsonBody(request);
 	try {
-		return await statusMcpResponse(request, body);
+		return await statusMcpResponse(request, body, publicEnv.PUBLIC_SITE_URL);
 	} catch {
 		error(500, 'MCP request could not be processed.');
 	}

@@ -1,5 +1,19 @@
 # MANEF Architecture Inventory — PRD
 
+## Cloudflare Workers pilot — 11 October 2026
+
+Compare an isolated Workers deployment against Vercel production from source
+`7d2b3be13c4d8310a38e634b7e3d1c6c2ddad48c`. Keep production DNS and backend unchanged.
+Accept desktop/mobile canvas, navigation, public endpoints, all ten MCP tools,
+anonymous denial and noindex behavior. Measure alternating HTTP/MCP samples from one
+client and document limitations. WorkOS login/session/refresh/logout and private Convex
+CRUD/isolation remain pending the user's valid Production key; auth stays disabled
+until that credential and a separate session secret are configured. The pilot callback
+is registered and the production callback remains default. Passing public QA
+does not authorize a production migration or prove private-feature acceptance.
+
+Public pilot acceptance and remaining gates: [Cloudflare pilot QA](cloudflare-pilot-qa.md).
+
 ## Goal
 
 Provide one reusable architecture/inventory feature that visualizes MANEF products, infrastructure and relationships without coupling the graph model to a frontend framework.

@@ -3,6 +3,15 @@ import { expect, test } from '@playwright/test';
 test('portable views restore graph and filters with arbitrary tag namespaces', async ({ page }) => {
 	const errors: string[] = [];
 	page.on('pageerror', (error) => errors.push(error.message));
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'clipboard', {
+			value: {
+				writeText: async (value: string) => {
+					document.documentElement.dataset.sharedView = value;
+				}
+			}
+		});
+	});
 	const graph = {
 		schemaVersion: 1,
 		nodes: [
@@ -31,6 +40,11 @@ test('portable views restore graph and filters with arbitrary tag namespaces', a
 		page.getByRole('application', { name: 'MANEF architecture graph canvas' })
 	).toContainText('Shared context');
 	await expect(page.getByRole('button', { name: 'Share view', exact: true })).toBeEnabled();
+	await page.getByRole('button', { name: 'Share view', exact: true }).click();
+	const shared = new URL((await page.locator('html').getAttribute('data-shared-view'))!);
+	expect(shared.origin).toBe(new URL(page.url()).origin);
+	expect(shared.pathname).toBe('/app');
+	expect(JSON.parse(shared.searchParams.get('graph')!).nodes[0].id).toBe('shared');
 	expect(errors).toEqual([]);
 });
 

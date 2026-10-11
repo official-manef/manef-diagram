@@ -21,3 +21,19 @@ it('runs the public graph tools from one contract', () => {
 		runGraphTool(defaultGraph, defaultInventory, 'graph_create_portable_view', { graph: {} })
 	).toThrow(/contract/);
 });
+
+it('keeps all MCP view links on the configured deployment origin', () => {
+	for (const tool of ['graph_query', 'graph_build_view', 'graph_create_portable_view']) {
+		const result = runGraphTool(
+			defaultGraph,
+			defaultInventory,
+			tool,
+			{},
+			'https://pilot.example'
+		) as {
+			url?: string;
+			viewUrl?: string;
+		};
+		expect(new URL(result.url ?? result.viewUrl!).origin).toBe('https://pilot.example');
+	}
+});
