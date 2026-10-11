@@ -43,13 +43,27 @@ test('320px phone retains graph controls, canvas navigation and inspector editin
 	await page.getByRole('button', { name: 'Canvas', exact: true }).click();
 	await expect(page.locator('.world')).toBeVisible();
 	await expectNoOverflow(page);
+	await page.locator('.viewport').scrollIntoViewIfNeeded();
 	const before = await page.locator('.world').getAttribute('style');
 	const canvas = await page.locator('.viewport').boundingBox();
-	await page.mouse.move(canvas!.x + 10, canvas!.y + 20);
+	await page.mouse.move(canvas!.x + 10, canvas!.y + 110);
 	await page.mouse.down();
-	await page.mouse.move(canvas!.x + 45, canvas!.y + 45);
+	await page.mouse.move(canvas!.x + 45, canvas!.y + 145);
 	await page.mouse.up();
-	expect(await page.locator('.world').getAttribute('style')).not.toBe(before);
+	await expect(page.locator('.world')).not.toHaveAttribute('style', before!);
+	const touch = await page.context().newCDPSession(page);
+	const beforeTouch = await page.locator('.world').getAttribute('style');
+	await touch.send('Input.dispatchTouchEvent', {
+		type: 'touchStart',
+		touchPoints: [{ x: canvas!.x + 10, y: canvas!.y + 110 }]
+	});
+	await touch.send('Input.dispatchTouchEvent', {
+		type: 'touchMove',
+		touchPoints: [{ x: canvas!.x + 45, y: canvas!.y + 145 }]
+	});
+	await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await expect(page.locator('.world')).not.toHaveAttribute('style', beforeTouch!);
+	await touch.detach();
 	await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
 	await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
 	await page.getByRole('button', { name: 'Fit', exact: true }).click();
