@@ -41,13 +41,15 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
   remain available. Scroll outside the canvas to move through the page.
 - Header actions wrap; filters, highlighting and focus are available on phones.
   Services and connections link to the inspector; a return link reaches the map.
+  The phone inspector reuses output selection and input connection actions so users
+  can create connections from the readable list without targeting scaled canvas ports.
   Long names wrap, empty results recover, and added Mermaid views remain visible.
 - The product landing and MCP guide share endpoint copying and connection instructions.
   Ten actual graph tools are advertised from the reusable tool-name contract. Access
   still requires the private deployment bearer token. No OAuth or private inventory
   access is added; the demo playground remains a simulation.
 - Acceptance coverage includes 320px list/canvas reflow, pan and zoom, filter/focus,
-  connection editing, JSON/import/export, component navigation, Mermaid views,
+  connection creation/editing, JSON/import/export, component navigation, Mermaid views,
   clipboard success/denial and complete read-only MCP discovery. Release evidence
   is recorded for the exact CI and deployment revisions after these gates pass.
 

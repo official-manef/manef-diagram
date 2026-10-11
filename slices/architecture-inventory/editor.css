@@ -955,6 +955,7 @@
 .workspace .mobile-tools,
 .workspace .mobile-help,
 .workspace .mobile-inspect,
+.workspace .mobile-port-action,
 .workspace .mobile-physics {
 	display: none;
 }
@@ -1116,6 +1117,12 @@
 		margin: 0;
 		padding: 0.65rem;
 		font-size: 14px;
+	}
+	.workspace .mobile-port-action {
+		display: inline-flex;
+	}
+	.workspace .port-editor > .mobile-help {
+		padding: 0;
 	}
 	.workspace #diagram-inspector,
 	.workspace #diagram-map {

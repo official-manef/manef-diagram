@@ -557,6 +557,7 @@
 		jsonMessage = graph.edges.some((item) => item.id === edge.id)
 			? 'Connection added. Output remains armed for another target.'
 			: 'That connection already exists or is invalid.';
+		actionMessage = jsonMessage;
 	}
 
 	function disconnectEdge(id: string) {
@@ -1947,18 +1948,29 @@
 								})}></textarea>
 					</label>
 					<div class="port-editor">
+						<p class="mobile-help">
+							To connect services, choose Use output, return to the map, select the target service,
+							then choose Connect on its input.
+						</p>
+						{#if armedOutput}<Button
+								class="mobile-port-action"
+								variant="outline"
+								onclick={() => (armedOutput = null)}>Cancel connection</Button
+							>{/if}
 						<div>
 							<div class="editor-heading">
 								<strong>Inputs</strong>
 								<Button
 									size="sm"
 									variant="outline"
+									aria-label="Add input port"
 									onclick={() => addPort(selectedNode.id, 'inputs')}>+</Button
 								>
 							</div>
 							{#each selectedNode.inputs as port (port.id)}
 								<div class="port-row">
 									<Input
+										aria-label={`Input port label: ${port.label}`}
 										value={port.label}
 										oninput={(event) =>
 											updatePort(selectedNode.id, 'inputs', port.id, {
@@ -1966,8 +1978,16 @@
 											})}
 									/>
 									<Button
+										class="mobile-port-action"
+										size="sm"
+										variant="outline"
+										disabled={!armedOutput}
+										onclick={() => connectTo(selectedNode.id, port.id)}>Connect</Button
+									>
+									<Button
 										size="sm"
 										variant="ghost"
+										aria-label={`Remove input port: ${port.label}`}
 										onclick={() => removePort(selectedNode.id, 'inputs', port.id)}>×</Button
 									>
 								</div>
@@ -1979,12 +1999,14 @@
 								<Button
 									size="sm"
 									variant="outline"
+									aria-label="Add output port"
 									onclick={() => addPort(selectedNode.id, 'outputs')}>+</Button
 								>
 							</div>
 							{#each selectedNode.outputs as port (port.id)}
 								<div class="port-row">
 									<Input
+										aria-label={`Output port label: ${port.label}`}
 										value={port.label}
 										oninput={(event) =>
 											updatePort(selectedNode.id, 'outputs', port.id, {
@@ -1992,8 +2014,18 @@
 											})}
 									/>
 									<Button
+										class="mobile-port-action"
+										size="sm"
+										variant="outline"
+										aria-pressed={armedOutput?.nodeId === selectedNode.id &&
+											armedOutput?.portId === port.id}
+										onclick={() => (armedOutput = { nodeId: selectedNode.id, portId: port.id })}
+										>Use output</Button
+									>
+									<Button
 										size="sm"
 										variant="ghost"
+										aria-label={`Remove output port: ${port.label}`}
 										onclick={() => removePort(selectedNode.id, 'outputs', port.id)}>×</Button
 									>
 								</div>

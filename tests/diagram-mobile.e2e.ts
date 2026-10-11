@@ -37,6 +37,18 @@ test('320px phone retains graph controls, canvas navigation and inspector editin
 	await expect(page.getByRole('heading', { name: 'Connection details' })).toBeVisible();
 	await page.getByLabel('Label', { exact: true }).fill('Phone connection');
 	await page.getByRole('link', { name: 'Back to map ↑' }).click();
+	await page.getByRole('button', { name: 'mso.manef.dev Manef Shell OS', exact: true }).click();
+	await page.getByRole('link', { name: 'Edit mso.manef.dev', exact: true }).click();
+	await page.getByRole('button', { name: 'Use output', exact: true }).click();
+	await page.getByRole('link', { name: 'Back to map ↑' }).click();
+	await page
+		.getByRole('button', { name: 'models.manef.dev Model catalog and routing', exact: true })
+		.click();
+	await page.getByRole('link', { name: 'Edit models.manef.dev', exact: true }).click();
+	await page.getByRole('button', { name: 'Connect', exact: true }).click();
+	await expect(page.getByRole('status')).toContainText('Connection added.');
+	await page.getByRole('button', { name: 'Cancel connection', exact: true }).click();
+	await page.getByRole('link', { name: 'Back to map ↑' }).click();
 	await page.getByRole('button', { name: 'Focus: Off', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Focus: On' })).toHaveAttribute(
 		'aria-pressed',
