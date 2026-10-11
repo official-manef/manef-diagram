@@ -75,6 +75,11 @@
 			}
 		];
 	}
+
+	function openPalette(dialog: HTMLDialogElement) {
+		dialog.showModal();
+		return { destroy: () => dialog.close() };
+	}
 </script>
 
 <div class="eco" data-theme={ecosystem.theme}>
@@ -152,7 +157,11 @@
 	</div>
 
 	{#if ecosystem.palette}
-		<dialog open aria-label="Command palette" onclose={() => (ecosystem.palette = false)}>
+		<dialog
+			use:openPalette
+			aria-label="Command palette"
+			onclose={() => (ecosystem.palette = false)}
+		>
 			<div class="dialog-body">
 				<label class="search">
 					<span class="muted">Pages</span>

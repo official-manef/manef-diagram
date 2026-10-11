@@ -97,6 +97,28 @@ test('phone workspace navigation opens, closes and reaches the demo inspector', 
 	await navigation.click();
 	await navigation.press('Escape');
 	await expect(navigation).toHaveAttribute('aria-expanded', 'false');
+	await navigation.click();
+	const search = page.getByRole('button', { name: 'Search · Ctrl K', exact: true });
+	await search.click();
+	const palette = page.getByRole('dialog', { name: 'Command palette', exact: true });
+	await expect(palette).toBeVisible();
+	const paletteBox = (await palette.boundingBox())!;
+	expect(paletteBox.x).toBeGreaterThanOrEqual(0);
+	expect(paletteBox.y).toBeGreaterThanOrEqual(0);
+	expect(paletteBox.y + paletteBox.height).toBeLessThanOrEqual(720);
+	await page.getByRole('textbox', { name: 'Search pages', exact: true }).fill('Guide');
+	await expect(palette.getByRole('link', { name: 'Guide', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Close', exact: true }).click();
+	await expect(palette).toBeHidden();
+	await expect(search).toBeFocused();
+	await page.getByRole('button', { name: 'Simulated support', exact: true }).click();
+	const support = page.getByRole('complementary', { name: 'Simulated support', exact: true });
+	await expect(support).toBeVisible();
+	const supportBox = (await support.boundingBox())!;
+	expect(supportBox.x).toBeGreaterThanOrEqual(0);
+	expect(supportBox.x + supportBox.width).toBeLessThanOrEqual(320);
+	await support.getByRole('button', { name: 'Close', exact: true }).click();
+	await expect(support).toBeHidden();
 });
 
 test('landing keeps the MANEF studio style in both themes and sizes', async ({ page }) => {

@@ -564,7 +564,9 @@
 	position: fixed;
 	right: 16px;
 	bottom: 72px;
-	width: min(360px, calc(100vw - 24px));
+	width: min(360px, calc(100% - 32px));
+	max-height: calc(100dvh - 100px);
+	overflow: auto;
 	z-index: 30;
 	display: grid;
 	gap: 10px;
@@ -593,11 +595,16 @@
 	background: var(--surface2);
 }
 .eco dialog {
+	position: fixed;
+	inset: 0;
+	margin: auto;
 	border: 1px solid var(--line);
 	background: var(--surface);
 	color: var(--ink);
 	border-radius: 16px;
-	width: min(520px, calc(100vw - 24px));
+	width: min(520px, calc(100% - 32px));
+	max-height: calc(100dvh - 32px);
+	overflow: auto;
 	padding: 0;
 }
 .eco dialog::backdrop {

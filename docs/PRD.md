@@ -45,6 +45,9 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
   Demo navigation collapses so content starts above the fold. Demo nodes support
   tap/keyboard selection with links between map and inspector; phone scrolling
   must not move stored node positions. Audit tables may scroll within their card.
+- Workspace page search opens a native modal inside the viewport, supports filtering
+  and restores focus to its trigger. The simulated support panel stays contained
+  on narrow phones and scrolls internally when its content grows.
 
 - Phones keep the readable service list and can switch to the bounded visual canvas.
   Empty-space dragging pans the phone canvas; zoom, fit, selection and physics controls
