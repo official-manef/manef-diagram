@@ -53,6 +53,19 @@ Provide one reusable architecture/inventory feature that visualizes MANEF produc
   clipboard success/denial and complete read-only MCP discovery. Release evidence
   is recorded for the exact CI and deployment revisions after these gates pass.
 
+## Production MCP acceptance — 2026-10-11
+
+- The official SDK client 1.30.0 initialized the production endpoint, discovered all
+  ten read-only graph tools and successfully called each one on release `a46a4417`.
+  Public counts were 23 nodes and 22 edges. Portable-view creation returned
+  `persisted: false` and did not change server counts.
+- Invalid tool inputs, anonymous/wrong-token denial, untrusted Origin denial and
+  client cleanup passed. [AI/MCP setup](ai-mcp.md) includes the runnable connection
+  example, tool arguments, rate-limit behavior and exact deployment evidence.
+- Token storage is encrypted and correctly configured; production and preview share
+  the current credential. Token rotation is a separate operational follow-up. OAuth,
+  arbitrary client UI compatibility, private inventory and writes are not accepted.
+
 ## Revision evidence — 2026-10-09
 
 - `diagram.manef.dev` on the public map has a component diagram: public directory, public map, demo workspace, graph contract, and the MCP read API. Other public services do not invent an inner diagram. A component diagram can contain another one, up to three levels, but the seed only fills the first.

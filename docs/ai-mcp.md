@@ -179,6 +179,75 @@ Do not paste tokens into the public map, portable URLs or the simulated workspac
 401 means missing/invalid token, 404 disabled server, 503 missing server configuration,
 and 429 rate limiting. The workspace playground remains a browser-local simulation.
 
+### Connect with the official TypeScript client
+
+Use the installed `@modelcontextprotocol/sdk` dependency. Set `MCP_DIAGRAM_TOKEN` in
+the client process's private environment using your secret manager; do not commit it
+or paste it into a public page. This is a client-side variable, separate from the
+server's `MCP_SERVER_TOKEN` setting.
+
+```js
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+const token = process.env.MCP_DIAGRAM_TOKEN;
+if (!token) throw new Error('Configure the private MCP_DIAGRAM_TOKEN first.');
+const client = new Client({ name: 'diagram-client', version: '1.0.0' });
+const transport = new StreamableHTTPClientTransport(
+	new URL('https://diagram.manef.dev/api/mcp/server'),
+	{ requestInit: { headers: { Authorization: `Bearer ${token}` } } }
+);
+try {
+	await client.connect(transport, { timeout: 15000 });
+	const { tools } = await client.listTools();
+	console.log(tools.map((tool) => tool.name));
+	const result = await client.callTool({ name: 'graph_status', arguments: {} });
+	if (result.isError) throw new Error('graph_status failed.');
+	console.log(result.content);
+} finally {
+	await client.close();
+}
+```
+
+Reuse a connected client for successive calls. The server guard allows 20 requests
+per minute per token in each running process; initialization and notifications also
+count. A 429 requires waiting before retrying. Limits are process-local, not a
+distributed production quota. A background GET for an event stream returns 405 on
+this stateless endpoint; successful POST discovery/calls remain the acceptance signal.
+
+### Production acceptance — 2026-10-11
+
+The official SDK client `1.30.0` completed initialize, discovery of all ten tools,
+and successful calls to every tool at `https://diagram.manef.dev/api/mcp/server`.
+The tested release was `a46a441746cf4496680f13b4323bec87e9799ce1`, deployment
+`dpl_2feFCpbZrAgHZS8yELqHdoKxcxFo`; the server reported version `0.1.0`.
+
+| Tool                         | Example arguments                                                   | Observed production result                           |
+| ---------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------- |
+| `graph_status`               | `{}`                                                                | 23 nodes, 22 edges, schema version 1                 |
+| `graph_list_nodes`           | `{}`                                                                | 23 public nodes                                      |
+| `graph_list_edges`           | `{}`                                                                | 22 edges                                             |
+| `graph_trace`                | `{ "seeds": ["NODE_ID"], "mode": "direct" }`                        | Diagram node plus direct neighbors: 7 nodes, 6 edges |
+| `graph_layout`               | `{ "mode": "flow" }`                                                | Finite positions for all 23 nodes                    |
+| `graph_search_inventory`     | `{ "query": "" }`                                                   | 3 public inventory references                        |
+| `graph_adjacency`            | `{}`                                                                | 23 entries; edge endpoints matched both directions   |
+| `graph_query`                | `{ "query": "diagram.manef.dev" }`                                  | 1 matching node and a valid `/app` view URL          |
+| `graph_build_view`           | `{ "seeds": ["NODE_ID"], "focus": true }`                           | Valid `/app` URL with focus state                    |
+| `graph_create_portable_view` | `{ "graph": { "schemaVersion": 1, "nodes": [NODE], "edges": [] } }` | Valid graph URL; 1 node, 0 edges, `persisted: false` |
+
+Get `NODE` and its `NODE_ID` from `graph_list_nodes`; placeholders above are not literal
+arguments. The portable graph test reused a returned public node. Server counts remained
+unchanged afterward. Empty trace seeds returned a tool error; anonymous and invalid-token
+POSTs returned 401, and an authenticated request with an untrusted Origin returned 403.
+The client closed successfully. Configuration checks confirmed an enabled server,
+encrypted token of valid length and the correct public origin. The token currently
+targets production and preview; it was not changed as part of this acceptance run.
+
+This proves the controlled read-only endpoint using the official SDK, not compatibility
+with every client UI, OAuth, private inventory or persisted writes. Keep credentials
+out of tool output, request logs and QA reports; record token rotation separately from
+functional acceptance when required.
+
 This is a controlled bearer-token integration, not a full OAuth authorization server or
 a generic proxy to remote tools. To add business tools, define backend authorization,
 validated inputs, tenant ownership and data minimization for each tool. Keep this status
