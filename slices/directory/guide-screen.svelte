@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PublicFrame from './public-frame.svelte';
+	import McpConnection from './mcp-connection.svelte';
 	import { guideSections } from './catalog';
 
 	const section = $derived(page.url.searchParams.get('section') || 'start');
@@ -36,10 +37,18 @@
 					<a class="btn" href={resolve('/auth/login')} data-sveltekit-reload>Sign in with MANEF</a>
 				</p>
 			{:else if section === 'mcp'}
-				<h1>Ten tools in source. One local playground.</h1>
-				<p class="muted">
-					The production route is POST /api/mcp/server and it rejects anonymous calls. The workspace
-					playground returns a local simulation and does not send the token.
+				<h1>Connect to the Diagram MCP server</h1>
+				<McpConnection />
+				<h2>Troubleshooting</h2>
+				<p>
+					401 means the server token is missing or invalid. 404 means the server is disabled on that
+					deployment. 503 means the deployment owner must configure the token. 429 means the request
+					limit was reached; wait before retrying.
+				</p>
+				<p>
+					Use POST to this exact endpoint. An optional Origin header must match the deployment's
+					public origin. A client that requires OAuth and cannot send a bearer header is not
+					compatible with this endpoint.
 				</p>
 			{:else if section === 'catalog'}
 				<h1>Metadata is not an installer.</h1>

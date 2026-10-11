@@ -154,13 +154,30 @@ between 32 and 4,096 characters. An external MCP client connects to
 
 The official SDK's
 [Web Standard server transport](https://ts.sdk.modelcontextprotocol.io/server) runs
-statelessly and advertises one tool: `starter_status`, with an empty argument object.
-It returns package name, version and the configured backend type `convex`; it does not
-check deployment health or expose environment values, users or business data. The
+statelessly and advertises ten read-only graph tools:
+
+- `graph_status`: public graph counts, package name and version.
+- `graph_list_nodes`, `graph_list_edges`, `graph_adjacency`: public services and relationships.
+- `graph_trace`, `graph_layout`: connection traces and calculated layouts.
+- `graph_search_inventory`: public inventory references.
+- `graph_query`, `graph_build_view`: bounded graph queries and portable view URLs.
+- `graph_create_portable_view`: validates a caller-supplied graph and builds a portable URL.
+
+These tools do not persist editor changes, access private Convex records, expose
+environment values or prove deployment health. Tool inputs remain bounded and validated. The
 endpoint requires constant-time bearer verification and rate limiting. If an Origin
 header is present, it must match `PUBLIC_SITE_URL`; non-browser MCP clients may omit it.
 There is no trust decision derived from the request Host. Only POST is supported; GET
 and DELETE return method-not-allowed for this stateless transport.
+
+The Diagram production endpoint is `https://diagram.manef.dev/api/mcp/server`. The public
+landing and `/guide?section=mcp` provide endpoint copying, connection steps and error
+guidance. Use a client supporting Streamable HTTP and a custom Authorization header:
+add the endpoint, configure the server token privately, refresh tools and call
+`graph_status`. A client requiring OAuth without bearer-header support is incompatible.
+Do not paste tokens into the public map, portable URLs or the simulated workspace playground.
+401 means missing/invalid token, 404 disabled server, 503 missing server configuration,
+and 429 rate limiting. The workspace playground remains a browser-local simulation.
 
 This is a controlled bearer-token integration, not a full OAuth authorization server or
 a generic proxy to remote tools. To add business tools, define backend authorization,

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import PublicFrame from './public-frame.svelte';
+	import McpConnection from './mcp-connection.svelte';
 	import { products } from './catalog';
 	const diagram = products.find((product) => product.id === 'diagram')!;
 </script>
@@ -38,6 +39,12 @@
 					<article class="card"><h3>{feature}</h3></article>
 				{/each}
 			</div>
+		</section>
+		<section class="public-section" id="mcp">
+			<p class="eyebrow">For AI assistants and developers</p>
+			<h2>Connect Diagram through MCP</h2>
+			<McpConnection />
+			<p><a class="btn" href={resolve('/guide?section=mcp')}>Read the MCP guide</a></p>
 		</section>
 		<section class="public-section">
 			<h2>Start with the public map</h2>

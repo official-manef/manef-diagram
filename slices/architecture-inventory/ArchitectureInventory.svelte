@@ -109,6 +109,8 @@
 	let tagQuery = $state('');
 	let tagSort = $state<'name' | 'count'>('name');
 	let filtersOpen = $state(false);
+	let mobileCanvas = $state(false);
+	let mobileForces = $state(false);
 	let inventorySearch = $state('');
 	let inventoryKind = $state<'all' | InventoryKind>('all');
 	let activeTags = $state<string[]>([]);
@@ -330,7 +332,7 @@
 		const scale = Math.min(
 			cap,
 			Math.max(
-				0.2,
+				0.08,
 				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
 			)
 		);
@@ -759,7 +761,7 @@
 		nodeDrag = null;
 	}
 
-	const zoomMin = 0.25;
+	const zoomMin = 0.08;
 	const zoomMax = 2.5;
 
 	function zoomAt(clientX: number, clientY: number, nextZoom: number) {
@@ -991,8 +993,10 @@
 	}
 
 	function startPan(event: PointerEvent) {
-		if (window.matchMedia('(max-width: 44rem)').matches) return;
-		if (event.button === 1) {
+		const narrow = window.matchMedia('(max-width: 44rem)').matches;
+		if (narrow && (!mobileCanvas || activeView)) return;
+		if (event.target instanceof Element && event.target.closest('[data-interactive]')) return;
+		if (event.button === 1 || (narrow && event.button === 0)) {
 			event.preventDefault();
 			viewport?.setPointerCapture(event.pointerId);
 			panStart = {
@@ -1092,7 +1096,7 @@
 	}
 
 	function handleWheel(event: WheelEvent) {
-		if (window.matchMedia('(max-width: 44rem)').matches) return;
+		if (window.matchMedia('(max-width: 44rem)').matches && (!mobileCanvas || activeView)) return;
 		event.preventDefault();
 		zoomAt(event.clientX, event.clientY, zoom * (event.deltaY < 0 ? 1.08 : 0.92));
 	}
@@ -1108,7 +1112,7 @@
 	/>
 </svelte:head>
 
-<main class="workspace" data-theme={appliedTheme}>
+<main class="workspace" class:phone-canvas={mobileCanvas} data-theme={appliedTheme}>
 	<header class="topbar">
 		<div class="brand">
 			<div class="logo" aria-hidden="true">M</div>
@@ -1143,6 +1147,7 @@
 			<select
 				class="theme-select"
 				aria-label="Add view"
+				disabled={!hydrated}
 				onchange={(event) => {
 					const value = event.currentTarget.value;
 					event.currentTarget.value = '';
@@ -1213,6 +1218,7 @@
 			<section class="search-section">
 				<h2>Explore canvas</h2>
 				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
+				<a class="mobile-inspect" href="#diagram-map">Open map ↓</a>
 			</section>
 			<section>
 				<div class="filter-wrap">
@@ -1331,15 +1337,46 @@
 					</span>
 				</div>
 				<p class="help">
-					Click a node to select it. Hold a node to drag it. Drag empty space to box-select: left to
-					right encloses, right to left crosses. Scroll zooms toward the pointer.
+					Click a node to select it. Hold a node to drag it. On desktop, drag empty space to
+					box-select: left to right encloses, right to left crosses. Scroll zooms toward the
+					pointer.
 				</p>
 			</section>
 		</aside>
 
-		<section class="canvas-shell">
+		<section class="canvas-shell" id="diagram-map">
+			<nav class="mobile-tools" aria-label="Phone diagram controls">
+				<Button
+					disabled={!hydrated}
+					variant={mobileCanvas ? 'outline' : 'default'}
+					aria-pressed={!mobileCanvas}
+					onclick={() => (mobileCanvas = false)}>List</Button
+				>
+				<Button
+					disabled={!hydrated}
+					variant={mobileCanvas ? 'default' : 'outline'}
+					aria-pressed={mobileCanvas}
+					onclick={async () => {
+						mobileCanvas = true;
+						await tick();
+						fitView();
+					}}>Canvas</Button
+				>
+				<a href="#diagram-inspector"
+					>Inspect{selectedNode
+						? `: ${selectedNode.label}`
+						: selectedEdge
+							? ': connection'
+							: ' / JSON'}</a
+				>
+			</nav>
+			<p class="mobile-help">
+				Tap a service or connection, then Inspect to edit. In Canvas, drag to move around and use +
+				/ − to zoom. Scroll outside the canvas to move down the page.
+			</p>
 			<div
 				class="viewport"
+				class:has-view={Boolean(activeView)}
 				role="application"
 				aria-label="MANEF architecture graph canvas"
 				bind:this={viewport}
@@ -1393,6 +1430,7 @@
 								type="button"
 								class="mobile-card"
 								class:selected={selectedNodeIds.includes(node.id)}
+								class:hot={highlightedNodeIds.has(node.id)}
 								onclick={() => selectNode(node.id)}
 							>
 								<span>
@@ -1404,11 +1442,23 @@
 								>
 								{#if node.child}<span class="chip" aria-hidden="true">components</span>{/if}
 							</button>
+							{#if selectedNodeId === node.id}<a class="mobile-inspect" href="#diagram-inspector"
+									>Edit {node.label}</a
+								>{/if}
 							{#each visibleEdges.filter((edge) => edge.source === node.id) as edge (edge.id)}
-								<p class="mobile-edge">
+								<button
+									type="button"
+									class="mobile-edge"
+									class:hot={highlightedEdgeIds.has(edge.id)}
+									aria-pressed={selectedEdgeId === edge.id}
+									onclick={() => selectEdge(edge.id)}
+								>
 									{edge.label ?? 'connects'} → {graph.nodes.find((item) => item.id === edge.target)
 										?.label}
-								</p>
+								</button>
+								{#if selectedEdgeId === edge.id}<a class="mobile-inspect" href="#diagram-inspector"
+										>Edit connection</a
+									>{/if}
 							{/each}
 						</li>
 					{/each}
@@ -1567,7 +1617,7 @@
 					></div>
 				{/if}
 				{#if diagramMode === 'graph'}
-					<div class="forces" data-interactive>
+					<div class="forces" class:phone-open={mobileForces} id="graph-physics" data-interactive>
 						<p>Layout</p>
 						<div class="force-layouts">
 							<button
@@ -1674,6 +1724,14 @@
 						>+</Button
 					>
 					<Button size="sm" variant="outline" onclick={startSettle}>Settle</Button>
+					{#if diagramMode === 'graph'}<Button
+							class="mobile-physics"
+							size="sm"
+							variant="outline"
+							aria-expanded={mobileForces}
+							aria-controls="graph-physics"
+							onclick={() => (mobileForces = !mobileForces)}>Physics</Button
+						>{/if}
 					{#if armedOutput}
 						<Button size="sm" variant="outline" onclick={() => (armedOutput = null)}>Cancel</Button>
 					{/if}
@@ -1709,7 +1767,8 @@
 			{/if}
 		</section>
 
-		<aside class="inspector">
+		<aside class="inspector" id="diagram-inspector">
+			<a class="mobile-inspect" href="#diagram-map">Back to map ↑</a>
 			<div class="tabs" role="tablist" aria-label="Inspector">
 				<button
 					type="button"
