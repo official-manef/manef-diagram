@@ -21,3 +21,8 @@ QA must additionally exercise hydration, error messages, navigation, keyboard fo
 mobile reflow, and clipboard denial. Record revision-specific results in the QA
 report; the stories above are acceptance targets, not evidence that every hosted
 integration has passed.
+
+Import errors remain visible as status messages while recovery controls stay clickable.
+The status toast contains no actions and does not intercept pointers. Refresh must
+restore the current graph JSON after a rejected import, including on narrow phones.
+Browser coverage checks this policy and uses a normal click without bypassing hit testing.

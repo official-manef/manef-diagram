@@ -101,6 +101,7 @@ test('nested JSON import reports depth rejection and keeps the current diagram',
 		page.locator('#diagram-inspector').getByText(/invalid or exceeds 3 component levels/)
 	).toBeVisible();
 	await expect(page.getByText('JSON applied.', { exact: true })).toHaveCount(0);
+	await expect(page.locator('.toast')).toHaveCSS('pointer-events', 'none');
 	await page.getByRole('button', { name: 'Refresh', exact: true }).click();
 	await expect(page.getByRole('textbox', { name: 'Architecture graph JSON' })).toHaveValue(
 		/Public directory/
