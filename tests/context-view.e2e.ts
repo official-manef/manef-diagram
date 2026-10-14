@@ -66,3 +66,44 @@ test('the second activation opens the component diagram and can return', async (
 	await expect(diagram).toBeVisible();
 	expect(errors).toEqual([]);
 });
+
+test('nested JSON import reports depth rejection and keeps the current diagram', async ({
+	page
+}) => {
+	await page.goto('/app');
+	await page
+		.getByRole('button', {
+			name: 'diagram.manef.dev Interactive architecture + agent context graph',
+			exact: true
+		})
+		.click();
+	await page.getByRole('button', { name: 'Open component diagram', exact: true }).click();
+	await page.getByRole('tab', { name: 'JSON', exact: true }).click();
+	const nested = (depth: number): object => ({
+		schemaVersion: 1,
+		nodes: [
+			{
+				id: `level-${depth}`,
+				label: `Level ${depth}`,
+				tags: [],
+				inputs: [],
+				outputs: [],
+				...(depth ? { child: nested(depth - 1) } : {})
+			}
+		],
+		edges: []
+	});
+	await page
+		.getByRole('textbox', { name: 'Architecture graph JSON' })
+		.fill(JSON.stringify(nested(3)));
+	await page.getByRole('button', { name: 'Apply JSON', exact: true }).click();
+	await expect(
+		page.locator('#diagram-inspector').getByText(/invalid or exceeds 3 component levels/)
+	).toBeVisible();
+	await expect(page.getByText('JSON applied.', { exact: true })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+	await expect(page.getByRole('textbox', { name: 'Architecture graph JSON' })).toHaveValue(
+		/Public directory/
+	);
+	await expect(page.getByRole('navigation', { name: 'Diagram level' })).toBeVisible();
+});

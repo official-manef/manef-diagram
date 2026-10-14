@@ -5,12 +5,14 @@
 	import { onMount } from 'svelte';
 	import { ecosystem } from './store.svelte';
 	import { workspaceNavGroups, type WorkspaceSurfaceId } from './surfaces';
+	import { workspaceHostOrigin, workspaceParentOrigin } from './embedding';
 	import '$lib/styles/ecosystem.css';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 	let paletteQuery = $state('');
 	let navigationOpen = $state(false);
 	let hydrated = $state(false);
+	let hostOrigin = $state<string | null>(null);
 	let supportText = $state('');
 	let supportLog = $state<{ role: 'you' | 'demo'; text: string }[]>([
 		{
@@ -23,10 +25,17 @@
 	const crumb = $derived(
 		path === '/embed/workspace' ? 'Overview' : (path.split('/').at(-1) ?? 'Workspace')
 	);
-	const go = (surface: WorkspaceSurfaceId) =>
+	const surfacePath = (surface: WorkspaceSurfaceId) =>
 		resolve('/embed/workspace/[[surface]]', {
 			surface: surface === 'overview' ? undefined : surface
 		});
+	const go = (surface: WorkspaceSurfaceId) =>
+		resolve(
+			page.url.searchParams.get('preview') === '1'
+				? '/embed/workspace/[[surface]]?preview=1'
+				: '/embed/workspace/[[surface]]',
+			{ surface: surface === 'overview' ? undefined : surface }
+		);
 	const groups = workspaceNavGroups().map((group) => {
 		const items: ({ nav: string; id: WorkspaceSurfaceId } | { nav: string; external: string })[] =
 			group.items.map((item) => ({
@@ -42,10 +51,12 @@
 	});
 	$effect(() => {
 		const publicPath = page.url.pathname.replace(/^\/embed\/workspace(?=\/|$)/, '/workspace');
-		if (window.parent !== window)
+		const parentOrigin =
+			hostOrigin ?? workspaceParentOrigin(document.referrer, window.location.origin);
+		if (window.parent !== window && parentOrigin)
 			window.parent.postMessage(
 				{ type: 'manef-workspace-navigation', path: publicPath },
-				siteLinks.ecosystemOrigin
+				parentOrigin
 			);
 	});
 	const commands = [
@@ -62,6 +73,13 @@
 	onMount(() => {
 		hydrated = true;
 		ecosystem.init();
+		const onHost = (event: MessageEvent) => {
+			const origin = workspaceHostOrigin(event, window.parent, window.location.origin);
+			if (origin) hostOrigin = origin;
+		};
+		window.addEventListener('message', onHost);
+		// This contains only readiness. The reply's window and origin are checked before navigation.
+		if (window.parent !== window) window.parent.postMessage({ type: 'manef-workspace-ready' }, '*');
 		const onKey = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
 				event.preventDefault();
@@ -73,7 +91,10 @@
 			}
 		};
 		window.addEventListener('keydown', onKey);
-		return () => window.removeEventListener('keydown', onKey);
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('message', onHost);
+		};
 	});
 
 	function ask() {
@@ -136,7 +157,7 @@
 								class="nav-item"
 								onclick={() => (navigationOpen = false)}
 								href={go(item.id)}
-								aria-current={path === go(item.id) ? 'page' : undefined}>{item.nav}</a
+								aria-current={path === surfacePath(item.id) ? 'page' : undefined}>{item.nav}</a
 							>
 						{/if}
 					{/each}

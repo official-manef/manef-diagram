@@ -34,7 +34,9 @@ test('MCP config is off by default and permits only configured HTTPS aliases and
 	);
 });
 
-function protocol(options: { repeatCursor?: boolean; failTool?: boolean } = {}) {
+function protocol(
+	options: { repeatCursor?: boolean; failTool?: boolean; duplicateTools?: boolean } = {}
+) {
 	const requests: { method: string; rpc?: Record<string, unknown>; headers: Headers }[] = [];
 	vi.stubGlobal(
 		'fetch',
@@ -56,7 +58,8 @@ function protocol(options: { repeatCursor?: boolean; failTool?: boolean } = {}) 
 				result = {
 					tools: [
 						{ name: 'echo', description: `Description ${token}`, inputSchema: schema },
-						{ name: 'not-allowed', inputSchema: { type: 'object' } }
+						{ name: 'not-allowed', inputSchema: { type: 'object' } },
+						...(options.duplicateTools ? [{ name: 'echo', inputSchema: schema }] : [])
 					],
 					...(options.repeatCursor ? { nextCursor: 'same-cursor' } : {})
 				};
@@ -126,6 +129,25 @@ test('incomplete discovery and remote tool errors fail without returning provide
 		)
 	).rejects.toThrow('Remote tool failed');
 	expect(requests.some(({ method }) => method === 'DELETE')).toBe(true);
+});
+
+test('ambiguous duplicate tool names refuse discovery and execution before any remote action', async () => {
+	const requests = protocol({ duplicateTools: true });
+	await expect(listRemoteTools(connection, token, new AbortController().signal)).rejects.toThrow(
+		'duplicate tool names'
+	);
+	await expect(
+		executeRemoteTool(
+			connection,
+			token,
+			'echo',
+			{ text: 'Fixture' },
+			true,
+			new AbortController().signal
+		)
+	).rejects.toThrow('duplicate tool names');
+	expect(requests.filter(({ rpc }) => rpc?.method === 'tools/call')).toHaveLength(0);
+	expect(requests.filter(({ method }) => method === 'DELETE')).toHaveLength(2);
 });
 
 test('official stateless MCP server advertises read-only graph tools', async () => {

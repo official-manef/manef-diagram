@@ -1,6 +1,21 @@
 # MANEF Architecture Inventory — PRD
 
-## Goal
+## Accepted ecosystem direction — 2026-10-14
+
+The owner selected a studio for developer, business, enterprise and agent consumers.
+Diagram supports architecture/dependency work and diagram creation; a wider general
+diagramming scope is a future expansion, not a promise of feature parity with all
+canvas tools. Diagram remains independently useful. MSO owns operational execution;
+Agent@Manef owns portable context; the public workspace remains a simulation.
+
+The source-backed ecosystem inventory and human catalog live in MANEF Web. This
+directory now includes Agent@Manef with a source-first entry and a valid context-demo
+link. Open marketplace, common identity, independent Connectors/Models/Operations,
+cloud offers, billing and complete multilingual parity retain their own acceptance
+work. New agent consumers use read-only discovery plus explicit owner authorization;
+public metadata does not become a writable or executable API.
+
+## Architecture inventory goal
 
 Provide one reusable architecture/inventory feature that visualizes MANEF products, infrastructure and relationships without coupling the graph model to a frontend framework.
 

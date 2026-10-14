@@ -276,6 +276,35 @@ function activity(text: string, type: string) {
 	};
 }
 
+function uniqueId(base: string, items: readonly { id: string }[]): string {
+	let id = base;
+	let suffix = 1;
+	while (items.some((item) => item.id === id)) id = `${base}-${suffix++}`;
+	return id;
+}
+
+function graphWithNode(
+	graph: WorkspaceState['graph'],
+	added: DemoNode,
+	source: string,
+	label: string,
+	edgeId: string
+): WorkspaceState['graph'] {
+	const nodes = graph.nodes.some((item) => item.id === added.id)
+		? graph.nodes
+		: [...graph.nodes, added];
+	const canLink =
+		source !== added.id &&
+		nodes.some((item) => item.id === source) &&
+		!graph.edges.some((edge) => edge.source === source && edge.target === added.id);
+	return {
+		nodes,
+		edges: canLink
+			? [...graph.edges, { id: uniqueId(edgeId, graph.edges), source, target: added.id, label }]
+			: graph.edges
+	};
+}
+
 export function installApp(state: WorkspaceState, appId: string): WorkspaceState {
 	const app = catalog.find((item) => item.id === appId);
 	if (!app || app.type !== 'managed' || state.apps.includes(appId)) return state;
@@ -283,25 +312,22 @@ export function installApp(state: WorkspaceState, appId: string): WorkspaceState
 	return {
 		...state,
 		apps: [...state.apps, appId],
-		graph: {
-			nodes: [
-				...state.graph.nodes,
-				node(
-					id,
-					app.name,
-					'product',
-					40 + state.apps.length * 24,
-					520,
-					'local',
-					'operator',
-					`${app.name} is installed in this demo only.`
-				)
-			],
-			edges: [
-				...state.graph.edges,
-				{ id: `edge-${appId}`, source: 'mso', target: id, label: 'runs' }
-			]
-		},
+		graph: graphWithNode(
+			state.graph,
+			node(
+				id,
+				app.name,
+				'product',
+				40 + state.apps.length * 24,
+				520,
+				'local',
+				'operator',
+				`${app.name} is installed in this demo only.`
+			),
+			'mso',
+			'runs',
+			`edge-${appId}`
+		),
 		activities: [activity(`${app.name} installed in the demo.`, 'app'), ...state.activities].slice(
 			0,
 			24
@@ -367,20 +393,16 @@ export function addContext(
 ): WorkspaceState {
 	const clean = label.trim();
 	if (!clean) return state;
-	const id = `ctx-${state.graph.nodes.length + 1}`;
+	const id = uniqueId(`ctx-${state.graph.nodes.length + 1}`, state.graph.nodes);
 	return {
 		...state,
-		graph: {
-			...state.graph,
-			nodes: [
-				...state.graph.nodes,
-				node(id, clean, kind, 540, 520, 'web', 'builder', notes.trim() || note)
-			],
-			edges: [
-				...state.graph.edges,
-				{ id: `edge-${id}`, source: 'diagram', target: id, label: 'holds context' }
-			]
-		},
+		graph: graphWithNode(
+			state.graph,
+			node(id, clean, kind, 540, 520, 'web', 'builder', notes.trim() || note),
+			'diagram',
+			'holds context',
+			`edge-${id}`
+		),
 		activities: [
 			activity(`Context “${clean}” added to the demo graph.`, 'context'),
 			...state.activities
@@ -413,7 +435,13 @@ export function saveRouting(
 }
 
 export function runDemoWorkflow(state: WorkspaceState): WorkspaceState {
-	const id = `run-${state.runs.length + 1}`;
+	let index = state.runs.length + 1;
+	while (
+		state.runs.some((run) => run.id === `run-${index}`) ||
+		state.graph.nodes.some((item) => item.id === `memory-run-${index}`)
+	)
+		index += 1;
+	const id = `run-${index}`;
 	const memory = node(
 		`memory-${id}`,
 		`Run ${state.runs.length + 1} memory`,
@@ -427,13 +455,7 @@ export function runDemoWorkflow(state: WorkspaceState): WorkspaceState {
 	return {
 		...state,
 		runs: [...state.runs, { id, text: `Demo workflow finished with ${state.routing.policy}.` }],
-		graph: {
-			nodes: [...state.graph.nodes, memory],
-			edges: [
-				...state.graph.edges,
-				{ id: `edge-${id}`, source: 'mso', target: memory.id, label: 'remembers' }
-			]
-		},
+		graph: graphWithNode(state.graph, memory, 'mso', 'remembers', `edge-${id}`),
 		activities: [
 			activity('Demo workflow wrote a local memory node.', 'run'),
 			...state.activities
@@ -444,33 +466,32 @@ export function runDemoWorkflow(state: WorkspaceState): WorkspaceState {
 export function addDomainPlan(state: WorkspaceState, host: string): WorkspaceState {
 	const clean = host.trim();
 	if (!clean) return state;
-	const id = `domain-${state.domains.length + 1}`;
+	const id = uniqueId(`domain-${state.domains.length + 1}`, [
+		...state.domains,
+		...state.graph.nodes
+	]);
 	return {
 		...state,
 		domains: [
 			...state.domains,
 			{ id, host: clean, note: 'Local plan only. No DNS change was made.' }
 		],
-		graph: {
-			...state.graph,
-			nodes: [
-				...state.graph.nodes,
-				node(
-					id,
-					clean,
-					'deployment',
-					800,
-					520,
-					'cloud',
-					'operator',
-					'Proposed in this demo. Not provisioned.'
-				)
-			],
-			edges: [
-				...state.graph.edges,
-				{ id: `edge-${id}`, source: 'vercel', target: id, label: 'would host' }
-			]
-		},
+		graph: graphWithNode(
+			state.graph,
+			node(
+				id,
+				clean,
+				'deployment',
+				800,
+				520,
+				'cloud',
+				'operator',
+				'Proposed in this demo. Not provisioned.'
+			),
+			'vercel',
+			'would host',
+			`edge-${id}`
+		),
 		activities: [
 			activity(`Deployment plan “${clean}” saved locally.`, 'ops'),
 			...state.activities
@@ -580,7 +601,12 @@ export function linkDemoNodes(
 			...state.graph,
 			edges: [
 				...state.graph.edges,
-				{ id: `edge-${source}-${target}`, source, target, label: clean.slice(0, 40) }
+				{
+					id: uniqueId(`edge-${source}-${target}`, state.graph.edges),
+					source,
+					target,
+					label: clean.slice(0, 40)
+				}
 			]
 		}
 	};
@@ -678,6 +704,7 @@ export function replaceDemoGraph(state: WorkspaceState, input: unknown): Workspa
 	}
 	const edges: DemoEdge[] = [];
 	const pairs = new Set<string>();
+	const edgeIds = new Set<string>();
 	for (const item of rawEdges) {
 		if (!isRecord(item)) throw new Error('Each edge must be an object.');
 		const source = typeof item.source === 'string' ? item.source : '';
@@ -692,7 +719,9 @@ export function replaceDemoGraph(state: WorkspaceState, input: unknown): Workspa
 		const id =
 			typeof item.id === 'string' && /^[a-z0-9-]{1,48}$/i.test(item.id)
 				? item.id
-				: `e${edges.length + 1}`;
+				: uniqueId(`e${edges.length + 1}`, edges);
+		if (edgeIds.has(id)) throw new Error('Edge ids must be unique.');
+		edgeIds.add(id);
 		edges.push({ id, source, target, label: label.slice(0, 40) });
 	}
 	let nextNodes = nodes;
@@ -701,8 +730,8 @@ export function replaceDemoGraph(state: WorkspaceState, input: unknown): Workspa
 		const id = `app-${appId}`;
 		if (nextNodes.some((item) => item.id === id)) continue;
 		const app = catalog.find((item) => item.id === appId);
-		nextNodes = [
-			...nextNodes,
+		const next = graphWithNode(
+			{ nodes: nextNodes, edges: nextEdges },
 			node(
 				id,
 				app?.name ?? appId,
@@ -712,11 +741,13 @@ export function replaceDemoGraph(state: WorkspaceState, input: unknown): Workspa
 				'local',
 				'operator',
 				`${app?.name ?? appId} stays installed in this demo.`
-			)
-		];
-		if (nextNodes.some((item) => item.id === 'mso')) {
-			nextEdges = [...nextEdges, { id: `edge-${appId}`, source: 'mso', target: id, label: 'runs' }];
-		}
+			),
+			'mso',
+			'runs',
+			`edge-${appId}`
+		);
+		nextNodes = next.nodes;
+		nextEdges = next.edges;
 	}
 	return {
 		...state,

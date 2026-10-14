@@ -1,6 +1,7 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { appConfig } from '$lib/config/app';
-import { siteLinks } from '$lib/config/navigation';
+import { dev } from '$app/environment';
+import { workspaceFrameAncestors } from '$features/workspace';
 
 if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(appConfig.locale)) {
 	throw new Error('Set a valid language tag in appConfig.locale.');
@@ -19,7 +20,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		response.headers.set(
 			'Content-Security-Policy',
 			embedded
-				? `frame-ancestors 'self' ${siteLinks.ecosystemOrigin}`
+				? `frame-ancestors ${workspaceFrameAncestors(dev)}`
 				: "frame-ancestors 'self' https://*.manef.dev https://mso.rahmanef.com"
 		);
 	if (!response.headers.has('Referrer-Policy'))

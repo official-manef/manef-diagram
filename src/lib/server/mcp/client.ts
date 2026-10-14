@@ -85,10 +85,13 @@ async function discover(client: Client, connection: McpConnection, signal: Abort
 		const result = await client.listTools(cursor ? { cursor } : {}, { signal, timeout: 15_000 });
 		tools.push(...result.tools);
 		if (tools.length > 128) throw new Error('MCP discovery limit exceeded');
-		if (!result.nextCursor)
+		if (!result.nextCursor) {
+			if (new Set(tools.map((tool) => tool.name)).size !== tools.length)
+				throw new Error('MCP discovery advertised duplicate tool names');
 			return tools
 				.filter((tool) => connection.tools.includes(tool.name))
 				.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+		}
 		if (cursors.has(result.nextCursor)) throw new Error('MCP discovery cursor repeated');
 		cursors.add(result.nextCursor);
 		cursor = result.nextCursor;

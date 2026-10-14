@@ -10,6 +10,7 @@
 		ChatMessage,
 		ToolListing
 	} from '../contracts';
+	import { isAssistantSettings, isToolListings } from '../contracts';
 
 	let ready = $state(false);
 	let settings = $state<AssistantSettings | null>(null);
@@ -38,6 +39,7 @@
 	let chatController: AbortController | undefined;
 	let mcpController: AbortController | undefined;
 	let setupController: AbortController | undefined;
+	let sessionEpoch = 0;
 	const availableModels = $derived(
 		settings?.ai.providers.find((item) => item.id === provider)?.models ?? []
 	);
@@ -65,25 +67,50 @@
 		loading = true;
 		setupError = '';
 		setupController?.abort();
-		setupController = new AbortController();
+		const controller = new AbortController();
+		const epoch = sessionEpoch;
+		setupController = controller;
 		try {
 			const response = await fetch('/api/ai/config', {
 				headers: headers(),
-				signal: setupController.signal
+				signal: controller.signal
 			});
 			if (!response.ok) throw new Error(failure(response.status));
-			settings = await response.json();
-			provider = settings?.ai.providers[0]?.id ?? 'openai';
-			model = settings?.ai.providers[0]?.models[0] ?? '';
-			alias = settings?.mcp.servers[0]?.alias ?? '';
+			let next: unknown;
+			try {
+				next = await response.json();
+			} catch {
+				throw new Error('Setup response is invalid. Check server configuration and try again.');
+			}
+			if (epoch !== sessionEpoch || controller.signal.aborted) return;
+			if (!isAssistantSettings(next))
+				throw new Error('Setup response is invalid. Check server configuration and try again.');
+			const selected =
+				next.ai.providers.find((item) => item.id === provider) ?? next.ai.providers[0];
+			const nextProvider = selected?.id ?? 'openai';
+			if (!next.ai.enabled || nextProvider !== provider) apiKey = '';
+			provider = nextProvider;
+			model = selected?.models.includes(model) ? model : (selected?.models[0] ?? '');
+			const nextAlias = next.mcp.servers.some((item) => item.alias === alias)
+				? alias
+				: (next.mcp.servers[0]?.alias ?? '');
+			if (!next.mcp.enabled || nextAlias !== alias) {
+				mcpToken = '';
+				argumentsText = '{}';
+			}
+			alias = nextAlias;
+			settings = next;
 			tools = [];
 			selectedTool = '';
 			review = null;
 		} catch (error) {
-			if (!setupController.signal.aborted)
+			if (epoch === sessionEpoch && setupController === controller && !controller.signal.aborted)
 				setupError = error instanceof Error ? error.message : 'Could not load setup.';
 		} finally {
-			loading = false;
+			if (setupController === controller) {
+				setupController = undefined;
+				loading = false;
+			}
 		}
 	}
 
@@ -101,7 +128,9 @@
 		chatBusy = true;
 		chatError = '';
 		chatStatus = 'Waiting for the model';
-		chatController = new AbortController();
+		const controller = new AbortController();
+		const epoch = sessionEpoch;
+		chatController = controller;
 		const index = conversation.length;
 		messages = [...conversation, { role: 'assistant', content: '' }];
 		prompt = '';
@@ -110,7 +139,7 @@
 				method: 'POST',
 				headers: headers(),
 				body: JSON.stringify({ provider, model, apiKey, messages: conversation }),
-				signal: chatController.signal
+				signal: controller.signal
 			});
 			if (!response.ok) throw new Error(failure(response.status));
 			if (!response.body) throw new Error('The response stream is unavailable.');
@@ -121,7 +150,8 @@
 			try {
 				while (true) {
 					const { done, value } = await reader.read();
-					if (chatController.signal.aborted) throw new Error('Generation stopped');
+					if (epoch !== sessionEpoch || controller.signal.aborted)
+						throw new Error('Generation stopped');
 					if (done) break;
 					buffer += decoder.decode(value, { stream: true });
 					const lines = buffer.split('\n');
@@ -148,16 +178,20 @@
 				reader.releaseLock();
 			}
 		} catch (error) {
-			chatError = chatController.signal.aborted
+			if (epoch !== sessionEpoch) return;
+			chatError = controller.signal.aborted
 				? 'Generation stopped. Any partial response is retained.'
 				: error instanceof Error
 					? error.message
 					: 'Generation failed.';
 			chatStatus = '';
 		} finally {
-			chatController.abort();
-			if (messages[index]?.content === '') messages = messages.filter((_, i) => i !== index);
-			chatBusy = false;
+			controller.abort();
+			if (chatController === controller) chatController = undefined;
+			if (epoch === sessionEpoch) {
+				if (messages[index]?.content === '') messages = messages.filter((_, i) => i !== index);
+				chatBusy = false;
+			}
 		}
 	}
 
@@ -168,29 +202,40 @@
 		tools = [];
 		selectedTool = '';
 		review = null;
-		mcpController = new AbortController();
+		const controller = new AbortController();
+		const epoch = sessionEpoch;
+		mcpController = controller;
 		try {
 			const response = await fetch('/api/mcp/tools', {
 				method: 'POST',
 				headers: headers(),
 				body: JSON.stringify({ action: 'list', alias, token: mcpToken }),
-				signal: mcpController.signal
+				signal: controller.signal
 			});
 			if (!response.ok) throw new Error(failure(response.status));
-			const discovered: ToolListing[] = await response.json();
-			if (mcpController.signal.aborted) throw new Error('Discovery stopped');
+			let discovered: unknown;
+			try {
+				discovered = await response.json();
+			} catch {
+				throw new Error('Tool discovery response is invalid. Check server setup and try again.');
+			}
+			if (epoch !== sessionEpoch || controller.signal.aborted) throw new Error('Discovery stopped');
+			if (!isToolListings(discovered))
+				throw new Error('Tool discovery response is invalid. Check server setup and try again.');
 			tools = discovered;
 			selectedTool = tools[0]?.name ?? '';
 			if (!tools.length) mcpError = 'This server advertised no tools allowed by the application.';
 		} catch (error) {
-			mcpError = mcpController.signal.aborted
+			if (epoch !== sessionEpoch) return;
+			mcpError = controller.signal.aborted
 				? 'Discovery stopped.'
 				: error instanceof Error
 					? error.message
 					: 'Discovery failed.';
 		} finally {
-			mcpController.abort();
-			mcpBusy = false;
+			controller.abort();
+			if (mcpController === controller) mcpController = undefined;
+			if (epoch === sessionEpoch) mcpBusy = false;
 		}
 	}
 
@@ -219,37 +264,49 @@
 		mcpBusy = true;
 		mcpError = '';
 		toolOutput = '';
-		mcpController = new AbortController();
+		const controller = new AbortController();
+		const epoch = sessionEpoch;
+		mcpController = controller;
 		try {
 			const response = await fetch('/api/mcp/tools', {
 				method: 'POST',
 				headers: headers(),
 				body: JSON.stringify({ action: 'execute', ...approved, token: mcpToken, confirmed: true }),
-				signal: mcpController.signal
+				signal: controller.signal
 			});
 			if (!response.ok)
 				throw new Error(
 					`${failure(response.status)} A submitted action may already have completed; inspect its state before retrying.`
 				);
 			const output: unknown = await response.json();
-			if (mcpController.signal.aborted) throw new Error('Tool request stopped');
+			if (epoch !== sessionEpoch || controller.signal.aborted)
+				throw new Error('Tool request stopped');
 			toolOutput = JSON.stringify(output, null, 2);
 		} catch (error) {
-			mcpError = mcpController.signal.aborted
+			if (epoch !== sessionEpoch) return;
+			mcpError = controller.signal.aborted
 				? 'Request stopped. The remote action may still have completed; inspect its state before retrying.'
 				: error instanceof Error
 					? error.message
 					: 'Tool call failed.';
 		} finally {
-			mcpController.abort();
-			mcpBusy = false;
+			controller.abort();
+			if (mcpController === controller) mcpController = undefined;
+			if (epoch === sessionEpoch) mcpBusy = false;
 		}
 	}
 
 	function clear() {
+		sessionEpoch += 1;
 		chatController?.abort();
 		mcpController?.abort();
 		setupController?.abort();
+		chatController = undefined;
+		mcpController = undefined;
+		setupController = undefined;
+		chatBusy = false;
+		mcpBusy = false;
+		loading = false;
 		apiKey = '';
 		mcpToken = '';
 		accessToken = '';
@@ -270,6 +327,7 @@
 			setupError = 'Could not load setup.';
 		});
 		return () => {
+			sessionEpoch += 1;
 			chatController?.abort();
 			mcpController?.abort();
 			setupController?.abort();
@@ -401,7 +459,8 @@
 			<h2 id="mcp-heading" class="text-xl font-semibold">Remote tools</h2>
 			<p class="text-sm text-muted-foreground">
 				Discover approved tools on demand. The model has no tool access. Review the exact arguments
-				before each manual execution.
+				before each manual execution. Stopping or clearing a request cannot undo an action already
+				completed by the remote service.
 			</p>
 			{#if !settings?.mcp.enabled}
 				<p class="text-sm text-muted-foreground">
@@ -418,6 +477,9 @@
 							class={inputClass}
 							bind:value={alias}
 							onchange={() => {
+								mcpToken = '';
+								argumentsText = '{}';
+								mcpError = '';
 								tools = [];
 								selectedTool = '';
 								toolOutput = '';

@@ -17,6 +17,9 @@
 				<div class="row" style="margin-top: 20px">
 					{#if product.id === 'diagram'}
 						<a class="btn primary" href={resolve('/app')}>Open the public map</a>
+					{:else if product.id === 'agent-at-manef'}
+						<a class="btn primary" href={product.live} rel="external noreferrer">View source ↗</a>
+						<a class="btn" href={workspaceUrl('context')} rel="external">Explore context demo ↗</a>
 					{:else}
 						<a
 							class="btn primary"
@@ -24,7 +27,7 @@
 							rel="external">Open demo ↗</a
 						>
 					{/if}
-					{#if product.live}
+					{#if product.live && product.id !== 'agent-at-manef'}
 						<a class="btn" href={product.live} rel="external noreferrer">Known link</a>
 					{/if}
 				</div>

@@ -51,31 +51,43 @@ function validateGraphLimits(graph: typeof architectureGraph.type) {
 			message: `A snapshot supports up to ${MAX_NODES} nodes and ${MAX_EDGES} edges.`
 		});
 	}
-	const ids = new Set<string>();
+	const invalidGraph = () => {
+		throw new ConvexError({
+			code: 'INVALID_GRAPH',
+			message: 'Snapshot graph must have unique ids and valid node/port connections.'
+		});
+	};
+	// Convex owns its flat schema and cannot import the frontend slice at runtime.
+	// Semantic checks ensure every saved snapshot also satisfies the public graph contract.
+	const nodes = new Map<string, (typeof graph.nodes)[number]>();
 	for (const node of graph.nodes) {
-		if (ids.has(node.id)) {
-			throw new ConvexError({ code: 'INVALID_GRAPH', message: 'Node ids must be unique.' });
-		}
-		ids.add(node.id);
+		if (nodes.has(node.id) || (node.level !== undefined && !Number.isFinite(node.level)))
+			invalidGraph();
+		nodes.set(node.id, node);
 		boundedText(node.id, 'Node id', MAX_LABEL);
 		boundedText(node.label, 'Node label', MAX_LABEL);
 		if (node.subtitle) boundedText(node.subtitle, 'Node subtitle');
+		for (const ports of [node.inputs, node.outputs]) {
+			if (
+				ports.some((port) => !port.id) ||
+				new Set(ports.map((port) => port.id)).size !== ports.length
+			)
+				invalidGraph();
+		}
 	}
+	const edgeIds = new Set<string>();
 	const connections = new Set<string>();
 	for (const edge of graph.edges) {
-		if (!ids.has(edge.source) || !ids.has(edge.target)) {
-			throw new ConvexError({
-				code: 'INVALID_GRAPH',
-				message: 'Every edge endpoint must reference an existing node.'
-			});
-		}
-		const key = `${edge.source}:${edge.sourcePort}>${edge.target}:${edge.targetPort}`;
-		if (connections.has(key)) {
-			throw new ConvexError({
-				code: 'INVALID_GRAPH',
-				message: 'Duplicate endpoint connections are not allowed.'
-			});
-		}
+		if (
+			!edge.id ||
+			edgeIds.has(edge.id) ||
+			!nodes.get(edge.source)?.outputs.some((port) => port.id === edge.sourcePort) ||
+			!nodes.get(edge.target)?.inputs.some((port) => port.id === edge.targetPort)
+		)
+			invalidGraph();
+		edgeIds.add(edge.id);
+		const key = JSON.stringify([edge.source, edge.sourcePort, edge.target, edge.targetPort]);
+		if (connections.has(key)) invalidGraph();
 		connections.add(key);
 	}
 }

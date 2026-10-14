@@ -192,7 +192,8 @@
 		Object.fromEntries(
 			graph.nodes.map((node) => [
 				node.id,
-				overrides[node.id] ?? positions[node.id] ?? { x: 0, y: 0 }
+				(Object.hasOwn(overrides, node.id) ? overrides[node.id] : undefined) ??
+					positions[node.id] ?? { x: 0, y: 0 }
 			])
 		)
 	);
@@ -413,8 +414,15 @@
 			.catch(() => undefined);
 	});
 
-	function commitVisible(next: ArchitectureGraph) {
-		root = writeDiagram(root, diagramPath, next);
+	function commitVisible(next: ArchitectureGraph): boolean {
+		const updated = writeDiagram(root, diagramPath, next);
+		if (updated === root) {
+			jsonMessage = `This graph change is invalid or exceeds ${MAX_DIAGRAM_DEPTH} component levels. The current map is unchanged.`;
+			actionMessage = jsonMessage;
+			return false;
+		}
+		root = updated;
+		return true;
 	}
 
 	function resetLevel() {
@@ -449,13 +457,13 @@
 	function addComponentDiagram(id: string) {
 		const node = graph.nodes.find((item) => item.id === id);
 		if (!node || node.child || diagramPath.length >= MAX_DIAGRAM_DEPTH) return;
-		commitVisible({
+		const applied = commitVisible({
 			...graph,
 			nodes: graph.nodes.map((item) =>
 				item.id === id ? { ...item, child: blankChild(item.label) } : item
 			)
 		});
-		openDiagram(id);
+		if (applied) openDiagram(id);
 	}
 
 	function rememberSelection(nodeIds: string[], edgeIds: string[]) {
@@ -629,7 +637,7 @@
 				return;
 			}
 			const next = parseGraphJson(jsonText);
-			commitVisible(next);
+			if (!commitVisible(next)) return;
 			rememberSelection([], []);
 			armedOutput = null;
 			jsonMessage = 'JSON applied.';
