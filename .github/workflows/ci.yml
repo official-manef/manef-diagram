@@ -30,7 +30,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run verify
       - run: bunx playwright install --with-deps chromium
-      - run: bun run test:e2e
+      - run: bun run test:e2e -- --reporter=github,list
       - run: bun run test:dev
       - run: bun run build && node scripts/smoke-node.mjs
         env:
