@@ -128,6 +128,14 @@
 	}
 </script>
 
+<noscript
+	><p class="notice">
+		This interactive sample needs JavaScript. <a href="https://manef.dev/catalog"
+			>Read the project briefs</a
+		> to choose a tool.
+	</p></noscript
+>
+
 {#if surface === 'mso'}
 	<header class="page-head">
 		<div>
@@ -317,27 +325,29 @@
 					read.form.reset();
 				}}
 			>
-				<label class="field">
-					From
-					<select name="source" aria-label="Link from">
-						{#each demo.graph.nodes as node (node.id)}
-							<option value={node.id}>{node.label}</option>
-						{/each}
-					</select>
-				</label>
-				<label class="field">
-					To
-					<select name="target" aria-label="Link to">
-						{#each demo.graph.nodes as node (node.id)}
-							<option value={node.id}>{node.label}</option>
-						{/each}
-					</select>
-				</label>
-				<label class="field">
-					Label
-					<input name="label" required />
-				</label>
-				<button class="btn small" type="submit">Add demo link</button>
+				<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
+					<label class="field">
+						From
+						<select name="source" aria-label="Link from">
+							{#each demo.graph.nodes as node (node.id)}
+								<option value={node.id}>{node.label}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="field">
+						To
+						<select name="target" aria-label="Link to">
+							{#each demo.graph.nodes as node (node.id)}
+								<option value={node.id}>{node.label}</option>
+							{/each}
+						</select>
+					</label>
+					<label class="field">
+						Label
+						<input name="label" required />
+					</label>
+					<button class="btn small" type="submit">Add demo link</button>
+				</fieldset>
 			</form>
 			<p class="muted">
 				Self-links and duplicate directions are rejected. This graph is not the public seed.
@@ -365,17 +375,19 @@
 				read.form.reset();
 			}}
 		>
-			<label class="field">Label <input name="label" required /></label>
-			<label class="field">
-				Kind
-				<select name="kind" aria-label="Context kind">
-					<option value="document">Document</option>
-					<option value="decision">Decision</option>
-					<option value="memory">Memory</option>
-				</select>
-			</label>
-			<label class="field">Notes <textarea name="notes"></textarea></label>
-			<button class="btn primary" type="submit">Add to demo graph</button>
+			<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
+				<label class="field">Label <input name="label" required /></label>
+				<label class="field">
+					Kind
+					<select name="kind" aria-label="Context kind">
+						<option value="document">Document</option>
+						<option value="decision">Decision</option>
+						<option value="memory">Memory</option>
+					</select>
+				</label>
+				<label class="field">Notes <textarea name="notes"></textarea></label>
+				<button class="btn primary" type="submit">Add to demo graph</button>
+			</fieldset>
 		</form>
 		<div class="stack">
 			{#each contextNodes as node (node.id)}
@@ -451,21 +463,23 @@
 				);
 			}}
 		>
-			<label class="field"
-				>Primary <input name="primary" value={demo.routing.primary} required /></label
-			>
-			<label class="field"
-				>Fallback <input name="fallback" value={demo.routing.fallback} required /></label
-			>
-			<label class="field">
-				Policy
-				<select name="policy" aria-label="Routing policy">
-					{#each ['Balanced', 'Quality', 'Cost'] as policy (policy)}
-						<option selected={policy === demo.routing.policy}>{policy}</option>
-					{/each}
-				</select>
-			</label>
-			<button class="btn primary" type="submit">Save in this browser</button>
+			<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
+				<label class="field"
+					>Primary <input name="primary" value={demo.routing.primary} required /></label
+				>
+				<label class="field"
+					>Fallback <input name="fallback" value={demo.routing.fallback} required /></label
+				>
+				<label class="field">
+					Policy
+					<select name="policy" aria-label="Routing policy">
+						{#each ['Balanced', 'Quality', 'Cost'] as policy (policy)}
+							<option selected={policy === demo.routing.policy}>{policy}</option>
+						{/each}
+					</select>
+				</label>
+				<button class="btn primary" type="submit">Save in this browser</button>
+			</fieldset>
 		</form>
 	{/key}
 {:else if surface === 'connectors'}
@@ -523,8 +537,10 @@
 					read.form.reset();
 				}}
 			>
-				<label class="field">Host label <input name="host" required /></label>
-				<button class="btn" type="submit">Save plan locally</button>
+				<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
+					<label class="field">Host label <input name="host" required /></label>
+					<button class="btn" type="submit">Save plan locally</button>
+				</fieldset>
 			</form>
 			{#each demo.domains as domain (domain.id)}
 				<p><strong>{domain.host}</strong> — {domain.note}</p>
@@ -554,25 +570,27 @@
 			runTool();
 		}}
 	>
-		<label class="field">
-			Tool
-			<select
-				aria-label="MCP tool"
-				bind:value={tool}
-				onchange={() => (toolArgs = toolDefaults[tool] ?? '{}')}
-			>
-				{#each mcpTools as name (name)}
-					<option value={name}>{name}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="field">
-			JSON object
-			<textarea bind:value={toolArgs} rows="5"></textarea>
-		</label>
-		<button class="btn primary" type="submit">Simulate</button>
-		{#if toolFault}<p class="notice">{toolFault}</p>{/if}
-		{#if toolResult}<pre>{toolResult}</pre>{/if}
+		<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
+			<label class="field">
+				Tool
+				<select
+					aria-label="MCP tool"
+					bind:value={tool}
+					onchange={() => (toolArgs = toolDefaults[tool] ?? '{}')}
+				>
+					{#each mcpTools as name (name)}
+						<option value={name}>{name}</option>
+					{/each}
+				</select>
+			</label>
+			<label class="field">
+				JSON object
+				<textarea bind:value={toolArgs} rows="5"></textarea>
+			</label>
+			<button class="btn primary" type="submit">Simulate</button>
+			{#if toolFault}<p class="notice">{toolFault}</p>{/if}
+			{#if toolResult}<pre>{toolResult}</pre>{/if}
+		</fieldset>
 	</form>
 {:else if surface === 'labs'}
 	<header class="page-head">
@@ -664,15 +682,17 @@
 					}
 				}}
 			>
-				<label class="field">
-					Import JSON
-					<textarea name="json" bind:value={importText} rows="6"></textarea>
-				</label>
-				<button class="btn" type="submit">Replace demo graph</button>
-				{#if importFault}<p class="notice">{importFault}</p>{/if}
-				<p class="muted">
-					At most 40 nodes and 80 links. Installed demo apps stay. The public map is untouched.
-				</p>
+				<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
+					<label class="field">
+						Import JSON
+						<textarea name="json" bind:value={importText} rows="6"></textarea>
+					</label>
+					<button class="btn" type="submit">Replace demo graph</button>
+					{#if importFault}<p class="notice">{importFault}</p>{/if}
+					<p class="muted">
+						At most 40 nodes and 80 links. Installed demo apps stay. The public map is untouched.
+					</p>
+				</fieldset>
 			</form>
 		</section>
 	</div>
@@ -735,3 +755,9 @@
 		</section>
 	</div>
 {/if}
+
+<style>
+	.demo-form-fields {
+		display: contents;
+	}
+</style>

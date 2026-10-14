@@ -15,6 +15,10 @@ cloud offers, billing and complete multilingual parity retain their own acceptan
 work. New agent consumers use read-only discovery plus explicit owner authorization;
 public metadata does not become a writable or executable API.
 
+## Catalog entry journeys — 2026-10-14
+
+MANEF Web owns concise bilingual project overviews and public Markdown briefs. Diagram’s first guide now leads from selecting a service to inspecting connections and exporting JSON. Public navigation offers sign-in only when authentication is enabled; the map remains accessible without an account. Browser-local Models and Operations forms wait for initialization before accepting input and are checked for save/reload behavior. These changes do not activate identity providers, host execution or real model routing.
+
 ## Architecture inventory goal
 
 Provide one reusable architecture/inventory feature that visualizes MANEF products, infrastructure and relationships without coupling the graph model to a frontend framework.

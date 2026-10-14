@@ -30,7 +30,7 @@ The embedded demo permits framing and navigation messages for the canonical MANE
 host and its staging origin. Development additionally permits loopback parents;
 hosted Diagram instances do not send navigation to loopback origins. Surface links
 retain preview mode, and storage denial or malformed saved demo state must leave a
-usable local demo. Private app routes retain their separate framing policy.
+usable local demo. Client-local demo forms stay disabled until mount initialization completes, so early input cannot become a native server request. Without JavaScript, the demo points users to public project briefs. Private app routes retain their separate framing policy.
 Host announcements must match the parent window and approved origin; navigation
 must keep working after a full iframe reload that changes the document referrer.
 

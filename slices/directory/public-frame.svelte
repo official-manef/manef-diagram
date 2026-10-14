@@ -47,10 +47,12 @@
 				<form method="POST" action="/auth/logout">
 					<button class="btn primary" type="submit">Sign out</button>
 				</form>
-			{:else}
+			{:else if page.data.auth?.enabled}
 				<a class="btn primary" href={resolve('/auth/login')} data-sveltekit-reload
 					>Sign in with MANEF</a
 				>
+			{:else}
+				<span class="muted">Public map · no account needed</span>
 			{/if}
 		</div>
 	</header>

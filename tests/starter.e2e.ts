@@ -117,10 +117,8 @@ test('branding, sharing metadata and asset files agree across navigation', async
 		sizes: `${assets.appIcon.width}x${assets.appIcon.height}`
 	});
 	await expect(page).toHaveTitle(`${appConfig.name} — ${appConfig.landing.title}`);
-	await expect(page.getByRole('link', { name: 'Sign in with MANEF' })).toHaveAttribute(
-		'href',
-		'/auth/login'
-	);
+	await expect(page.getByRole('link', { name: 'Sign in with MANEF' })).toHaveCount(0);
+	await expect(page.getByText('Public map · no account needed', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Open diagram', exact: true }).press('Enter');
 	await expect(page).toHaveURL(/\/app$/);
 	await expect(page).toHaveTitle(appConfig.name);
@@ -141,10 +139,8 @@ test('fresh clone boots, opens live-data and preserves keyboard navigation', asy
 	const response = await page.goto('/');
 	expect(response?.status()).toBe(200);
 	await expect(page).toHaveTitle(`${appConfig.name} — ${appConfig.landing.title}`);
-	await expect(page.getByRole('link', { name: 'Sign in with MANEF' })).toHaveAttribute(
-		'href',
-		'/auth/login'
-	);
+	await expect(page.getByRole('link', { name: 'Sign in with MANEF' })).toHaveCount(0);
+	await expect(page.getByText('Public map · no account needed', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Open diagram', exact: true }).press('Enter');
 	await expect(page).toHaveURL(/\/app$/);
 	await expect(page).toHaveTitle(appConfig.name);
