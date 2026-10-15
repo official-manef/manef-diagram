@@ -29,7 +29,9 @@ test('Airin opens, closes and survives client navigation without duplicate launc
 	const launcher = page.getByRole('button', { name: 'Chat with us', exact: true });
 	await launcher.click();
 	await expect(page.getByRole('dialog', { name: 'Website support chat' })).toBeVisible();
-	await expect(page.getByText('Halo! Ada yang bisa kami bantu?', { exact: true })).toBeVisible();
+	await expect(page.getByRole('log', { name: 'Conversation' })).toContainText(
+		'Halo! Ada yang bisa kami bantu?'
+	);
 	await page.getByLabel('Your message', { exact: true }).press('Escape');
 	await expect(launcher).toBeFocused();
 	await page.getByRole('link', { name: 'Read the guide', exact: true }).click();
@@ -55,6 +57,15 @@ test('Airin leaves the phone dock and diagram editing controls clickable', async
 	await page.getByRole('button', { name: 'mso.manef.dev Manef Shell OS', exact: true }).click();
 	await page.getByRole('link', { name: 'Edit mso.manef.dev', exact: true }).click();
 	const output = page.getByRole('button', { name: 'Use output', exact: true });
+	// A phone user can scroll the final controls above the floating launcher.
+	await page.mouse.wheel(0, 720);
+	await expect
+		.poll(async () => {
+			const target = await output.boundingBox();
+			const chat = await launcher.boundingBox();
+			return target!.y + target!.height <= chat!.y;
+		})
+		.toBe(true);
 	await output.click();
 	await expect(output).toHaveAttribute('aria-pressed', 'true');
 });

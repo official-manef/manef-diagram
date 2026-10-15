@@ -341,6 +341,10 @@ body:has([data-airin-chat-host]) .app-content-scroll {
 }
 
 @media (max-width: 63.999rem) {
+	body:has([data-airin-chat-host]):not(:has(.app-mobile-dock)) {
+		padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+	}
+
 	body:has(.app-mobile-dock) [data-airin-chat-host] {
 		bottom: var(--app-mobile-dock-clearance);
 	}
