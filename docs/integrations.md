@@ -6,6 +6,25 @@ is covered in [deployment.md](deployment.md). DOKU Checkout and Resend remain ca
 server transport adapters, tested with mocked HTTP. Product checkout/email workflows
 need their own durable state, authorization and actual merchant/mail acceptance.
 
+## Airin website support chat
+
+The product's website support chat is installed in `src/app.html` with the public
+`data-airin-widget` identifier and deferred script URL supplied by the owner. The
+current script uses the Airin staging host. Keep the installation in the document
+template so SvelteKit navigation does not add duplicate launchers. No Airin workspace
+credential belongs in this embed.
+
+Airin must allow the exact website origin, `https://diagram.manef.dev`, for widget
+configuration and message requests. The widget keeps its visitor token in browser
+session storage when available and sends conversations to the configured Airin host.
+Check the live script/configuration responses, open and close the launcher, and verify
+navigation and phone layout after deployment. Sending a message additionally checks
+the remote chat service; a visible launcher alone does not establish reply delivery.
+
+To change or remove the installation, edit the script URL and public widget identifier
+in `src/app.html`, then verify and deploy the frontend. Airin service configuration is
+managed separately from the app's payment/email resolver and authenticated assistant.
+
 ## Configuration and boundaries
 
 `src/lib/server/integrations/config.ts` resolves payment/email transports and guards optional cloud service recipes. Pass an environment record explicitly. It reads only the requested capability, validates enabled providers, and never accesses the environment at import time. Disabled services need no credentials; calling one throws instead of pretending to succeed. Unknown providers fail closed. A preferred provider is not automatically activated by the presence of a key.
