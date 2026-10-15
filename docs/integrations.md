@@ -8,10 +8,12 @@ need their own durable state, authorization and actual merchant/mail acceptance.
 
 ## Airin website support chat
 
-The product's website support chat is installed in `src/app.html` with the public
+The product's website support chat is installed in `src/routes/+layout.svelte` with the public
 `data-airin-widget` identifier and deferred script URL supplied by the owner. The
 current script uses the Airin staging host. Keep the installation in the document
-template so SvelteKit navigation does not add duplicate launchers. No Airin workspace
+head so SvelteKit navigation does not add duplicate launchers. The widget loads only on
+`https://diagram.manef.dev`; other origins are not registered with Airin. Shared
+`layout.css` keeps the launcher above the mobile dock and reserves scroll clearance. No Airin workspace
 credential belongs in this embed.
 
 Airin must allow the exact website origin, `https://diagram.manef.dev`, for widget
@@ -22,7 +24,7 @@ navigation and phone layout after deployment. Sending a message additionally che
 the remote chat service; a visible launcher alone does not establish reply delivery.
 
 To change or remove the installation, edit the script URL and public widget identifier
-in `src/app.html`, then verify and deploy the frontend. Airin service configuration is
+in `src/routes/+layout.svelte`, then verify and deploy the frontend. Airin service configuration is
 managed separately from the app's payment/email resolver and authenticated assistant.
 
 ## Configuration and boundaries
