@@ -36,11 +36,12 @@ must keep working after a full iframe reload that changes the document referrer.
 
 ## Website support chat
 
-Lifechat owns the website chat widget and conversations. Each authenticated user's
-Lifechat account must connect only to that user's Airin account through verified
-server-side ownership. A shared hardcoded Airin widget is not a valid user integration.
-The previous global embed is disabled pending the verified Lifechat script and account
-binding contract. See [integrations](docs/integrations.md#lifechat-and-airin).
+LiveChat (Text Platform) supplies the website widget and visitor conversations. Each
+Airin tenant owner connects their own LiveChat license to an agent in the same tenant.
+The website uses its owner's license; signing in as a visitor does not select a
+separate owner account. The former direct Airin embed is disabled. Installing the
+replacement requires the actual LiveChat script/license for Diagram. See
+[integrations](docs/integrations.md#livechat-and-airin).
 
 ## Authentication provider boundary
 

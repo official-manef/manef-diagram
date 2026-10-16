@@ -23,13 +23,15 @@ MANEF Web owns concise bilingual project overviews and public Markdown briefs. D
 
 Provide one reusable architecture/inventory feature that visualizes MANEF products, infrastructure and relationships without coupling the graph model to a frontend framework.
 
-## Lifechat and per-user Airin — 2026-10-16
+## LiveChat and per-tenant Airin — 2026-10-16
 
-The owner corrected the chat integration: Lifechat supplies the widget and owns live
-chat; each user connects their Lifechat account to their own Airin. The shared direct
-Airin embed is removed. Implementing the replacement requires the actual Lifechat
-script and verified user-account binding API. Completion needs two-user isolation and
-logout/account-switching evidence; a public widget ID alone does not satisfy this.
+The owner corrected the chat integration: LiveChat supplies the widget; each Airin
+tenant owner connects their own LiveChat license to an agent in their tenant. Diagram
+visitors retain separate LiveChat sessions under the website owner's license. Visitor
+sign-in does not switch the owner account. The shared direct Airin embed is removed.
+The replacement awaits the actual Diagram LiveChat snippet/license and verification
+of its tenant/agent connection. Real AI replies and human handover remain acceptance
+work until tested on that licensed connection.
 
 ## Canonical implementation
 

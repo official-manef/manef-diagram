@@ -6,21 +6,29 @@ is covered in [deployment.md](deployment.md). DOKU Checkout and Resend remain ca
 server transport adapters, tested with mocked HTTP. Product checkout/email workflows
 need their own durable state, authorization and actual merchant/mail acceptance.
 
-## Lifechat and Airin
+## LiveChat and Airin
 
-The website widget must come from Lifechat. The former shared Airin script has been
-removed. The replacement is not active until the actual Lifechat embed and its
-user-account integration contract are verified.
+LiveChat (Text Platform) supplies the website widget and manages visitor chat sessions.
+The former direct Airin script is removed. Install the replacement using the real
+LiveChat tracking code and public license ID selected by Diagram's owner; no license
+ID has been supplied for this site yet.
 
-Lifechat conversations belong to the signed-in user's account. That account connects
-to the same user's Airin account on the server using verified ownership and scoped
-credentials. Browser-supplied user IDs, email matching, and a shared widget identifier
-must not select another user's Airin account. Account switching and logout must clear
-the previous user's chat state before another account is loaded.
+The owner confirmed that "per user" means per Airin tenant owner, not per signed-in
+Diagram visitor. Each owner connects their own LiveChat license to an agent in the
+same Airin tenant. Visitors to that owner's website keep separate LiveChat sessions.
+Do not change the owner license when a website visitor signs in or changes accounts.
 
-Acceptance requires the real Lifechat script and signed user bootstrap, a verified
-Lifechat-to-Airin mapping, two-account isolation, logout/account switching, and denied
-access to another user's conversations. Provider credentials stay server-side.
+Airin's existing channel API resolves `tenant_id` from the authenticated session and
+checks that the selected agent belongs to that tenant. LiveChat connections store
+the license/organization and encrypted PAT or OAuth credentials server-side. Use
+Airin's Channels screen to connect the owner's license and test the connection.
+Select AIRIN AI for that connection only after LiveChat is connected, and disable the
+other LiveChat AI to avoid duplicate replies. Website embed code contains the public
+license ID, never a PAT, OAuth access token, or Airin credential.
+
+Completion requires the real Diagram LiveChat snippet/license, verification of the
+matching tenant and agent connection, and real visitor/AI/human-handover acceptance.
+Source-level tenant checks alone do not prove the licensed service is connected.
 
 ## Configuration and boundaries
 
