@@ -6,26 +6,29 @@ is covered in [deployment.md](deployment.md). DOKU Checkout and Resend remain ca
 server transport adapters, tested with mocked HTTP. Product checkout/email workflows
 need their own durable state, authorization and actual merchant/mail acceptance.
 
-## Airin website support chat
+## LiveChat and Airin
 
-The product's website support chat is installed in `src/routes/+layout.svelte` with the public
-`data-airin-widget` identifier and deferred script URL supplied by the owner. The
-current script uses the Airin staging host. Keep the installation in the document
-head so SvelteKit navigation does not add duplicate launchers. The widget loads only on
-`https://diagram.manef.dev`; other origins are not registered with Airin. Shared
-`layout.css` keeps the launcher above the mobile dock and reserves scroll clearance. No Airin workspace
-credential belongs in this embed.
+LiveChat (Text Platform) supplies the website widget and manages visitor chat sessions.
+The former direct Airin script is removed. Install the replacement using the real
+LiveChat tracking code and public license ID selected by Diagram's owner; no license
+ID has been supplied for this site yet.
 
-Airin must allow the exact website origin, `https://diagram.manef.dev`, for widget
-configuration and message requests. The widget keeps its visitor token in browser
-session storage when available and sends conversations to the configured Airin host.
-Check the live script/configuration responses, open and close the launcher, and verify
-navigation and phone layout after deployment. Sending a message additionally checks
-the remote chat service; a visible launcher alone does not establish reply delivery.
+The owner confirmed that "per user" means per Airin tenant owner, not per signed-in
+Diagram visitor. Each owner connects their own LiveChat license to an agent in the
+same Airin tenant. Visitors to that owner's website keep separate LiveChat sessions.
+Do not change the owner license when a website visitor signs in or changes accounts.
 
-To change or remove the installation, edit the script URL and public widget identifier
-in `src/routes/+layout.svelte`, then verify and deploy the frontend. Airin service configuration is
-managed separately from the app's payment/email resolver and authenticated assistant.
+Airin's existing channel API resolves `tenant_id` from the authenticated session and
+checks that the selected agent belongs to that tenant. LiveChat connections store
+the license/organization and encrypted PAT or OAuth credentials server-side. Use
+Airin's Channels screen to connect the owner's license and test the connection.
+Select AIRIN AI for that connection only after LiveChat is connected, and disable the
+other LiveChat AI to avoid duplicate replies. Website embed code contains the public
+license ID, never a PAT, OAuth access token, or Airin credential.
+
+Completion requires the real Diagram LiveChat snippet/license, verification of the
+matching tenant and agent connection, and real visitor/AI/human-handover acceptance.
+Source-level tenant checks alone do not prove the licensed service is connected.
 
 ## Configuration and boundaries
 

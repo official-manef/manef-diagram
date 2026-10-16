@@ -36,12 +36,12 @@ must keep working after a full iframe reload that changes the document referrer.
 
 ## Website support chat
 
-The root `src/routes/+layout.svelte` loads the owner-selected Airin widget with
-`defer` only on `https://diagram.manef.dev`, preserving one launcher across client-side
-navigation. Shared CSS reserves scroll clearance and keeps it above the phone dock. Its widget identifier
-is public. Airin owns its remote support conversations and browser session token;
-application authentication, private notes and the BYOK assistant keep their existing
-boundaries. Configuration and acceptance are described in [integrations](docs/integrations.md#airin-website-support-chat).
+LiveChat (Text Platform) supplies the website widget and visitor conversations. Each
+Airin tenant owner connects their own LiveChat license to an agent in the same tenant.
+The website uses its owner's license; signing in as a visitor does not select a
+separate owner account. The former direct Airin embed is disabled. Installing the
+replacement requires the actual LiveChat script/license for Diagram. See
+[integrations](docs/integrations.md#livechat-and-airin).
 
 ## Authentication provider boundary
 

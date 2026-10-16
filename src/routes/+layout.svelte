@@ -65,13 +65,6 @@
 </script>
 
 <svelte:head>
-	{#if page.url.origin === 'https://diagram.manef.dev'}
-		<script
-			src="https://airin-staging-1110-oraahc-dd614a-43-156-62-134.sslip.io/widget.js"
-			data-airin-widget="f8674b7b-d053-4650-8266-a8e88afd2c07"
-			defer
-		></script>
-	{/if}
 	<title>{metadata.title}</title>
 	<meta name="description" content={metadata.description} />
 	<link rel="icon" type={assetMimeType(assets.favicon.path)} href={assets.favicon.path} />
