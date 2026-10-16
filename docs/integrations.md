@@ -6,26 +6,21 @@ is covered in [deployment.md](deployment.md). DOKU Checkout and Resend remain ca
 server transport adapters, tested with mocked HTTP. Product checkout/email workflows
 need their own durable state, authorization and actual merchant/mail acceptance.
 
-## Airin website support chat
+## Lifechat and Airin
 
-The product's website support chat is installed in `src/routes/+layout.svelte` with the public
-`data-airin-widget` identifier and deferred script URL supplied by the owner. The
-current script uses the Airin staging host. Keep the installation in the document
-head so SvelteKit navigation does not add duplicate launchers. The widget loads only on
-`https://diagram.manef.dev`; other origins are not registered with Airin. Shared
-`layout.css` keeps the launcher above the mobile dock and reserves scroll clearance. No Airin workspace
-credential belongs in this embed.
+The website widget must come from Lifechat. The former shared Airin script has been
+removed. The replacement is not active until the actual Lifechat embed and its
+user-account integration contract are verified.
 
-Airin must allow the exact website origin, `https://diagram.manef.dev`, for widget
-configuration and message requests. The widget keeps its visitor token in browser
-session storage when available and sends conversations to the configured Airin host.
-Check the live script/configuration responses, open and close the launcher, and verify
-navigation and phone layout after deployment. Sending a message additionally checks
-the remote chat service; a visible launcher alone does not establish reply delivery.
+Lifechat conversations belong to the signed-in user's account. That account connects
+to the same user's Airin account on the server using verified ownership and scoped
+credentials. Browser-supplied user IDs, email matching, and a shared widget identifier
+must not select another user's Airin account. Account switching and logout must clear
+the previous user's chat state before another account is loaded.
 
-To change or remove the installation, edit the script URL and public widget identifier
-in `src/routes/+layout.svelte`, then verify and deploy the frontend. Airin service configuration is
-managed separately from the app's payment/email resolver and authenticated assistant.
+Acceptance requires the real Lifechat script and signed user bootstrap, a verified
+Lifechat-to-Airin mapping, two-account isolation, logout/account switching, and denied
+access to another user's conversations. Provider credentials stay server-side.
 
 ## Configuration and boundaries
 

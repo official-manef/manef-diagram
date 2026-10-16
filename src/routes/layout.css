@@ -333,24 +333,3 @@
 		padding: 1.5rem 1.75rem 2rem;
 	}
 }
-
-/* Keep the floating support launcher clear of scroll targets and the phone dock. */
-html:has([data-airin-chat-host]),
-body:has([data-airin-chat-host]) .app-content-scroll {
-	scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
-}
-
-@media (max-width: 63.999rem) {
-	body:has([data-airin-chat-host]):not(:has(.app-mobile-dock)) {
-		padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
-	}
-
-	body:has(.app-mobile-dock) [data-airin-chat-host] {
-		bottom: var(--app-mobile-dock-clearance);
-	}
-
-	body:has([data-airin-chat-host]) .app-content-scroll {
-		padding-bottom: calc(var(--app-mobile-dock-clearance) + 5rem);
-		scroll-padding-bottom: calc(var(--app-mobile-dock-clearance) + 5rem);
-	}
-}
