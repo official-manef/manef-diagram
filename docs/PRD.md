@@ -15,6 +15,7 @@ on Vercel with its old credential. Public or pilot QA does not authorize migrati
 Public pilot acceptance and remaining gates: [Cloudflare pilot QA](cloudflare-pilot-qa.md).
 
 ## Goal
+
 ## Accepted ecosystem direction — 2026-10-14
 
 The owner selected a studio for developer, business, enterprise and agent consumers.
