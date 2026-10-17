@@ -17,6 +17,7 @@ test('public and demo headings retain hierarchy after CSS reset', async ({ page 
 		'/',
 		'/products',
 		'/products/diagram',
+		'/products/agent-at-manef',
 		'/guide',
 		'/audit',
 		'/embed/workspace'
@@ -34,6 +35,21 @@ test('public and demo headings retain hierarchy after CSS reset', async ({ page 
 		expect(style.weight, route).toBeGreaterThanOrEqual(650);
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
 	}
+});
+
+test('Agent@Manef source and context demo have distinct valid entry points', async ({ page }) => {
+	await page.goto('/products/agent-at-manef');
+	await expect(page.getByRole('link', { name: 'View source' })).toHaveAttribute(
+		'href',
+		'https://github.com/official-manef/agent-at-manef'
+	);
+	await expect(page.getByRole('link', { name: 'Explore context demo' })).toHaveAttribute(
+		'href',
+		'https://manef.dev/workspace/context'
+	);
+	await expect(
+		page.getByText('it does not start or authenticate an agent runtime', { exact: false })
+	).toBeVisible();
 });
 
 test('desktop MCP guide has a compact sidebar, aligned content and numbered instructions', async ({

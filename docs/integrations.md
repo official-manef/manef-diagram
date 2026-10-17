@@ -6,6 +6,30 @@ is covered in [deployment.md](deployment.md). DOKU Checkout and Resend remain ca
 server transport adapters, tested with mocked HTTP. Product checkout/email workflows
 need their own durable state, authorization and actual merchant/mail acceptance.
 
+## LiveChat and Airin
+
+LiveChat (Text Platform) supplies the website widget and manages visitor chat sessions.
+The former direct Airin script is removed. Install the replacement using the real
+LiveChat tracking code and public license ID selected by Diagram's owner; no license
+ID has been supplied for this site yet.
+
+The owner confirmed that "per user" means per Airin tenant owner, not per signed-in
+Diagram visitor. Each owner connects their own LiveChat license to an agent in the
+same Airin tenant. Visitors to that owner's website keep separate LiveChat sessions.
+Do not change the owner license when a website visitor signs in or changes accounts.
+
+Airin's existing channel API resolves `tenant_id` from the authenticated session and
+checks that the selected agent belongs to that tenant. LiveChat connections store
+the license/organization and encrypted PAT or OAuth credentials server-side. Use
+Airin's Channels screen to connect the owner's license and test the connection.
+Select AIRIN AI for that connection only after LiveChat is connected, and disable the
+other LiveChat AI to avoid duplicate replies. Website embed code contains the public
+license ID, never a PAT, OAuth access token, or Airin credential.
+
+Completion requires the real Diagram LiveChat snippet/license, verification of the
+matching tenant and agent connection, and real visitor/AI/human-handover acceptance.
+Source-level tenant checks alone do not prove the licensed service is connected.
+
 ## Configuration and boundaries
 
 `src/lib/server/integrations/config.ts` resolves payment/email transports and guards optional cloud service recipes. Pass an environment record explicitly. It reads only the requested capability, validates enabled providers, and never accesses the environment at import time. Disabled services need no credentials; calling one throws instead of pretending to succeed. Unknown providers fail closed. A preferred provider is not automatically activated by the presence of a key.

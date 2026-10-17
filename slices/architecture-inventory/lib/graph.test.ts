@@ -20,6 +20,29 @@ import {
 	MAX_DIAGRAM_DEPTH
 } from './graph';
 import { addInventoryItem } from './inventory';
+import type { ArchitectureGraph } from '../types';
+
+function smallGraph(ids = ['a', 'b']): ArchitectureGraph {
+	return {
+		schemaVersion: 1,
+		nodes: ids.map((id) => ({
+			id,
+			label: id,
+			tags: [],
+			inputs: [{ id: 'in', label: 'In' }],
+			outputs: [{ id: 'out', label: 'Out' }]
+		})),
+		edges: [
+			{
+				id: 'link',
+				source: ids[0],
+				sourcePort: 'out',
+				target: ids[1],
+				targetPort: 'in'
+			}
+		]
+	};
+}
 
 describe('architecture graph core', () => {
 	it('validates the bundled graph', () => {
@@ -341,4 +364,181 @@ describe('architecture graph core', () => {
 		}
 		expect(JSON.stringify(positions)).not.toBe(before);
 	});
+
+	it.each([
+		{ subtitle: {} },
+		{ group: [] },
+		{ status: 'unknown' },
+		{ status: ['active'] },
+		{ level: 'first' },
+		{ level: Number.NaN },
+		{ level: Number.POSITIVE_INFINITY },
+		{ inventoryRef: { kind: 'unknown', key: 'item' } },
+		{ inventoryRef: { kind: 'repo', key: '' } },
+		{ inputs: [{ id: 'in', label: 'In', kind: {} }] },
+		{
+			outputs: [
+				{ id: 'out', label: 'First' },
+				{ id: 'out', label: 'Duplicate' }
+			]
+		}
+	])('rejects invalid optional node fields before importing: %j', (patch) => {
+		const graph = smallGraph();
+		expect(
+			validateGraph({ ...graph, nodes: [{ ...graph.nodes[0], ...patch }, graph.nodes[1]] })
+		).toBe(false);
+	});
+
+	it.each([{ label: {} }, { tags: 'tag' }, { tags: [42] }])(
+		'rejects invalid optional edge fields before importing: %j',
+		(patch) => {
+			const graph = smallGraph();
+			expect(validateGraph({ ...graph, edges: [{ ...graph.edges[0], ...patch }] })).toBe(false);
+		}
+	);
+
+	it('rejects duplicate view identities within a node', () => {
+		const graph = smallGraph();
+		const view = {
+			id: 'view',
+			kind: 'flowchart',
+			title: 'Map',
+			format: 'md' as const,
+			source: 'flowchart LR\n A-->B'
+		};
+		graph.nodes[0].views = [view, { ...view, title: 'Another map' }];
+		expect(validateGraph(graph)).toBe(false);
+	});
+
+	it('compares endpoint tuples without confusing delimiters in identifiers', () => {
+		const graph = smallGraph(['a:b', 'target']);
+		graph.nodes[0].outputs[0].id = 'c';
+		graph.nodes.push({ ...graph.nodes[0], id: 'a', outputs: [{ id: 'b:c', label: 'Out' }] });
+		graph.edges[0].sourcePort = 'c';
+		const next = addEdge(graph, {
+			...graph.edges[0],
+			id: 'second',
+			source: 'a',
+			sourcePort: 'b:c'
+		});
+		expect(validateGraph(next)).toBe(true);
+		expect(next.edges).toHaveLength(2);
+	});
+
+	it('rejects a replacement that exceeds the depth at its destination', () => {
+		const parent = smallGraph();
+		parent.nodes[0].child = smallGraph();
+		const replacement = smallGraph();
+		let deepest = replacement;
+		for (let depth = 0; depth < MAX_DIAGRAM_DEPTH; depth += 1) {
+			deepest.nodes[0].child = smallGraph();
+			deepest = deepest.nodes[0].child;
+		}
+		expect(validateGraph(replacement)).toBe(true);
+		expect(writeDiagram(parent, ['a'], replacement)).toBe(parent);
+		expect(writeDiagram(parent, ['a', 'missing'], smallGraph())).toBe(parent);
+	});
+
+	it('keeps inventory references isolated when cloning', () => {
+		const graph = smallGraph();
+		graph.nodes[0].inventoryRef = { kind: 'repo', key: 'original' };
+		const copy = cloneGraph(graph);
+		copy.nodes[0].inventoryRef!.key = 'changed';
+		expect(graph.nodes[0].inventoryRef.key).toBe('original');
+	});
+
+	it('keeps one-character node identifiers finite with animation enabled', () => {
+		const graph = smallGraph();
+		const next = forceStep(
+			graph,
+			layoutGraph(graph, 'graph'),
+			{},
+			{ ...defaultForces, animate: true }
+		);
+		for (const point of Object.values(next.positions)) {
+			expect(Number.isFinite(point.x)).toBe(true);
+			expect(Number.isFinite(point.y)).toBe(true);
+		}
+	});
+
+	it('treats object prototype names as ordinary graph node identifiers', () => {
+		const graph = smallGraph(['__proto__', 'constructor', 'toString']);
+		expect(validateGraph(graph)).toBe(true);
+		for (const mode of ['flow', 'graph'] as const) {
+			const positions = layoutGraph(graph, mode);
+			expect(Object.keys(positions).sort()).toEqual(graph.nodes.map((node) => node.id).sort());
+			const next = forceStep(graph, positions);
+			for (const node of graph.nodes) {
+				expect(Object.hasOwn(next.positions, node.id)).toBe(true);
+				expect(Number.isFinite(next.positions[node.id].x)).toBe(true);
+				expect(Number.isFinite(next.positions[node.id].y)).toBe(true);
+			}
+		}
+	});
+
+	it.each([
+		[
+			'port identity',
+			(graph: ArchitectureGraph) => {
+				graph.nodes[0].outputs[0].id = 'renamed';
+				graph.edges[0].sourcePort = 'renamed';
+			}
+		],
+		[
+			'port kind',
+			(graph: ArchitectureGraph) => {
+				graph.nodes[0].outputs[0].kind = 'events';
+			}
+		],
+		[
+			'source port',
+			(graph: ArchitectureGraph) => {
+				graph.nodes[0].outputs.push({ id: 'second', label: 'Second' });
+				graph.edges[0].sourcePort = 'second';
+			}
+		],
+		[
+			'target port',
+			(graph: ArchitectureGraph) => {
+				graph.nodes[1].inputs.push({ id: 'second', label: 'Second' });
+				graph.edges[0].targetPort = 'second';
+			}
+		],
+		[
+			'node group',
+			(graph: ArchitectureGraph) => {
+				graph.nodes[0].group = 'services';
+			}
+		],
+		[
+			'edge tags',
+			(graph: ArchitectureGraph) => {
+				graph.edges[0].tags = ['protocol:http'];
+			}
+		],
+		[
+			'view title',
+			(graph: ArchitectureGraph) => {
+				graph.nodes[0].views![0].title = 'Renamed view';
+			}
+		]
+	] as const)(
+		'preserves %s changes when deciding whether a shared map is edited',
+		(_name, edit) => {
+			const graph = smallGraph();
+			graph.nodes[0].views = [
+				{
+					id: 'view',
+					kind: 'flowchart',
+					title: 'Map',
+					format: 'md',
+					source: 'flowchart LR\n A-->B'
+				}
+			];
+			const edited = cloneGraph(graph);
+			edit(edited);
+			expect(validateGraph(edited)).toBe(true);
+			expect(sameGraph(edited, graph)).toBe(false);
+		}
+	);
 });

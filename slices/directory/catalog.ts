@@ -56,6 +56,26 @@ export const products: Product[] = [
 			'The public map is the live diagram. An audit on 3 Oct 2026 saw commit f9cb57aa. Later revisions made that map readable. Agent-write persistence and sign-in acceptance are still open.'
 	},
 	{
+		id: 'agent-at-manef',
+		name: 'Agent@Manef',
+		eyebrow: 'KEEP YOUR CONTEXT',
+		color: 'purple',
+		status: 'Early source toolkit',
+		level: 'source',
+		headline: 'Define once. Move with your context.',
+		description: 'Review, reconcile and recover curated agent context across platforms.',
+		domain: 'GitHub source · local Python toolkit',
+		live: 'https://github.com/official-manef/agent-at-manef',
+		features: [
+			'Canonical agent context',
+			'Reviewed migration',
+			'Conflict-preserving reconciliation',
+			'Context backup and recovery'
+		],
+		truth:
+			'A MANEF product created by Rahman. Source installation prepares context; it does not start or authenticate an agent runtime. The repository transfer is not claimed complete. The context workspace is a separate browser-local demo.'
+	},
+	{
 		id: 'registry',
 		name: 'App Catalog',
 		eyebrow: 'DISCOVER & EXTEND',

@@ -39,7 +39,8 @@ export function appendPort(
 	const node = graph.nodes.find((item) => item.id === nodeId);
 	if (!node) return graph;
 	const prefix = direction === 'inputs' ? 'in' : 'out';
-	const index = node[direction].length + 1;
+	let index = node[direction].length + 1;
+	while (node[direction].some((port) => port.id === `${prefix}-${index}`)) index += 1;
 	return patchNode(graph, nodeId, {
 		[direction]: [...node[direction], { id: `${prefix}-${index}`, label: `${prefix} ${index}` }]
 	} as Partial<ArchitectureNode>);

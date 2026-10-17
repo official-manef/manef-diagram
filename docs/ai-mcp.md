@@ -8,7 +8,7 @@ opens; provider SDKs and connection settings stay in server modules.
 ## Access and keys
 
 Set `PUBLIC_SITE_URL` to the exact trusted application origin. Chat and remote-tool
-requests require either the [Google session](auth.md) or a private
+requests require either the configured [sign-in session](auth.md) or a private
 `CAPABILITY_ACCESS_TOKEN` of at least 32 characters. The latter is an operator credential
 for a controlled installation, not a tenant permission model. A user enters it into the
 page only when session sign-in is unavailable. Never put it in a `PUBLIC_` variable.
@@ -45,9 +45,14 @@ There is no automatic model choice or fallback when a selected model is unavaila
 
 This example is configuration structure, not a working model ID. After replacing it,
 open the Assistant screen, check setup, select the provider/model, enter your own key,
-and send a message. Switching providers clears the previous provider key. The page
+and send a message. Switching providers clears the previous provider key. Checking
+setup preserves the provider/model when still approved; removing that provider
+clears its key before selecting a replacement. Malformed setup responses leave a
+retryable error rather than partially updating the screen. The page
 shows streamed text, partial failures and a stop button. Starting another conversation
 uses **Clear keys and conversation**.
+Clearing during a pending request aborts it and prevents its later callbacks from
+restoring messages, errors, or loading state into the cleared or replacement session.
 
 The implementation uses the official AI SDK adapters for
 [OpenAI](https://ai-sdk.dev/providers/ai-sdk-providers/openai),
@@ -69,6 +74,11 @@ an upstream response echoes it across text chunks. See the AI SDK's
 [error handling](https://ai-sdk.dev/docs/ai-sdk-core/error-handling).
 
 ## Connect remote tools
+
+Switching configured server aliases clears the prior server token, arguments,
+discovery, review and result. A setup refresh keeps a still-approved alias; removing
+it clears that server's token. Discovery rejects malformed or duplicate tool names
+before review, and an ambiguous remote discovery cannot execute a tool.
 
 Set `MCP_CLIENT_ENABLED=true` and configure private `MCP_SERVERS_JSON`. Each connection
 needs an alias, a final public HTTPS Streamable HTTP endpoint, an authentication header

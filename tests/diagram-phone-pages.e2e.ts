@@ -8,9 +8,17 @@ const routes = [
 	'/guide?section=mcp',
 	'/audit',
 	'/embed/workspace',
-	...['mso', 'diagram', 'registry', 'connectors', 'models', 'ops', 'docs', 'labs'].map(
-		(id) => `/products/${id}`
-	),
+	...[
+		'mso',
+		'diagram',
+		'agent-at-manef',
+		'registry',
+		'connectors',
+		'models',
+		'ops',
+		'docs',
+		'labs'
+	].map((id) => `/products/${id}`),
 	...['navigation', 'identity', 'catalog'].map((id) => `/guide?section=${id}`),
 	...[
 		'mso',
@@ -27,7 +35,7 @@ const routes = [
 	...['dashboard', 'live-data', 'notes', 'assistant', 'settings'].map((id) => `/apps/${id}`)
 ];
 
-test('all 33 main pages reflow on narrow phones', async ({ page }) => {
+test('all main pages reflow on narrow phones', async ({ page }) => {
 	test.setTimeout(120_000);
 	for (const width of [320, 390]) {
 		await page.setViewportSize({ width, height: 844 });

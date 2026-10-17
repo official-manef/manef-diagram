@@ -2,6 +2,7 @@ import type {
 	ArchitectureEdge,
 	ArchitectureGraph,
 	ArchitectureNode,
+	ArchitecturePort,
 	DiagramMode,
 	Point,
 	TraceMode,
@@ -12,20 +13,36 @@ import { isNodeView } from './diagram-views';
 export const MAX_DIAGRAM_DEPTH = 3;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isPort(value: unknown): boolean {
+function isPort(value: unknown): value is ArchitecturePort {
 	return (
 		isRecord(value) &&
 		typeof value.id === 'string' &&
 		value.id.length > 0 &&
-		typeof value.label === 'string'
+		typeof value.label === 'string' &&
+		(value.kind === undefined || typeof value.kind === 'string')
+	);
+}
+
+function arePorts(value: unknown): boolean {
+	if (!Array.isArray(value) || !value.every(isPort)) return false;
+	return new Set(value.map((port) => port.id)).size === value.length;
+}
+
+function isInventoryRef(value: unknown): boolean {
+	return (
+		isRecord(value) &&
+		typeof value.kind === 'string' &&
+		['reference', 'repo', 'domain', 'hostname', 'convex'].includes(value.kind) &&
+		typeof value.key === 'string' &&
+		value.key.length > 0
 	);
 }
 
 function connectionKey(edge: ArchitectureEdge): string {
-	return `${edge.source}:${edge.sourcePort}>${edge.target}:${edge.targetPort}`;
+	return JSON.stringify([edge.source, edge.sourcePort, edge.target, edge.targetPort]);
 }
 
 export function validateGraph(value: unknown): value is ArchitectureGraph {
@@ -55,14 +72,21 @@ function validateGraphAt(value: unknown, depth: number): value is ArchitectureGr
 			raw.id.length === 0 ||
 			nodeIds.has(raw.id) ||
 			typeof raw.label !== 'string' ||
+			(raw.subtitle !== undefined && typeof raw.subtitle !== 'string') ||
+			(raw.group !== undefined && typeof raw.group !== 'string') ||
+			(raw.status !== undefined &&
+				(typeof raw.status !== 'string' ||
+					!['active', 'proposed', 'private'].includes(raw.status))) ||
+			(raw.level !== undefined && (typeof raw.level !== 'number' || !Number.isFinite(raw.level))) ||
+			(raw.inventoryRef !== undefined && !isInventoryRef(raw.inventoryRef)) ||
 			!Array.isArray(raw.tags) ||
 			!raw.tags.every((tag) => typeof tag === 'string') ||
-			!Array.isArray(raw.inputs) ||
-			!raw.inputs.every(isPort) ||
-			!Array.isArray(raw.outputs) ||
-			!raw.outputs.every(isPort) ||
+			!arePorts(raw.inputs) ||
+			!arePorts(raw.outputs) ||
 			(raw.views !== undefined &&
-				(!Array.isArray(raw.views) || !raw.views.every((view) => isNodeView(view)))) ||
+				(!Array.isArray(raw.views) ||
+					!raw.views.every((view) => isNodeView(view)) ||
+					new Set(raw.views.map((view) => view.id)).size !== raw.views.length)) ||
 			(raw.child !== undefined && !validateGraphAt(raw.child, depth + 1))
 		) {
 			return false;
@@ -82,7 +106,10 @@ function validateGraphAt(value: unknown, depth: number): value is ArchitectureGr
 			typeof raw.source !== 'string' ||
 			typeof raw.sourcePort !== 'string' ||
 			typeof raw.target !== 'string' ||
-			typeof raw.targetPort !== 'string'
+			typeof raw.targetPort !== 'string' ||
+			(raw.label !== undefined && typeof raw.label !== 'string') ||
+			(raw.tags !== undefined &&
+				(!Array.isArray(raw.tags) || !raw.tags.every((tag) => typeof tag === 'string')))
 		) {
 			return false;
 		}
@@ -139,6 +166,7 @@ export function cloneGraph(graph: ArchitectureGraph): ArchitectureGraph {
 			else delete copy.child;
 			if (node.views) copy.views = node.views.map((view) => ({ ...view }));
 			else delete copy.views;
+			if (node.inventoryRef) copy.inventoryRef = { ...node.inventoryRef };
 			return copy;
 		}),
 		edges: graph.edges.map((edge) => ({ ...edge, tags: edge.tags ? [...edge.tags] : undefined }))
@@ -165,7 +193,7 @@ export function writeDiagram(
 	path: readonly string[],
 	next: ArchitectureGraph
 ): ArchitectureGraph {
-	if (!validateGraph(next)) return graph;
+	if (!validateGraphAt(next, path.length) || !diagramAt(graph, path)) return graph;
 	if (path.length === 0) return cloneGraph(next);
 	const [id, ...rest] = path;
 	if (!graph.nodes.some((node) => node.id === id && node.child)) return graph;
@@ -289,7 +317,7 @@ function layoutFlow(graph: ArchitectureGraph): Record<string, Point> {
 		}
 	}
 	const maxHeight = Math.max(...lanes.map((nodes) => columnHeight(nodes.length)), flowCard.height);
-	const points: Record<string, Point> = {};
+	const points = Object.create(null) as Record<string, Point>;
 	lanes.forEach((nodes, lane) => {
 		const startY = 32 + (maxHeight - columnHeight(nodes.length)) / 2;
 		const x = 24 + lane * (flowCard.width + flowCard.gapX);
@@ -323,7 +351,7 @@ function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
 	const count = Math.max(others.length, 1);
 	const radius = Math.max(280, 180 + count * 36);
 	const center = { x: 980, y: 760 };
-	const points: Record<string, Point> = {};
+	const points = Object.create(null) as Record<string, Point>;
 	if (hub) points[hub.id] = { x: center.x, y: center.y };
 	others.forEach((node, index) => {
 		const angle = -Math.PI / 2 + (Math.PI * 2 * index) / count;
@@ -443,13 +471,13 @@ export function forceStep(
 	alpha = 1,
 	pinnedId: string | null = null
 ): { positions: Record<string, Point>; velocity: Record<string, Point> } {
-	const ids = graph.nodes.map((node) => node.id).filter((id) => positions[id]);
-	const nextPositions: Record<string, Point> = {};
-	const nextVelocity: Record<string, Point> = {};
+	const ids = graph.nodes.map((node) => node.id).filter((id) => Object.hasOwn(positions, id));
+	const nextPositions = Object.create(null) as Record<string, Point>;
+	const nextVelocity = Object.create(null) as Record<string, Point>;
 	const body = new Map(
 		ids.map((id) => {
 			const point = positions[id];
-			const motion = velocity[id] ?? { x: 0, y: 0 };
+			const motion = Object.hasOwn(velocity, id) ? velocity[id] : { x: 0, y: 0 };
 			return [id, { x: point.x, y: point.y, vx: motion.x, vy: motion.y }];
 		})
 	);
@@ -558,7 +586,7 @@ export function forceStep(
 		}
 		if (forces.animate) {
 			point.vx += (((id.charCodeAt(0) % 5) - 2) / 8) * 0.6 * alpha;
-			point.vy += ((((id.charCodeAt(1) ?? id.charCodeAt(0)) % 5) - 2) / 8) * 0.6 * alpha;
+			point.vy += (((id.charCodeAt(id.length > 1 ? 1 : 0) % 5) - 2) / 8) * 0.6 * alpha;
 		}
 		point.vx *= DAMPEN;
 		point.vy *= DAMPEN;
@@ -835,21 +863,41 @@ export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
 				id: node.id,
 				label: node.label,
 				subtitle: node.subtitle ?? '',
+				group: node.group ?? '',
 				level: node.level ?? null,
 				status: node.status ?? null,
 				tags: node.tags,
-				inputs: node.inputs.map((port) => port.label),
-				outputs: node.outputs.map((port) => port.label),
+				inputs: node.inputs.map((port) => ({
+					id: port.id,
+					label: port.label,
+					kind: port.kind ?? ''
+				})),
+				outputs: node.outputs.map((port) => ({
+					id: port.id,
+					label: port.label,
+					kind: port.kind ?? ''
+				})),
 				child: node.child ? signature(node.child) : '',
-				inventoryRef: node.inventoryRef ? `${node.inventoryRef.kind}:${node.inventoryRef.key}` : '',
+				inventoryRef: node.inventoryRef
+					? { kind: node.inventoryRef.kind, key: node.inventoryRef.key }
+					: null,
 				views:
-					node.views?.map((view) => `${view.id}:${view.kind}:${view.format}:${view.source}`) ?? []
+					node.views?.map((view) => ({
+						id: view.id,
+						kind: view.kind,
+						title: view.title,
+						format: view.format,
+						source: view.source
+					})) ?? []
 			})),
 			edges: graph.edges.map((edge) => ({
 				id: edge.id,
 				source: edge.source,
+				sourcePort: edge.sourcePort,
 				target: edge.target,
-				label: edge.label ?? ''
+				targetPort: edge.targetPort,
+				label: edge.label ?? '',
+				tags: edge.tags ?? []
 			}))
 		});
 	return signature(a) === signature(b);

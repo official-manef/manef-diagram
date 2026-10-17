@@ -6,7 +6,10 @@
 	import McpConnection from './mcp-connection.svelte';
 	import { guideSections } from './catalog';
 
-	const section = $derived(page.url.searchParams.get('section') || 'start');
+	const requestedSection = $derived(page.url.searchParams.get('section'));
+	const section = $derived(
+		guideSections.find((item) => item.id === requestedSection)?.id ?? 'start'
+	);
 </script>
 
 <PublicFrame>
@@ -24,20 +27,29 @@
 		</nav>
 		<article class="stack">
 			{#if section === 'navigation'}
-				<h1>A home, not a maze of subdomains.</h1>
+				<h1>Choose the next tool for your task.</h1>
 				<p class="muted">
 					Public pages discover products. The ecosystem workspace belongs to MANEF. The public
 					service map stays at /app.
 				</p>
 			{:else if section === 'identity'}
-				<h1>Sign-in is not this switch.</h1>
+				<h1>Use a configured account for private work.</h1>
 				<p class="muted">
-					MANEF sign-in uses WorkOS when it is configured. The demo workspace has a simulated
-					sign-in that does not create a session.
+					The public map works without an account. Private backend storage needs a configured
+					identity provider and backend on this deployment. The workspace demo's identity preview
+					does not create that session.
 				</p>
-				<p>
-					<a class="btn" href={resolve('/auth/login')} data-sveltekit-reload>Sign in with MANEF</a>
-				</p>
+				{#if page.data.auth?.enabled}
+					<p>
+						<a class="btn" href={resolve('/auth/login')} data-sveltekit-reload>Sign in with MANEF</a
+						>
+					</p>
+				{:else}
+					<p class="notice">
+						Sign-in is not enabled on this deployment. You can still use the public map and export
+						JSON.
+					</p>
+				{/if}
 			{:else if section === 'mcp'}
 				<h1>Connect to the Diagram MCP server</h1>
 				<McpConnection />
@@ -59,21 +71,42 @@
 					in the demo only changes this browser.
 				</p>
 			{:else}
-				<h1>Open the map. Then the demo.</h1>
+				<h1>Make your first architecture map.</h1>
 				<p class="muted">
-					Start at Products, open Diagram for the public map, then use the MANEF workspace to try
-					catalog, routing, and context without publishing any of it.
+					Start with the public MANEF map, then keep your own edits in a portable JSON file.
 				</p>
-				<p class="muted">
-					Ctrl or Cmd K inside the workspace searches pages. Export the demo before you reset it.
+				<ol class="mapping-steps">
+					<li>Open Diagram. Search for a service or choose a node in the map.</li>
+					<li>
+						Inspect the selected service and its connections. Use filters or focus to narrow the
+						view.
+					</li>
+					<li>
+						Edit or import your graph, then export JSON to keep the result. Private backend storage
+						has separate setup requirements.
+					</li>
+				</ol>
+				<p><a class="btn primary" href={resolve('/app')}>Open Diagram</a></p>
+			{/if}
+			{#if section !== 'start'}
+				<p>
+					<a class="btn" href={workspaceUrl()} rel="external">Explore the sample ecosystem demo ↗</a
+					>
 				</p>
 			{/if}
-			<p><a class="btn" href={workspaceUrl()} rel="external">Open MANEF workspace ↗</a></p>
 		</article>
 	</main>
 </PublicFrame>
 
 <style>
+	.mapping-steps {
+		list-style: decimal;
+		padding-left: 1.4rem;
+	}
+	.mapping-steps li {
+		margin-block: 0.9rem;
+		padding-left: 0.25rem;
+	}
 	.guide-layout {
 		display: grid;
 		grid-template-columns: 200px minmax(0, 1fr);

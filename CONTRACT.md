@@ -10,6 +10,14 @@ application. Detailed implementation guidance lives in [architecture](docs/archi
 
 ## Public landing ownership
 
+The accepted MANEF direction is a studio serving people and agents, with independent
+products and separate Connectors/Models/Operations roadmaps. Web owns the human
+ecosystem catalog and read-only `/ecosystem/v1.json`; the existing MSO installer
+catalog remains a separate contract. Diagram's directory is a product/map reference,
+not a marketplace or shared-account authority. Agent@Manef links to its selected
+source repository; its context demo uses the existing `context` surface. See
+`docs/PRD.md` for current scope versus future product direction.
+
 `https://manef.dev` owns the MANEF ecosystem landing. `https://diagram.manef.dev/`
 introduces Manef Diagram and links to its canonical application at `/app`. The
 directory, guide and audit remain available as map references. The ecosystem demo's
@@ -17,6 +25,23 @@ canonical URL is `https://manef.dev/workspace`; legacy Diagram workspace URLs re
 to MANEF. One Svelte implementation is served at `/embed/workspace/[[surface]]` for
 the MANEF host, with no session or backend connection. Its browser-local state remains
 on the Diagram origin, and every surface remains explicitly a simulation.
+
+The embedded demo permits framing and navigation messages for the canonical MANEF
+host and its staging origin. Development additionally permits loopback parents;
+hosted Diagram instances do not send navigation to loopback origins. Surface links
+retain preview mode, and storage denial or malformed saved demo state must leave a
+usable local demo. Client-local demo forms stay disabled until mount initialization completes, so early input cannot become a native server request. Without JavaScript, the demo points users to public project briefs. Private app routes retain their separate framing policy.
+Host announcements must match the parent window and approved origin; navigation
+must keep working after a full iframe reload that changes the document referrer.
+
+## Website support chat
+
+LiveChat (Text Platform) supplies the website widget and visitor conversations. Each
+Airin tenant owner connects their own LiveChat license to an agent in the same tenant.
+The website uses its owner's license; signing in as a visitor does not select a
+separate owner account. The former direct Airin embed is disabled. Installing the
+replacement requires the actual LiveChat script/license for Diagram. See
+[integrations](docs/integrations.md#livechat-and-airin).
 
 ## Authentication provider boundary
 
@@ -83,6 +108,12 @@ Convex imports cannot depend on SvelteKit aliases or environment modules. BYOK k
 chat history stay in current request/tab memory. Tool output is untrusted data; MCP calls
 require configured endpoint/tool allowlists and explicit review, never automatic model execution. See the focused
 [Svelte](docs/svelte-best-practices.md) and [Convex](docs/convex-best-practices.md) rules.
+
+Switching provider/server context clears its former BYOK credential. Setup refreshes
+retain still-approved selections, validate their complete response before rendering,
+and clear keys belonging to removed selections. Clearing the page invalidates pending
+callbacks so old requests cannot restore cleared state. Tool discovery requires unique
+names and valid schemas before rendering or manual execution.
 
 ## Adapting this contract to a product
 

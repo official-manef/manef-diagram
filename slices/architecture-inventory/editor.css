@@ -798,6 +798,7 @@
 	color: var(--foreground);
 }
 .workspace .toast {
+	pointer-events: none;
 	position: fixed;
 	z-index: 40;
 	right: 0.75rem;

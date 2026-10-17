@@ -22,6 +22,16 @@ describe('diagram edits', () => {
 		expect(next.edges.length).toBeLessThan(defaultGraph.edges.length);
 	});
 
+	it('adds a new port without reusing an ID after an earlier port was removed', () => {
+		let graph = appendPort(defaultGraph, 'manef', 'outputs');
+		graph = appendPort(graph, 'manef', 'outputs');
+		graph = withoutPort(graph, 'manef', 'outputs', 'out-2');
+		graph = appendPort(graph, 'manef', 'outputs');
+		const ports = graph.nodes.find((node) => node.id === 'manef')!.outputs;
+		expect(new Set(ports.map((port) => port.id)).size).toBe(ports.length);
+		expect(ports.at(-1)?.id).toBe('out-4');
+	});
+
 	it('rejects a connection that already exists and accepts a free target', () => {
 		const edge = defaultGraph.edges[0];
 		expect(withEdgePatch(defaultGraph, edge, { label: 'renamed' })?.edges[0]?.label).toBe(

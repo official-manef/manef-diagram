@@ -23,6 +23,16 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
+To develop the embedded workspace together with `manef-web`, run Diagram on port 5173
+and start Web with `NEXT_PUBLIC_DIAGRAM_ORIGIN=http://localhost:5173` on port 3000.
+Open Web's `/workspace/diagram?preview=1` to check iframe navigation and Browser Back.
+The embedded demo permits loopback parents only during development; hosted parents
+are limited to `https://manef.dev` and `https://staging.manef.dev`. Preview mode stays
+in the URL when changing demo pages. Browser storage denial keeps the demo usable
+in memory, and malformed saved data falls back to a fresh demo without overwriting it.
+The host and iframe also exchange validated readiness messages so full iframe
+navigation can restore the parent origin even when the browser replaces its referrer.
+
 Verification:
 
 ```sh

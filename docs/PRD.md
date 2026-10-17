@@ -15,8 +15,38 @@ on Vercel with its old credential. Public or pilot QA does not authorize migrati
 Public pilot acceptance and remaining gates: [Cloudflare pilot QA](cloudflare-pilot-qa.md).
 
 ## Goal
+## Accepted ecosystem direction — 2026-10-14
+
+The owner selected a studio for developer, business, enterprise and agent consumers.
+Diagram supports architecture/dependency work and diagram creation; a wider general
+diagramming scope is a future expansion, not a promise of feature parity with all
+canvas tools. Diagram remains independently useful. MSO owns operational execution;
+Agent@Manef owns portable context; the public workspace remains a simulation.
+
+The source-backed ecosystem inventory and human catalog live in MANEF Web. This
+directory now includes Agent@Manef with a source-first entry and a valid context-demo
+link. Open marketplace, common identity, independent Connectors/Models/Operations,
+cloud offers, billing and complete multilingual parity retain their own acceptance
+work. New agent consumers use read-only discovery plus explicit owner authorization;
+public metadata does not become a writable or executable API.
+
+## Catalog entry journeys — 2026-10-14
+
+MANEF Web owns concise bilingual project overviews and public Markdown briefs. Diagram’s first guide now leads from selecting a service to inspecting connections and exporting JSON. Public navigation offers sign-in only when authentication is enabled; the map remains accessible without an account. Browser-local Models and Operations forms wait for initialization before accepting input and are checked for save/reload behavior. These changes do not activate identity providers, host execution or real model routing.
+
+## Architecture inventory goal
 
 Provide one reusable architecture/inventory feature that visualizes MANEF products, infrastructure and relationships without coupling the graph model to a frontend framework.
+
+## LiveChat and per-tenant Airin — 2026-10-16
+
+The owner corrected the chat integration: LiveChat supplies the widget; each Airin
+tenant owner connects their own LiveChat license to an agent in their tenant. Diagram
+visitors retain separate LiveChat sessions under the website owner's license. Visitor
+sign-in does not switch the owner account. The shared direct Airin embed is removed.
+The replacement awaits the actual Diagram LiveChat snippet/license and verification
+of its tenant/agent connection. Real AI replies and human handover remain acceptance
+work until tested on that licensed connection.
 
 ## Canonical implementation
 

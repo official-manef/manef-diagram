@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { siteLinks } from '../src/lib/config/navigation';
 
-test('only the public demo permits framing by the canonical MANEF host', async ({ request }) => {
+test('only the public demo permits framing by the approved MANEF hosts', async ({ request }) => {
 	const embed = await request.get('/embed/workspace');
 	expect(embed.headers()['content-security-policy']).toBe(
-		`frame-ancestors 'self' ${siteLinks.ecosystemOrigin}`
+		`frame-ancestors 'self' ${siteLinks.ecosystemOrigin} https://staging.manef.dev`
 	);
 	expect(embed.headers()['x-frame-options']).toBeUndefined();
 	expect(await embed.text()).toContain('noindex');

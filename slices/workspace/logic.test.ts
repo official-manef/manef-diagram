@@ -1,15 +1,18 @@
 import { expect, it } from 'vitest';
 import {
 	addContext,
+	addDomainPlan,
 	connectService,
 	createDemoState,
 	filterDemoNodes,
 	installApp,
 	linkDemoNodes,
 	replaceDemoGraph,
+	runDemoWorkflow,
 	simulateTool,
 	uninstallApp
 } from './logic';
+import { restoreWorkspaceSnapshot } from './storage';
 
 it('keeps a demo install inside one workspace graph', () => {
 	const start = createDemoState('Product studio');
@@ -72,4 +75,87 @@ it('rejects a self-link and keeps an installed app when the demo graph is replac
 			}
 		})
 	).toThrow(/demo limit/);
+});
+
+it('keeps simulated additions valid after an import removes the default anchor nodes', () => {
+	let state = replaceDemoGraph(createDemoState(), { graph: { nodes: [], edges: [] } });
+	state = installApp(state, 'hermes');
+	state = addContext(state, 'Notes', 'Imported map');
+	state = runDemoWorkflow(state);
+	state = addDomainPlan(state, 'demo.example.test');
+	const ids = new Set(state.graph.nodes.map((node) => node.id));
+	for (const edge of state.graph.edges) {
+		expect(ids.has(edge.source)).toBe(true);
+		expect(ids.has(edge.target)).toBe(true);
+	}
+	// The state remains restorable and usable by the shared graph tools.
+	expect(
+		restoreWorkspaceSnapshot({ active: state.workspace, workspaces: { [state.workspace]: state } })
+	).not.toBeNull();
+	expect(simulateTool(state, 'graph_status', {})).toMatchObject({ simulation: true });
+	expect(state.graph.nodes).toHaveLength(4);
+	expect(state.graph.edges).toEqual([]);
+});
+
+it('does not duplicate imported identifiers when creating context, runs, or domain plans', () => {
+	let state = replaceDemoGraph(createDemoState(), {
+		graph: {
+			nodes: ['ctx-4', 'memory-run-1', 'domain-1'].map((id) => ({ id, label: id })),
+			edges: []
+		}
+	});
+	state = addContext(state, 'Fresh context', 'Notes');
+	state = runDemoWorkflow(state);
+	state = addDomainPlan(state, 'demo.example.test');
+	expect(state.graph.nodes.map((node) => node.id)).toContain('ctx-4-1');
+	expect(state.runs[0].id).toBe('run-2');
+	expect(state.domains[0].id).toBe('domain-1-1');
+	expect(new Set(state.graph.nodes.map((node) => node.id)).size).toBe(state.graph.nodes.length);
+});
+
+it('reuses an imported app node instead of appending a duplicate on install', () => {
+	const imported = replaceDemoGraph(createDemoState(), {
+		graph: { nodes: [{ id: 'app-hermes', label: 'Hermes' }], edges: [] }
+	});
+	const installed = installApp(imported, 'hermes');
+	expect(installed.apps).toEqual(['hermes']);
+	expect(installed.graph.nodes.filter((node) => node.id === 'app-hermes')).toHaveLength(1);
+});
+
+it('keeps generated edge IDs unique when endpoint names contain hyphens', () => {
+	let state = replaceDemoGraph(createDemoState(), {
+		graph: {
+			nodes: ['a-b', 'c', 'a', 'b-c'].map((id) => ({ id, label: id })),
+			edges: []
+		}
+	});
+	state = linkDemoNodes(state, 'a-b', 'c', 'First');
+	state = linkDemoNodes(state, 'a', 'b-c', 'Second');
+	expect(state.graph.edges).toHaveLength(2);
+	expect(new Set(state.graph.edges.map((edge) => edge.id)).size).toBe(2);
+});
+
+it('rejects duplicate edge IDs in imported graphs', () => {
+	expect(() =>
+		replaceDemoGraph(createDemoState(), {
+			graph: {
+				nodes: ['a', 'b', 'c'].map((id) => ({ id, label: id })),
+				edges: [
+					{ id: 'duplicate', source: 'a', target: 'b', label: 'First' },
+					{ id: 'duplicate', source: 'b', target: 'c', label: 'Second' }
+				]
+			}
+		})
+	).toThrow(/Edge ids must be unique/);
+});
+
+it('avoids edge ID collisions when an import restores installed app nodes', () => {
+	const installed = installApp(createDemoState(), 'hermes');
+	const replaced = replaceDemoGraph(installed, {
+		graph: {
+			nodes: ['mso', 'a'].map((id) => ({ id, label: id })),
+			edges: [{ id: 'edge-hermes', source: 'mso', target: 'a', label: 'Existing' }]
+		}
+	});
+	expect(replaced.graph.edges.map((edge) => edge.id)).toEqual(['edge-hermes', 'edge-hermes-1']);
 });

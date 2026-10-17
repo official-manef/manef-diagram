@@ -17,6 +17,7 @@ import {
 	updateNotes,
 	type WorkspaceState
 } from './logic';
+import { restoreWorkspaceSnapshot } from './storage';
 
 const KEY = 'manef-ecosystem-demo-v1';
 
@@ -45,21 +46,34 @@ class EcosystemStore {
 	loaded = $state(false);
 	memoryOnly = $state(false);
 
-	current = $derived(this.workspaces[this.active] ?? createDemoState(this.active));
+	current = $derived(
+		Object.hasOwn(this.workspaces, this.active)
+			? this.workspaces[this.active]
+			: createDemoState(this.active)
+	);
 
 	init() {
-		if (this.loaded || typeof localStorage === 'undefined') return;
+		if (this.loaded || typeof window === 'undefined') return;
+		let raw: string | null;
 		try {
-			const raw = localStorage.getItem(KEY);
-			if (raw) {
-				const saved = JSON.parse(raw) as Saved;
-				if (saved.workspaces && saved.active && saved.workspaces[saved.active]) {
-					this.workspaces = saved.workspaces;
-					this.active = saved.active;
-				}
-			}
+			raw = localStorage.getItem(KEY);
 		} catch {
 			this.memoryOnly = true;
+			this.loaded = true;
+			return;
+		}
+		if (raw) {
+			try {
+				const saved = restoreWorkspaceSnapshot(JSON.parse(raw));
+				if (saved) {
+					this.workspaces = saved.workspaces;
+					this.active = saved.active;
+				} else {
+					this.toast = 'Saved demo data could not be restored. A fresh demo workspace is shown.';
+				}
+			} catch {
+				this.toast = 'Saved demo data could not be restored. A fresh demo workspace is shown.';
+			}
 		}
 		this.loaded = true;
 	}
@@ -71,7 +85,7 @@ class EcosystemStore {
 	}
 
 	persist() {
-		if (typeof localStorage === 'undefined') return;
+		if (typeof window === 'undefined') return;
 		const payload: Saved = { active: this.active, theme: this.theme, workspaces: this.workspaces };
 		try {
 			localStorage.setItem(KEY, JSON.stringify(payload));
@@ -82,7 +96,7 @@ class EcosystemStore {
 	}
 
 	switchTo(name: string) {
-		if (!this.workspaces[name]) {
+		if (!Object.hasOwn(this.workspaces, name)) {
 			this.workspaces = { ...this.workspaces, [name]: createDemoState(name) };
 		}
 		this.active = name;
