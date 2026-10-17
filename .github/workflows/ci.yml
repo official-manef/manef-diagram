@@ -35,6 +35,9 @@ jobs:
       - run: bun run build && node scripts/smoke-node.mjs
         env:
           DEPLOY_TARGET: node
+      - run: bun run build && bunx wrangler types --env pilot --include-runtime false --check && bunx wrangler deploy --env pilot --dry-run --outdir .wrangler/dry-run
+        env:
+          DEPLOY_TARGET: cloudflare
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:

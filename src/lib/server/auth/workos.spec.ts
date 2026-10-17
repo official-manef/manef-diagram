@@ -25,6 +25,7 @@ type MockOptions = {
 	badSignature?: boolean;
 	unverifiedEmail?: boolean;
 	providerError?: boolean;
+	providerRedirect?: number;
 };
 
 async function workosMock(options: MockOptions = {}) {
@@ -47,6 +48,13 @@ async function workosMock(options: MockOptions = {}) {
 		if (url.pathname !== '/user_management/authenticate')
 			throw new Error('Unexpected provider path.');
 		requests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+		if (options.providerRedirect) {
+			expect(init?.redirect).toBe('manual');
+			return new Response(null, {
+				status: options.providerRedirect,
+				headers: { Location: 'https://attacker.example/collect' }
+			});
+		}
 		if (options.providerError)
 			return Response.json({ message: 'secret-provider-response' }, { status: 400 });
 		let token = new SignJWT({ sid: 'session_test' })
@@ -166,6 +174,22 @@ test('provider errors do not disclose their response content', async () => {
 		'WorkOS could not complete authentication.'
 	);
 });
+
+test.each([301, 302, 307, 308])(
+	'provider redirect %s never forwards credentials',
+	async (status) => {
+		const mock = await workosMock({ providerRedirect: status });
+		const { transaction } = await beginAuthorization(config);
+		await expect(
+			completeAuthorization(
+				config,
+				new URL(`${config.redirectUri}?code=test-code&state=${transaction.state}`),
+				transaction
+			)
+		).rejects.toThrow('WorkOS could not complete authentication.');
+		expect(mock.fetch).toHaveBeenCalledOnce();
+	}
+);
 
 test('refresh rotates credentials and refuses a changed identity', async () => {
 	const mock = await workosMock();

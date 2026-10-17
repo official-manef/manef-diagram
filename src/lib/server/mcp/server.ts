@@ -103,7 +103,7 @@ const toolInputs: Record<GraphToolName, { description: string; inputSchema: z.Zo
 	}
 };
 
-export async function statusMcpResponse(request: Request, parsedBody: unknown) {
+export async function statusMcpResponse(request: Request, parsedBody: unknown, origin?: string) {
 	const server = new McpServer({ name: packageJson.name, version: packageJson.version });
 	for (const name of GRAPH_TOOL_NAMES) {
 		const spec = toolInputs[name];
@@ -115,7 +115,7 @@ export async function statusMcpResponse(request: Request, parsedBody: unknown) {
 					args && typeof args === 'object' && !Array.isArray(args)
 						? (args as Record<string, unknown>)
 						: {};
-				const value = runGraphTool(defaultGraph, defaultInventory, name, input);
+				const value = runGraphTool(defaultGraph, defaultInventory, name, input, origin);
 				const body =
 					name === 'graph_status'
 						? { name: packageJson.name, version: packageJson.version, ...((value ?? {}) as object) }

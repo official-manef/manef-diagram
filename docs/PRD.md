@@ -1,5 +1,21 @@
 # MANEF Architecture Inventory — PRD
 
+## Cloudflare Workers pilot — 11 October 2026
+
+Compare an isolated Workers deployment against Vercel production from source
+`7d2b3be13c4d8310a38e634b7e3d1c6c2ddad48c`. Keep production DNS and backend unchanged.
+Accept desktop/mobile canvas, navigation, public endpoints, all ten MCP tools,
+anonymous denial and noindex behavior. Measure alternating HTTP/MCP samples from one
+client and document limitations. Pilot authentication now uses the validated existing
+Diagram Convex WorkOS credential and an independent Worker session secret. Real login
+as official.manef@gmail.com, reload and private notes CRUD/cleanup passed. Automatic forced refresh, local logout and signed-out denial also passed. Private
+inventory and two-account isolation remain separate acceptance gates. The production callback remains default and production remains
+on Vercel with its old credential. Public or pilot QA does not authorize migration.
+
+Public pilot acceptance and remaining gates: [Cloudflare pilot QA](cloudflare-pilot-qa.md).
+
+## Goal
+
 ## Accepted ecosystem direction — 2026-10-14
 
 The owner selected a studio for developer, business, enterprise and agent consumers.

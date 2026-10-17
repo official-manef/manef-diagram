@@ -48,7 +48,8 @@ export function runGraphTool(
 	graph: ArchitectureGraph,
 	inventory: InventoryItem[],
 	tool: string,
-	args: Record<string, unknown>
+	args: Record<string, unknown>,
+	origin?: string
 ): unknown {
 	if (!validateGraph(graph)) throw new Error('Graph does not match the MANEF graph contract.');
 	if (!isGraphToolName(tool)) throw new Error('Unknown tool.');
@@ -100,39 +101,48 @@ export function runGraphTool(
 		return {
 			nodes,
 			edges,
-			viewUrl: buildDiagramViewUrl({
-				graph: { schemaVersion: 1, nodes, edges },
-				seeds: [],
-				mode: 'graph',
-				trace: 'component',
-				focus: false
-			})
+			viewUrl: buildDiagramViewUrl(
+				{
+					graph: { schemaVersion: 1, nodes, edges },
+					seeds: [],
+					mode: 'graph',
+					trace: 'component',
+					focus: false
+				},
+				origin
+			)
 		};
 	}
 	if (tool === 'graph_build_view') {
 		return {
-			url: buildDiagramViewUrl({
+			url: buildDiagramViewUrl(
+				{
+					query: text(args.query),
+					tags: stringList(args.tags),
+					seeds: stringList(args.seeds),
+					mode: modeOf(args.mode),
+					trace: traceOf(args.trace),
+					focus: args.focus === true
+				},
+				origin
+			)
+		};
+	}
+	const supplied = args.graph === undefined ? graph : args.graph;
+	if (!validateGraph(supplied)) throw new Error('Graph does not match the MANEF graph contract.');
+	return {
+		url: buildDiagramViewUrl(
+			{
+				graph: supplied,
 				query: text(args.query),
 				tags: stringList(args.tags),
 				seeds: stringList(args.seeds),
 				mode: modeOf(args.mode),
 				trace: traceOf(args.trace),
 				focus: args.focus === true
-			})
-		};
-	}
-	const supplied = args.graph === undefined ? graph : args.graph;
-	if (!validateGraph(supplied)) throw new Error('Graph does not match the MANEF graph contract.');
-	return {
-		url: buildDiagramViewUrl({
-			graph: supplied,
-			query: text(args.query),
-			tags: stringList(args.tags),
-			seeds: stringList(args.seeds),
-			mode: modeOf(args.mode),
-			trace: traceOf(args.trace),
-			focus: args.focus === true
-		}),
+			},
+			origin
+		),
 		nodeCount: supplied.nodes.length,
 		edgeCount: supplied.edges.length,
 		persisted: false

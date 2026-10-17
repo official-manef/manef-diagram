@@ -346,6 +346,21 @@ endpoint independent of user BYOK credentials.
 
 ## Verification and extension boundaries
 
+### Cloudflare pilot
+
+The isolated Workers endpoint is linked from [pilot QA](cloudflare-pilot-qa.md).
+All ten tools passed through Codex 0.160.1, including rejected credentials/origins and
+portable URLs on the pilot host. The landing and guide derive their endpoint from
+`PUBLIC_SITE_URL`; MCP view links use that trusted origin. Browser Share view keeps
+the current deployment origin. No production token is included in examples or reports.
+
+When keeping both deployments in Codex, name the pilot table
+`[mcp_servers.diagram_pilot]` and use a separate `MCP_DIAGRAM_PILOT_TOKEN` environment
+variable. Copy the pilot URL from its guide and set `bearer_token_env_var` to that
+variable. Preserve the existing production table. Restart the client after setting
+the token privately. The per-process burst counter becomes per-isolate on Workers;
+this pilot does not establish a distributed/global request limit.
+
 Focused tests use mock provider streams/HTTP only: configuration rejection, fixed
 provider hosts, bounded generation, key redaction, cancellation, actual official MCP
 discovery/call serialization, allowlist and confirmation checks, session termination,

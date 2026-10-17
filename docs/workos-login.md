@@ -40,39 +40,30 @@ real consent, callback, refresh, or private-data acceptance; step 6 remains requ
 
 ## Live configuration check — 2026-10-11
 
-The WorkOS connector verified MANEF Production
-`environment_01M3X9NDHZNFHTFSTZ0F0B3XWE` and public application client
-`client_01M3X9NDW4TE0P8DN6XS246PVM`. The allowed application redirect is already
-`https://diagram.manef.dev/auth/callback`.
+MANEF Production is `environment_01M3X9NDHZNFHTFSTZ0F0B3XWE`, application
+`client_01M3X9NDW4TE0P8DN6XS246PVM`. Production
+`https://diagram.manef.dev/auth/callback` remains the default redirect; the exact
+Workers pilot callback is also allowed. Google uses its separate WorkOS integration
+callback; an application callback is not a Google authorized redirect.
 
-Google's web OAuth client is
-`356006447800-u3d5j0ciuvrjs4vsfqhsgj5ubhajo24c.apps.googleusercontent.com`.
-In **that client's Google Cloud Authorized redirect URIs**, register the exact
-WorkOS Google callback shown by the integration:
+The owner authorized using existing Convex variables. Sign in to the Convex dashboard
+as the account that owns `manef-diagram` in Abdurrahman Fakhrul's team and select
+Production `dutiful-zebra-689`. Its `WORKOS_CLIENT_ID` matches MANEF and its WorkOS
+API key was validated HTTP 200. The Vercel key was different and returned HTTP 401.
+A key's presence or variable name does not prove validity. No secret values belong
+in reports, screenshots, source or chat.
 
-```text
-https://auth.workos.com/sso/oauth/google/or1RB58sR8SS48KuIUjjp52iu/callback
-```
+The valid existing key is installed in the isolated Workers pilot with an independent
+32-byte base64url session secret. Real AuthKit sign-in as official.manef@gmail.com,
+reload, automatic forced refresh, authenticated Convex notes create/read/update and
+cleanup, local sign-out and signed-out denial passed. This follow-up reused the
+existing Google/AuthKit session; it did not repeat fresh Google consent. Two-account
+backend isolation and private inventory remain separate acceptance gates. Production
+Vercel configuration and DNS were not changed.
 
-This is not the application's callback. WorkOS cannot register an authorized URI
-inside Google Cloud through its OAuth-credentials update API. WorkOS currently shows
-the credentials as `Valid`, but its callback validation returned `success: false`
-and the browser returned Google Error 400 `redirect_uri_mismatch` before consent.
-The available Google Cloud console failed to load the OAuth client list. No Google
-client secret was retrieved, replaced or copied into source.
-
-After saving the URI in Google Cloud, run WorkOS `verifyRedirectUri` in Production
-again, then perform a real login from `/apps/notes`. Verify consent, callback,
-refresh, create/edit/delete a disposable note, logout and isolation using two accounts.
-Do not accept a successful hosted-login redirect as proof of the private backend.
-The linked Convex public query responds and anonymous private queries reject access;
-its deployed WorkOS JWT configuration is still unverified. The repository deploy
-workflow has no configured Actions secret as of this check. See the deployment order
-above before enabling private writes. Public client/environment IDs and callback
-URLs are identifiers, not credentials.
-
-[WorkOS Google setup](https://workos.com/docs/integrations/google-oauth) documents
-the two separate callbacks and Google-side registration.
+WorkOS code exchange and refresh use manual redirect mode and reject non-2xx responses.
+This preserves credential boundaries on the live Workers runtime, where the previous
+redirect mode caused a TypeError. See [pilot QA](cloudflare-pilot-qa.md).
 
 ## Security contract
 

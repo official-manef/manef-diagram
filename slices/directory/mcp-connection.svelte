@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { env } from '$env/dynamic/public';
+	import { page } from '$app/state';
+	import { siteOrigin } from '$lib/config/metadata';
 	import { GRAPH_TOOL_NAMES } from '$features/architecture-inventory';
 
-	const endpoint = 'https://diagram.manef.dev/api/mcp/server';
-	const codexConfig = `[mcp_servers.diagram]
+	const endpoint = $derived(
+		new URL('/api/mcp/server', siteOrigin(env.PUBLIC_SITE_URL) ?? page.url.origin).href
+	);
+	const codexConfig = $derived(`[mcp_servers.diagram]
 url = "${endpoint}"
-bearer_token_env_var = "MCP_DIAGRAM_TOKEN"`;
+bearer_token_env_var = "MCP_DIAGRAM_TOKEN"`);
 	let hydrated = $state(false);
 	let message = $state('');
 	onMount(() => (hydrated = true));
