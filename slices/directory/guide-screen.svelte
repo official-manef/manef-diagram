@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { workspaceUrl } from '$lib/config/navigation';
-	import { resolve } from '$app/paths';
+	import { asset, resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PublicFrame from './public-frame.svelte';
 	import McpConnection from './mcp-connection.svelte';
@@ -26,7 +26,52 @@
 			{/each}
 		</nav>
 		<article class="stack">
-			{#if section === 'navigation'}
+			{#if section === 'converters'}
+				<h1>One document, multiple formats.</h1>
+				<p>
+					Export a JSON or Markdown document to keep the full map, nested diagrams, all 24 diagram
+					kinds, original view sources, inventory, metadata and layout together.
+				</p>
+				<p>
+					Markdown contains a readable preview and one authoritative <code>manef-diagram-json</code> block.
+					Import reads that block; edit the document or view source in Diagram to change structure.
+				</p>
+				<h2>Use the converter in n8n</h2>
+				<ol class="mapping-steps">
+					<li>
+						<a href={asset('/workflows/manef-diagram-converter.json')} download
+							>Download the inactive n8n converter workflow</a
+						> and import it from a file in your own n8n instance.
+					</li>
+					<li>
+						The Example input node contains a synthetic document. Replace it with your input items: <code
+							>format</code
+						>
+						is <code>json</code> or <code>md</code>, <code>source</code> is the document text, and
+						<code>target</code> is the desired format.
+					</li>
+					<li>
+						Run manually. The converter returns the complete document and converted text for each
+						item. It uses no credentials or network requests.
+					</li>
+				</ol>
+				<h2>Preserve an existing n8n workflow</h2>
+				<p>
+					Import workflow JSON into Diagram to inspect its nodes and connections. JSON and Markdown
+					documents keep its parameters, expressions, credential references and original workflow
+					metadata. Export with “n8n workflow (original)” to preserve it, or “inactive” to
+					explicitly clear its activation flags.
+				</p>
+				<p>
+					Changing the projected graph blocks n8n export because renaming nodes or connections can
+					break expressions. Other diagram kinds remain documents; they do not automatically become
+					executable automations.
+				</p>
+				<p>
+					The converter is covered by offline code and roundtrip tests. Import and execution in your
+					particular n8n instance remain a separate acceptance check.
+				</p>
+			{:else if section === 'navigation'}
 				<h1>Choose the next tool for your task.</h1>
 				<p class="muted">
 					Public pages discover products. The ecosystem workspace belongs to MANEF. The public

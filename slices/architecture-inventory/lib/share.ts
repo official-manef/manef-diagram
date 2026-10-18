@@ -1,5 +1,6 @@
 import type { ArchitectureGraph, DiagramMode, TraceMode } from '../types';
 import { cloneGraph, parseGraphJson, validateGraph } from './graph';
+import { isJsonValue } from './json';
 
 export const DEFAULT_DIAGRAM_ORIGIN = 'https://diagram.manef.dev';
 export const PORTABLE_GRAPH_MAX_CHARS = 12_000;
@@ -43,6 +44,11 @@ export function buildDiagramViewUrl(
 	if (view.focus) url.searchParams.set('focus', '1');
 	for (const id of view.open ?? []) url.searchParams.append('open', id);
 	if (view.graph) {
+		if (!isJsonValue(view.graph)) {
+			throw new Error(
+				'Graph must use plain JSON values with finite numbers, safe integers, and no negative zero. Encode larger integers as strings.'
+			);
+		}
 		if (!validateGraph(view.graph))
 			throw new Error('Graph does not match the MANEF graph contract.');
 		const payload = JSON.stringify(view.graph);

@@ -5,6 +5,8 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Add a versioned full-diagram document with lossless JSON/Markdown transport for nested graphs, all 24 Mermaid kinds, metadata, inventory and layout. Preserve imported n8n workflows and provide an inactive standalone converter workflow with offline regression coverage.
+
 - Isolate private note drafts, Convex auth callbacks and query caches by verified account. Reject token delivery when a page expects another cookie owner; cover local account/issuer denial and browser failure recovery.
 
 - Align the public runtime claim with the live Vercel origin. Dokploy/adapter-node stays an optional container target, not the current production host.

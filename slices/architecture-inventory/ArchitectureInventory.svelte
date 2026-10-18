@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { asset, resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -15,7 +16,7 @@
 		graphNodeRadius,
 		linkCount,
 		parseGraphJson,
-		parseImportedGraph,
+		validateGraph,
 		routeEdges,
 		sameGraph,
 		relatedView,
@@ -57,14 +58,35 @@
 		isDiagramKind,
 		kindGroups,
 		mermaidSource,
-		viewAsJson,
-		viewAsMarkdown
+		convertNodeView
 	} from './lib/diagram-views';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
+	import {
+		createDocument,
+		isJsonValue,
+		documentAsJson,
+		documentAsMarkdown,
+		parseDiagramDocument,
+		parseDiagramMarkdown,
+		MAX_DOCUMENT_INPUT_CHARS,
+		type DiagramDocument
+	} from './lib/document';
+	import { importN8nWorkflow, exportN8nWorkflow } from './lib/n8n';
 	import './editor.css';
 	import { themePreference } from '$lib/theme.svelte';
 
 	let root = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
+	let importedDocument = $state<DiagramDocument>({
+		...createDocument(defaultGraph),
+		inventory: defaultInventory
+	});
+	let layouts = $state<Record<string, Record<string, Point>>>({});
+	let documentRevision = $state(0);
+	let cameraGeneration = 0;
+	let skipImportedFit = false;
+	let exportFormat = $state<'json' | 'md' | 'n8n' | 'n8n-inactive'>('json');
+	let inputFormat = $state<'json' | 'md'>('json');
+	const inventory = $derived(importedDocument.inventory ?? defaultInventory);
 	let diagramPath = $state<string[]>([]);
 	const graph = $derived(diagramAt(root, diagramPath) ?? root);
 	let hydrated = $state(false);
@@ -228,7 +250,7 @@
 	const visibleTagGroups = $derived(filterTagGroups(tagGroups, tagQuery, tagSort, tagCount));
 	const inventoryItems = $derived(
 		searchInventory(
-			defaultInventory,
+			inventory,
 			inventorySearch,
 			[],
 			inventoryKind === 'all' ? undefined : inventoryKind
@@ -402,15 +424,22 @@
 	$effect(() => {
 		if (!hydrated) return;
 		const key = fitKey;
+		void documentRevision;
+		const generation = cameraGeneration;
+		if (skipImportedFit) {
+			skipImportedFit = false;
+			return;
+		}
 		const ids = untrack(() => visibleNodes.map((node) => node.id));
 		void key;
 		void tick()
-			.then(() =>
-				fitPoints(
-					untrack(() => basePositions),
-					ids
-				)
-			)
+			.then(() => {
+				if (generation === cameraGeneration)
+					fitPoints(
+						untrack(() => basePositions),
+						ids
+					);
+			})
 			.catch(() => undefined);
 	});
 
@@ -432,7 +461,8 @@
 		selectedEdgeId = null;
 		selectedEdgeIds = [];
 		armedOutput = null;
-		overrides = {};
+		overrides = layouts[JSON.stringify(diagramPath)] ?? {};
+		openView = null;
 		search = '';
 		activeTags = [];
 		focusMode = false;
@@ -440,18 +470,20 @@
 
 	function showDiagram(depth: number) {
 		const nextPath = diagramPath.slice(0, depth);
+		layouts = { ...layouts, [JSON.stringify(diagramPath)]: overrides };
 		diagramPath = nextPath;
 		resetLevel();
-		jsonText = JSON.stringify(diagramAt(root, nextPath) ?? root, null, 2);
+		syncJson();
 	}
 
 	function openDiagram(id: string) {
 		const visible = diagramAt(root, diagramPath) ?? root;
 		const node = visible.nodes.find((item) => item.id === id);
 		if (!node?.child) return;
+		layouts = { ...layouts, [JSON.stringify(diagramPath)]: overrides };
 		diagramPath = [...diagramPath, id];
 		resetLevel();
-		jsonText = JSON.stringify(node.child, null, 2);
+		syncJson();
 	}
 
 	function addComponentDiagram(id: string) {
@@ -571,7 +603,7 @@
 	}
 
 	function materialize(id: string) {
-		const item = defaultInventory.find((candidate) => candidate.id === id);
+		const item = inventory.find((candidate) => candidate.id === id);
 		if (!item) return;
 		const existing = graph.nodes.find(
 			(node) =>
@@ -590,68 +622,166 @@
 	}
 
 	function syncJson() {
-		jsonText = JSON.stringify(graph, null, 2);
-		jsonMessage = 'JSON in the editor matches the map.';
+		try {
+			jsonText =
+				inputFormat === 'md'
+					? documentAsMarkdown(documentSnapshot())
+					: documentAsJson(documentSnapshot());
+			jsonMessage = 'The editor contains the complete document.';
+		} catch (error) {
+			jsonMessage = error instanceof Error ? error.message : 'Could not serialize document.';
+		}
 	}
 
-	function documentSnapshot() {
+	function documentSnapshot(): DiagramDocument {
 		return {
-			schemaVersion: 1,
-			title: 'MANEF Architecture',
+			...importedDocument,
 			graph: root,
 			ui: {
+				...importedDocument.ui,
 				themePreset: editorTheme,
 				diagramMode,
 				traceMode,
-				focusMode
+				focusMode,
+				query: search,
+				tags: activeTags,
+				seeds: selectedNodeIds,
+				open: diagramPath,
+				pan,
+				zoom,
+				positions: overrides,
+				layouts: { ...layouts, [JSON.stringify(diagramPath)]: overrides }
 			}
 		};
 	}
 
 	function exportJson() {
-		const text = JSON.stringify(documentSnapshot(), null, 2);
-		const file = new Blob([text], { type: 'application/json' });
-		const href = URL.createObjectURL(file);
-		const link = document.createElement('a');
-		link.href = href;
-		link.download = 'manef-architecture.json';
-		link.click();
-		URL.revokeObjectURL(href);
-		actionMessage = 'Downloaded the map, its component diagrams, and the current view settings.';
+		try {
+			const snapshot = documentSnapshot();
+			const text =
+				exportFormat === 'md'
+					? documentAsMarkdown(snapshot)
+					: exportFormat === 'n8n' || exportFormat === 'n8n-inactive'
+						? exportN8nWorkflow(snapshot, {
+								mode: exportFormat === 'n8n-inactive' ? 'inactive' : 'preserve'
+							})
+						: documentAsJson(snapshot);
+			const markdown = exportFormat === 'md';
+			const file = new Blob([text], {
+				type: markdown ? 'text/markdown;charset=utf-8' : 'application/json'
+			});
+			const href = URL.createObjectURL(file);
+			const link = document.createElement('a');
+			link.href = href;
+			link.download = exportFormat.startsWith('n8n')
+				? 'manef-workflow.json'
+				: `manef-architecture.${markdown ? 'md' : 'json'}`;
+			link.click();
+			URL.revokeObjectURL(href);
+			actionMessage = exportFormat.startsWith('n8n')
+				? 'Downloaded the preserved n8n workflow. Review parameters and credential references before importing it.'
+				: 'Downloaded the complete document, including nested diagrams, view sources, metadata and layout.';
+		} catch (error) {
+			actionMessage = error instanceof Error ? error.message : 'Export failed.';
+		}
 		jsonMessage = actionMessage;
 	}
 
-	function applyImported(next: ArchitectureGraph) {
-		root = next;
-		diagramPath = [];
+	function applyImported(next: DiagramDocument) {
+		// Validation and cloning finish before any current editor state changes.
+		const validated = parseDiagramDocument(documentAsJson(next));
+		const editorText =
+			inputFormat === 'md' ? documentAsMarkdown(validated) : documentAsJson(validated);
+		const opened = validated.ui?.open ?? [];
+		const importedGraph = diagramAt(validated.graph, opened);
+		if (!importedGraph) throw new Error('The document opens a component path that does not exist.');
+		const seeds = validated.ui?.seeds ?? [];
+		if (seeds.some((seed) => !importedGraph.nodes.some((node) => node.id === seed))) {
+			throw new Error('The document selects a node outside its open diagram.');
+		}
+		cameraGeneration += 1;
+		skipImportedFit = Boolean(validated.ui?.pan || validated.ui?.zoom);
+		importedDocument = validated;
+		root = validated.graph;
+		diagramPath = [...opened];
+		layouts = validated.ui?.layouts ?? {};
+		if (validated.ui?.positions)
+			layouts = { ...layouts, [JSON.stringify(diagramPath)]: validated.ui.positions };
 		resetLevel();
-		jsonText = JSON.stringify(documentSnapshot(), null, 2);
-		jsonMessage = 'JSON applied.';
+		const ui = validated.ui;
+		diagramMode = ui?.diagramMode ?? 'flow';
+		traceMode = ui?.traceMode ?? 'direct';
+		focusMode = ui?.focusMode ?? false;
+		search = ui?.query ?? '';
+		activeTags = ui?.tags ?? [];
+		selectedNodeIds = [...seeds];
+		selectedNodeId = seeds.length === 1 ? seeds[0] : null;
+		if (ui?.pan) pan = ui.pan;
+		if (ui?.zoom) zoom = ui.zoom;
+		if (ui?.themePreset) applyEditorTheme(ui.themePreset);
+		documentRevision += 1;
+		jsonText = editorText;
+		jsonMessage = 'Document applied.';
+	}
+
+	function parseInput(source: string, markdown = false): DiagramDocument {
+		if (source.length > MAX_DOCUMENT_INPUT_CHARS)
+			throw new Error('Diagram document exceeds the 5,000,000 character limit.');
+		if (markdown) return parseDiagramMarkdown(source);
+		const value: unknown = JSON.parse(source);
+		try {
+			return parseDiagramDocument(source);
+		} catch (error) {
+			if (
+				typeof value === 'object' &&
+				value !== null &&
+				'nodes' in value &&
+				'connections' in value &&
+				!('format' in value && value.format === 'manef-diagram')
+			)
+				return importN8nWorkflow(value);
+			throw error;
+		}
 	}
 
 	function importJson() {
 		try {
-			const value: unknown = JSON.parse(jsonText);
-			if (typeof value === 'object' && value !== null && 'graph' in value) {
-				applyImported(parseImportedGraph(jsonText));
+			if (jsonText.length > MAX_DOCUMENT_INPUT_CHARS)
+				throw new Error('Diagram document exceeds the 5,000,000 character limit.');
+			if (inputFormat === 'md') {
+				applyImported(parseInput(jsonText, true));
 				return;
 			}
-			const next = parseGraphJson(jsonText);
-			if (!commitVisible(next)) return;
-			rememberSelection([], []);
-			armedOutput = null;
-			jsonMessage = 'JSON applied.';
+			const value: unknown = JSON.parse(jsonText);
+			if (validateGraph(value) && !('format' in value && value.format === 'manef-diagram')) {
+				// Legacy graph-only pastes replace the open component level.
+				parseDiagramDocument(jsonText);
+				if (!commitVisible(parseGraphJson(jsonText))) return;
+				rememberSelection([], []);
+				armedOutput = null;
+				jsonMessage = 'JSON applied.';
+			} else applyImported(parseInput(jsonText));
 		} catch (error) {
-			jsonMessage = error instanceof Error ? error.message : 'Invalid graph JSON.';
+			jsonMessage = error instanceof Error ? error.message : 'Invalid document.';
 		}
 	}
 
 	function formatJson() {
 		try {
-			jsonText = JSON.stringify(JSON.parse(jsonText), null, 2);
+			if (jsonText.length > MAX_DOCUMENT_INPUT_CHARS)
+				throw new Error('Diagram document exceeds the 5,000,000 character limit.');
+			if (inputFormat === 'md') jsonText = documentAsMarkdown(parseInput(jsonText, true));
+			else {
+				const value: unknown = JSON.parse(jsonText);
+				if (!isJsonValue(value))
+					throw new Error(
+						'JSON requires finite numbers, safe integers and no negative zero; larger exact integers must be strings.'
+					);
+				jsonText = JSON.stringify(value, null, 2);
+			}
 			jsonMessage = 'Formatted.';
 		} catch (error) {
-			jsonMessage = error instanceof Error ? error.message : 'JSON error.';
+			jsonMessage = error instanceof Error ? error.message : 'Format error.';
 		}
 	}
 
@@ -661,7 +791,13 @@
 		input.value = '';
 		if (!file) return;
 		try {
-			applyImported(parseImportedGraph(await file.text()));
+			if (file.size > 20_000_000) throw new Error('Import file exceeds 20 MB.');
+			const source = await file.text();
+			const markdown =
+				/\.md(?:own)?$/i.test(file.name) ||
+				file.type === 'text/markdown' ||
+				!source.trimStart().startsWith('{');
+			applyImported(parseInput(source, markdown));
 			actionMessage = `Imported ${file.name}.`;
 		} catch (error) {
 			actionMessage = error instanceof Error ? error.message : 'Import failed.';
@@ -888,14 +1024,7 @@
 	function setViewFormat(format: 'md' | 'json') {
 		if (!activeView || activeView.format === format) return;
 		try {
-			const body = mermaidSource(activeView);
-			replaceView({
-				format,
-				source:
-					format === 'json'
-						? viewAsJson({ ...activeView, format: 'md', source: body })
-						: viewAsMarkdown({ title: activeView.title, source: body })
-			});
+			replaceView(convertNodeView(activeView, format));
 			viewError = '';
 		} catch (error) {
 			viewError = error instanceof Error ? error.message : 'Could not convert this view.';
@@ -1202,6 +1331,12 @@
 				<option value="composio-light">Light</option>
 				<option value="system">System</option>
 			</select>
+			<select class="theme-select" aria-label="Export format" bind:value={exportFormat}>
+				<option value="json">JSON document</option>
+				<option value="md">Markdown document</option>
+				<option value="n8n">n8n workflow (original)</option>
+				<option value="n8n-inactive">n8n workflow (inactive)</option>
+			</select>
 			<div class="top-actions">
 				<Button data-interactive variant="outline" size="sm" onclick={addNode}>+ Node</Button>
 				<Button data-interactive variant="outline" size="sm" onclick={exportJson}>Export</Button>
@@ -1211,7 +1346,7 @@
 				<input
 					bind:this={fileInput}
 					type="file"
-					accept="application/json"
+					accept=".json,.md,.markdown,application/json,text/markdown,text/plain"
 					hidden
 					onchange={importFile}
 				/>
@@ -1804,14 +1939,14 @@
 			{#if inspectorTab === 'inventory'}
 				<div class="panel">
 					<p class="help">
-						References {inventoryCount(defaultInventory, 'reference')} · Repos {inventoryCount(
-							defaultInventory,
+						References {inventoryCount(inventory, 'reference')} · Repos {inventoryCount(
+							inventory,
 							'repo'
-						)} · Domains {inventoryCount(defaultInventory, 'domain')} · Hosts {inventoryCount(
-							defaultInventory,
+						)} · Domains {inventoryCount(inventory, 'domain')} · Hosts {inventoryCount(
+							inventory,
 							'hostname'
-						)} · Convex {inventoryCount(defaultInventory, 'convex')}. Private records are not in
-						this public app.
+						)} · Convex {inventoryCount(inventory, 'convex')}. Private records are not in this
+						bundled inventory. Imported documents stay in this browser until you export them.
 					</p>
 					<select
 						class="theme-select"
@@ -1850,6 +1985,20 @@
 				</div>
 			{:else if inspectorTab === 'json'}
 				<div class="panel">
+					<select class="theme-select" aria-label="Input format" bind:value={inputFormat}>
+						<option value="json">JSON document or n8n workflow</option>
+						<option value="md">Markdown document</option>
+					</select>
+					<p class="help">
+						JSON and Markdown preserve the complete document. A bare graph JSON replaces the open
+						diagram level.
+					</p>
+					<p class="help">
+						<a href={asset('/workflows/manef-diagram-converter.json')} download
+							>Download n8n converter workflow</a
+						>
+						· <a href={resolve('/guide?section=converters')}>Converter guide</a>
+					</p>
 					<textarea
 						class="json"
 						bind:value={jsonText}
@@ -1858,7 +2007,9 @@
 					<div class="json-actions">
 						<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
 						<Button size="sm" variant="outline" onclick={formatJson}>Format</Button>
-						<Button size="sm" onclick={importJson}>Apply JSON</Button>
+						<Button size="sm" onclick={importJson}
+							>{inputFormat === 'md' ? 'Apply Markdown' : 'Apply JSON'}</Button
+						>
 					</div>
 					{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
 				</div>

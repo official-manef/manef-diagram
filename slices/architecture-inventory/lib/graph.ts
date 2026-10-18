@@ -9,6 +9,7 @@ import type {
 	TraceResult
 } from '../types';
 import { isNodeView } from './diagram-views';
+import { cloneJson, sameJson } from './json';
 
 export const MAX_DIAGRAM_DEPTH = 3;
 
@@ -153,24 +154,7 @@ export function parseImportedGraph(json: string): ArchitectureGraph {
 }
 
 export function cloneGraph(graph: ArchitectureGraph): ArchitectureGraph {
-	return {
-		schemaVersion: 1,
-		nodes: graph.nodes.map((node) => {
-			const copy: ArchitectureNode = {
-				...node,
-				tags: [...node.tags],
-				inputs: node.inputs.map((port) => ({ ...port })),
-				outputs: node.outputs.map((port) => ({ ...port }))
-			};
-			if (node.child) copy.child = cloneGraph(node.child);
-			else delete copy.child;
-			if (node.views) copy.views = node.views.map((view) => ({ ...view }));
-			else delete copy.views;
-			if (node.inventoryRef) copy.inventoryRef = { ...node.inventoryRef };
-			return copy;
-		}),
-		edges: graph.edges.map((edge) => ({ ...edge, tags: edge.tags ? [...edge.tags] : undefined }))
-	};
+	return cloneJson(graph);
 }
 
 /** The diagram reached by opening each id, or null when any step has no child. */
@@ -857,50 +841,7 @@ export function routeEdges(
 }
 
 export function sameGraph(a: ArchitectureGraph, b: ArchitectureGraph): boolean {
-	const signature = (graph: ArchitectureGraph): string =>
-		JSON.stringify({
-			nodes: graph.nodes.map((node) => ({
-				id: node.id,
-				label: node.label,
-				subtitle: node.subtitle ?? '',
-				group: node.group ?? '',
-				level: node.level ?? null,
-				status: node.status ?? null,
-				tags: node.tags,
-				inputs: node.inputs.map((port) => ({
-					id: port.id,
-					label: port.label,
-					kind: port.kind ?? ''
-				})),
-				outputs: node.outputs.map((port) => ({
-					id: port.id,
-					label: port.label,
-					kind: port.kind ?? ''
-				})),
-				child: node.child ? signature(node.child) : '',
-				inventoryRef: node.inventoryRef
-					? { kind: node.inventoryRef.kind, key: node.inventoryRef.key }
-					: null,
-				views:
-					node.views?.map((view) => ({
-						id: view.id,
-						kind: view.kind,
-						title: view.title,
-						format: view.format,
-						source: view.source
-					})) ?? []
-			})),
-			edges: graph.edges.map((edge) => ({
-				id: edge.id,
-				source: edge.source,
-				sourcePort: edge.sourcePort,
-				target: edge.target,
-				targetPort: edge.targetPort,
-				label: edge.label ?? '',
-				tags: edge.tags ?? []
-			}))
-		});
-	return signature(a) === signature(b);
+	return sameJson(a, b);
 }
 
 /** Keep an edge when a filter matches either end, and name the other end as context. */
