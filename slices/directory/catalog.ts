@@ -369,6 +369,7 @@ export const roadmap = [
 ];
 
 export const guideSections = [
+	{ id: 'converters', title: 'Documents & converters' },
 	{ id: 'start', title: 'Start' },
 	{ id: 'navigation', title: 'Navigation' },
 	{ id: 'identity', title: 'Identity' },

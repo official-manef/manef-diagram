@@ -35,6 +35,30 @@ public metadata does not become a writable or executable API.
 
 MANEF Web owns concise bilingual project overviews and public Markdown briefs. Diagram’s first guide now leads from selecting a service to inspecting connections and exporting JSON. Public navigation offers sign-in only when authentication is enabled; the map remains accessible without an account. Browser-local Models and Operations forms wait for initialization before accepting input and are checked for save/reload behavior. These changes do not activate identity providers, host execution or real model routing.
 
+## Unified document and converters — 2026-10-18
+
+Use one versioned document for the architecture graph, nested components, all 24
+bundled Mermaid kinds, inventory, authored view sources, editor state and JSON-safe
+provider extensions. JSON and Markdown retain that document; Markdown includes one
+authoritative canonical JSON fence and readable projections. Unknown fields survive
+round trips. Invalid or ambiguous input must leave the open editor unchanged.
+
+Existing n8n workflow JSON has a preservation adapter: nodes, typed connection
+channels, parameters, expressions, credential references and raw metadata stay in
+the document. Graph edits that could invalidate executable semantics block workflow
+export. An inactive manual-trigger workflow runs the same canonical converter core
+inside an n8n Code node, without credentials or network access. Other diagram kinds
+do not become executable automations automatically.
+
+Acceptance includes JSON↔Markdown equality, all view kinds, nested data, layout/theme
+restore, unknown extensions, invalid-input recovery, n8n branch/cycle/multi-input/AI
+channels and execution of the generated converter code in offline fixtures. Actual
+import and execution in a destination n8n instance remain separate acceptance work.
+Convex snapshots remain the legacy flat graph API; complete document persistence
+uses local JSON/Markdown files until a separate backend migration is accepted.
+See [document contract](diagram-document.md). Production release is not authorized
+by local validation or creation of the draft PR.
+
 ## Architecture inventory goal
 
 Provide one reusable architecture/inventory feature that visualizes MANEF products, infrastructure and relationships without coupling the graph model to a frontend framework.

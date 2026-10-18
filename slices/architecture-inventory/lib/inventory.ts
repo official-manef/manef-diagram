@@ -41,13 +41,13 @@ export function materializeInventoryItem(item: InventoryItem): ArchitectureNode 
 	const node: ArchitectureNode = {
 		id: item.id,
 		label: item.label,
-		subtitle: item.subtitle,
 		tags: [...item.tags],
-		group: item.group,
-		status: item.status,
 		inputs: item.inputs?.map((port) => ({ ...port })) ?? [{ id: 'in', label: 'Consumes' }],
 		outputs: item.outputs?.map((port) => ({ ...port })) ?? [{ id: 'out', label: 'Provides' }]
 	};
+	if (item.subtitle !== undefined) node.subtitle = item.subtitle;
+	if (item.group !== undefined) node.group = item.group;
+	if (item.status !== undefined) node.status = item.status;
 	if (item.kind) node.inventoryRef = { kind: item.kind, key: item.id };
 	return node;
 }

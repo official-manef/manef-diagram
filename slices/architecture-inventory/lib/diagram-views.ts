@@ -1,4 +1,5 @@
 import type { NodeView } from '../types';
+import { isJsonValue, sameJson } from './json';
 
 export type { NodeView };
 export type DiagramKind = (typeof DIAGRAM_KINDS)[number]['id'];
@@ -172,20 +173,204 @@ export function isDiagramKind(id: string): id is DiagramKind {
 	return diagramKind(id) !== undefined;
 }
 
-export function isNodeView(value: unknown): value is NodeView {
-	if (typeof value !== 'object' || value === null) return false;
-	const view = value as Partial<NodeView>;
+export const MAX_NODE_VIEW_SOURCE_LENGTH = 200_000;
+const MAX_AUTHORED_SOURCE_LENGTH = 20_000;
+const MAX_JSON_DEPTH = 24;
+const VIEW_ENVELOPE_FORMAT = 'manef-node-view';
+const VIEW_PAYLOAD_LANGUAGE = 'manef-node-view-json';
+
+type ViewEnvelope = { format: typeof VIEW_ENVELOPE_FORMAT; schemaVersion: 1; view: NodeView };
+type FencedBlock = { info: string; content: string; start: number; end: number };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
 	return (
-		typeof view.id === 'string' &&
-		view.id.length > 0 &&
-		view.id.length < 80 &&
-		typeof view.kind === 'string' &&
-		isDiagramKind(view.kind) &&
-		typeof view.title === 'string' &&
-		typeof view.source === 'string' &&
-		view.source.length <= 20_000 &&
-		(view.format === 'md' || view.format === 'json')
+		typeof value === 'object' &&
+		value !== null &&
+		!Array.isArray(value) &&
+		(Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
 	);
+}
+
+function assertJsonValue(value: unknown): void {
+	if (!isJsonValue(value)) {
+		throw new Error('Node view metadata must contain only finite, plain JSON values.');
+	}
+	const pending: { value: unknown; depth: number }[] = [{ value, depth: 0 }];
+	while (pending.length > 0) {
+		const item = pending.pop()!;
+		if (item.depth > MAX_JSON_DEPTH) throw new Error('Node view metadata is nested too deeply.');
+		if (item.value !== null && typeof item.value === 'object') {
+			for (const child of Object.values(item.value)) {
+				pending.push({ value: child as unknown, depth: item.depth + 1 });
+			}
+		}
+	}
+}
+
+function assertViewShape(value: unknown): asserts value is NodeView {
+	if (
+		!isRecord(value) ||
+		typeof value.id !== 'string' ||
+		value.id.length === 0 ||
+		value.id.length >= 80 ||
+		typeof value.kind !== 'string' ||
+		!isDiagramKind(value.kind) ||
+		typeof value.title !== 'string' ||
+		typeof value.source !== 'string' ||
+		value.source.length > MAX_NODE_VIEW_SOURCE_LENGTH ||
+		(value.format !== 'md' && value.format !== 'json')
+	) {
+		throw new Error('Invalid node view.');
+	}
+	assertJsonValue(value);
+	if (JSON.stringify(value).length > MAX_NODE_VIEW_SOURCE_LENGTH) {
+		throw new Error('Node view exceeds the conversion size limit.');
+	}
+}
+
+function fencedBlocks(source: string): FencedBlock[] {
+	const blocks: FencedBlock[] = [];
+	const lines = source.match(/[^\n]*(?:\n|$)/g) ?? [];
+	let offset = 0;
+	let open:
+		{ marker: string; length: number; info: string; start: number; body: number } | undefined;
+	for (const line of lines) {
+		if (!open) {
+			const match = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)\r?\n?$/.exec(line);
+			if (match && !(match[1][0] === '`' && match[2].includes('`'))) {
+				open = {
+					marker: match[1][0],
+					length: match[1].length,
+					info: match[2].trim().toLowerCase(),
+					start: offset,
+					body: offset + line.length
+				};
+			}
+		} else {
+			const close = /^ {0,3}(`{3,}|~{3,})[ \t]*\r?\n?$/.exec(line);
+			if (close && close[1][0] === open.marker && close[1].length >= open.length) {
+				blocks.push({
+					info: open.info,
+					content: source.slice(open.body, offset),
+					start: open.start,
+					end: offset + line.length
+				});
+				open = undefined;
+			}
+		}
+		offset += line.length;
+	}
+	if (open?.info === VIEW_PAYLOAD_LANGUAGE || open?.info === 'mermaid') {
+		throw new Error('Node view has an unclosed diagram or canonical payload fence.');
+	}
+	return blocks;
+}
+
+function codeFence(language: string, content: string): string {
+	const runs = content.match(/`+/g) ?? [];
+	const width = Math.max(3, ...runs.map((run) => run.length + 1));
+	const marker = '`'.repeat(width);
+	return `${marker}${language}\n${content}\n${marker}\n`;
+}
+
+function envelopeValue(value: unknown): ViewEnvelope | undefined {
+	if (!isRecord(value) || value.format !== VIEW_ENVELOPE_FORMAT) return undefined;
+	if (value.schemaVersion !== 1) throw new Error('Unsupported node view schema version.');
+	if (Object.keys(value).some((key) => !['format', 'schemaVersion', 'view'].includes(key))) {
+		throw new Error('Node view wrapper has unsupported fields.');
+	}
+	assertViewShape(value.view);
+	return value as ViewEnvelope;
+}
+
+function authoredMermaidSource(view: Pick<NodeView, 'format' | 'source'>): string {
+	if (view.format === 'json') {
+		const value: unknown = JSON.parse(view.source);
+		if (isRecord(value) && typeof value.source === 'string') return value.source.trim();
+		throw new Error('JSON view needs a source string.');
+	}
+	const blocks = fencedBlocks(view.source).filter((block) => block.info === 'mermaid');
+	if (blocks.length > 1) throw new Error('Node view contains multiple Mermaid diagrams.');
+	if (blocks.length === 1) return blocks[0].content.trim();
+	return view.source.replace(/^#\s+.+\r?\n+/, '').trim();
+}
+
+function markdownEnvelope(envelope: ViewEnvelope): string {
+	const preview = codeFence('mermaid', authoredMermaidSource(envelope.view));
+	const payload = codeFence(VIEW_PAYLOAD_LANGUAGE, JSON.stringify(envelope, null, 2));
+	const title = envelope.view.title.replace(/[\r\n]+/g, ' ');
+	return `# ${title}\n\n${preview}\n${payload}`;
+}
+
+function readEnvelope(view: Pick<NodeView, 'format' | 'source'>): ViewEnvelope | undefined {
+	if (view.source.length > MAX_NODE_VIEW_SOURCE_LENGTH) {
+		throw new Error('Node view exceeds the conversion size limit.');
+	}
+	if (view.format === 'json') {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(view.source);
+		} catch {
+			if (view.source.includes(VIEW_ENVELOPE_FORMAT)) {
+				throw new Error('Invalid node view wrapper JSON.');
+			}
+			return undefined;
+		}
+		return envelopeValue(parsed);
+	}
+	const blocks = fencedBlocks(view.source);
+	const payloads = blocks.filter((block) => block.info === VIEW_PAYLOAD_LANGUAGE);
+	if (payloads.length > 1) throw new Error('Node view contains multiple canonical payloads.');
+	if (payloads.length === 0) return undefined;
+	const envelope = envelopeValue(JSON.parse(payloads[0].content));
+	if (!envelope) throw new Error('Invalid canonical node view payload.');
+	if (view.source !== markdownEnvelope(envelope)) {
+		throw new Error('Markdown preview does not match its canonical node view payload.');
+	}
+	return envelope;
+}
+
+function originalView(view: NodeView): NodeView {
+	assertViewShape(view);
+	const envelope = readEnvelope(view);
+	const original = envelope?.view ?? view;
+	if (envelope) {
+		const metadata = (value: NodeView) =>
+			Object.fromEntries(
+				Object.entries(value).filter(([key]) => key !== 'source' && key !== 'format')
+			);
+		if (!sameJson(metadata(view), metadata(original))) {
+			throw new Error('Node view wrapper metadata does not match its canonical payload.');
+		}
+	}
+	if (envelope && readEnvelope(original))
+		throw new Error('Nested node view wrappers are not supported.');
+	if (original.source.length > MAX_AUTHORED_SOURCE_LENGTH) {
+		throw new Error('Authored node view source exceeds 20,000 characters.');
+	}
+	return original;
+}
+
+export function isNodeView(value: unknown): value is NodeView {
+	try {
+		assertViewShape(value);
+		originalView(value);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export function convertNodeView(view: NodeView, target: 'md' | 'json'): NodeView {
+	if (target !== 'md' && target !== 'json') throw new Error('Unsupported node view format.');
+	const original = originalView(view);
+	const clone = JSON.parse(JSON.stringify(original)) as NodeView;
+	if (target === original.format) return clone;
+	const envelope: ViewEnvelope = { format: VIEW_ENVELOPE_FORMAT, schemaVersion: 1, view: clone };
+	const source = target === 'json' ? JSON.stringify(envelope, null, 2) : markdownEnvelope(envelope);
+	const converted = { ...clone, format: target, source };
+	assertViewShape(converted);
+	return converted;
 }
 
 export function createNodeView(kind: DiagramKind, nodeLabel: string): NodeView {
@@ -201,28 +386,29 @@ export function createNodeView(kind: DiagramKind, nodeLabel: string): NodeView {
 }
 
 export function mermaidSource(view: Pick<NodeView, 'format' | 'source' | 'kind'>): string {
-	if (view.format === 'json') {
-		const value: unknown = JSON.parse(view.source);
-		if (
-			typeof value === 'object' &&
-			value !== null &&
-			'source' in value &&
-			typeof value.source === 'string'
-		) {
-			return value.source.trim();
+	const envelope = readEnvelope(view);
+	if (!envelope) {
+		if (view.source.length > MAX_AUTHORED_SOURCE_LENGTH) {
+			throw new Error('Authored node view source exceeds 20,000 characters.');
 		}
-		throw new Error('JSON view needs a source string.');
+		return authoredMermaidSource(view);
 	}
-	const fenced = /```mermaid\s*([\s\S]*?)```/i.exec(view.source);
-	if (fenced) return fenced[1].trim();
-	return view.source.replace(/^#\s+.+\n+/, '').trim();
+	if ('id' in view || 'title' in view) {
+		assertViewShape(view);
+		return authoredMermaidSource(originalView(view));
+	}
+	const original = originalView(envelope.view);
+	if (original !== envelope.view) throw new Error('Nested node view wrappers are not supported.');
+	if (view.kind !== original.kind)
+		throw new Error('Node view kind does not match its canonical payload.');
+	return authoredMermaidSource(original);
 }
 
 export function viewAsMarkdown(view: { title: string; source: string }): string {
 	const body = view.source.includes('```')
 		? mermaidSource({ ...view, format: 'md', kind: 'flowchart' })
 		: view.source.trim();
-	return `# ${view.title}\n\n\`\`\`mermaid\n${body}\n\`\`\`\n`;
+	return `# ${view.title}\n\n${codeFence('mermaid', body)}`;
 }
 
 export function viewAsJson(view: Pick<NodeView, 'kind' | 'title' | 'format' | 'source'>): string {

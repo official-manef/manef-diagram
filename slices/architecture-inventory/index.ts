@@ -42,3 +42,19 @@ export {
 	tagGroup,
 	tagsMatchFacets
 } from './lib/share';
+
+export {
+	createDocument,
+	cloneDocument,
+	validateDiagramDocument,
+	parseDiagramDocument,
+	parseDiagramMarkdown,
+	documentAsJson,
+	documentAsMarkdown,
+	MAX_DOCUMENT_INPUT_CHARS,
+	DOCUMENT_MARKDOWN_LANGUAGE,
+	type DiagramDocument,
+	type DiagramDocumentUi
+} from './lib/document';
+export { importN8nWorkflow, exportN8nWorkflow, n8nCompatibility, N8N_REFERENCE } from './lib/n8n';
+export { convertNodeView } from './lib/diagram-views';
