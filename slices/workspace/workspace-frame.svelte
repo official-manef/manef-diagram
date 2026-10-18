@@ -2,7 +2,7 @@
 	import { siteLinks } from '$lib/config/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { ecosystem } from './store.svelte';
 	import { workspaceNavGroups, type WorkspaceSurfaceId } from './surfaces';
 	import { workspaceHostOrigin, workspaceParentOrigin } from './embedding';
@@ -11,6 +11,9 @@
 	let { children }: { children: import('svelte').Snippet } = $props();
 	let paletteQuery = $state('');
 	let navigationOpen = $state(false);
+	let navigationTrigger = $state<HTMLButtonElement>();
+	let supportTrigger = $state<HTMLButtonElement>();
+	let supportInput = $state<HTMLInputElement>();
 	let hydrated = $state(false);
 	let hostOrigin = $state<string | null>(null);
 	let supportText = $state('');
@@ -85,9 +88,13 @@
 				event.preventDefault();
 				ecosystem.palette = true;
 			} else if (event.key === 'Escape') {
-				navigationOpen = false;
-				ecosystem.palette = false;
-				ecosystem.supportOpen = false;
+				if (ecosystem.palette) {
+					ecosystem.palette = false;
+				} else if (ecosystem.supportOpen) {
+					closeSupport();
+				} else if (navigationOpen) {
+					closeNavigation();
+				}
 			}
 		};
 		window.addEventListener('keydown', onKey);
@@ -96,6 +103,27 @@
 			window.removeEventListener('message', onHost);
 		};
 	});
+
+	function closeNavigation() {
+		navigationOpen = false;
+		navigationTrigger?.focus();
+	}
+
+	function closeSupport() {
+		ecosystem.supportOpen = false;
+		if (supportTrigger?.getClientRects().length) supportTrigger.focus();
+		else navigationTrigger?.focus();
+	}
+
+	async function toggleSupport() {
+		if (ecosystem.supportOpen) {
+			closeSupport();
+			return;
+		}
+		ecosystem.supportOpen = true;
+		await tick();
+		supportInput?.focus();
+	}
 
 	function ask() {
 		const text = supportText.trim();
@@ -140,11 +168,15 @@
 			</label>
 			<button
 				class="btn phone-only"
+				bind:this={navigationTrigger}
 				type="button"
 				aria-expanded={navigationOpen}
 				aria-controls="workspace-navigation"
 				disabled={!hydrated}
-				onclick={() => (navigationOpen = !navigationOpen)}>Workspace navigation</button
+				onclick={() => {
+					if (navigationOpen) closeNavigation();
+					else navigationOpen = true;
+				}}>Workspace navigation</button
 			>
 			<div id="workspace-navigation" class="workspace-navigation" class:open={navigationOpen}>
 				{#each groups as group (group.label)}
@@ -169,7 +201,8 @@
 					<button
 						class="btn small"
 						type="button"
-						onclick={() => (ecosystem.supportOpen = !ecosystem.supportOpen)}
+						bind:this={supportTrigger}
+						onclick={toggleSupport}
 					>
 						Simulated support
 					</button>
@@ -253,13 +286,11 @@
 			>
 				<label class="field">
 					Message
-					<input bind:value={supportText} />
+					<input bind:this={supportInput} bind:value={supportText} />
 				</label>
 				<div class="row">
 					<button class="btn small primary" type="submit">Send</button>
-					<button class="btn small" type="button" onclick={() => (ecosystem.supportOpen = false)}
-						>Close</button
-					>
+					<button class="btn small" type="button" onclick={closeSupport}>Close</button>
 				</div>
 			</form>
 		</aside>

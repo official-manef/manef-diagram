@@ -67,6 +67,18 @@ export function withoutPort(
 	};
 }
 
+/** Remove nodes from this diagram level together with every connection touching them. */
+export function withoutNodes(graph: ArchitectureGraph, ids: string[]): ArchitectureGraph {
+	const removed = new Set(ids);
+	const nodes = graph.nodes.filter((node) => !removed.has(node.id));
+	if (nodes.length === graph.nodes.length) return graph;
+	return {
+		...graph,
+		nodes,
+		edges: graph.edges.filter((edge) => !removed.has(edge.source) && !removed.has(edge.target))
+	};
+}
+
 export function createNode(graph: ArchitectureGraph): ArchitectureNode {
 	const baseId = `node-${graph.nodes.length + 1}`;
 	let id = baseId;
