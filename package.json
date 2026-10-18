@@ -45,7 +45,8 @@
 		"convex:codegen": "convex codegen",
 		"build:deploy": "bun scripts/deploy.mjs",
 		"version:bump": "node scripts/version.mjs",
-		"verify": "bun run check && bun run lint && bun run test && bun run build"
+		"verify": "bun run check && bun run lint && bun run test && bun run build",
+		"test:notes": "playwright test --config playwright.notes.config.ts"
 	},
 	"devDependencies": {
 		"@convex-dev/eslint-plugin": "4.0.0",

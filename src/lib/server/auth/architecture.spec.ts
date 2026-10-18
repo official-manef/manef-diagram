@@ -5,10 +5,12 @@ import { api } from '../../../convex/_generated/api';
 import { validateGraph } from '$features/architecture-inventory';
 
 const modules = import.meta.glob('../../../convex/**/*.*s');
-const identity = (subject: string) => ({
-	issuer: 'https://api.workos.com/user_management/client_test',
+const workosIssuer = 'https://api.workos.com/user_management/client_test';
+const identity = (subject: string, issuer = workosIssuer) => ({
+	issuer,
 	subject,
-	tokenIdentifier: `https://api.workos.com/user_management/client_test|${subject}`
+	tokenIdentifier: `${issuer}|${subject}`,
+	email: 'shared@example.com'
 });
 
 function graph(): typeof architectureGraph.type {
@@ -43,16 +45,100 @@ test('snapshot owners can save, retrieve, update and remove only their graphs', 
 	expect(await alice.query(api.architecture.list, {})).toEqual([]);
 });
 
+test.each([
+	{
+		caseName: 'the same subject under different WorkOS issuers',
+		otherIdentity: identity('alice', 'https://api.workos.com/user_management/client_other')
+	},
+	{
+		caseName: 'different WorkOS subjects sharing an email',
+		otherIdentity: identity('bob')
+	}
+])('snapshots stay isolated for $caseName', async ({ otherIdentity }) => {
+	const t = convexTest(schema, modules);
+	const alice = t.withIdentity(identity('alice'));
+	const other = t.withIdentity(otherIdentity);
+	const aliceId = await alice.mutation(api.architecture.save, {
+		name: 'Alice private snapshot',
+		graph: graph()
+	});
+	const otherGraph = graph();
+	otherGraph.nodes[0].label = 'Other private node';
+	const otherId = await other.mutation(api.architecture.save, {
+		name: 'Other private snapshot',
+		graph: otherGraph
+	});
+	const missingId = await alice.mutation(api.architecture.save, {
+		name: 'Deleted snapshot',
+		graph: graph()
+	});
+	await alice.mutation(api.architecture.remove, { id: missingId });
+	const before = await t.run(async (ctx) => ({
+		alice: await ctx.db.get('architectureSnapshots', aliceId),
+		other: await ctx.db.get('architectureSnapshots', otherId)
+	}));
+
+	for (const { caller, ownId, foreignId } of [
+		{ caller: alice, ownId: aliceId, foreignId: otherId },
+		{ caller: other, ownId: otherId, foreignId: aliceId }
+	]) {
+		expect((await caller.query(api.architecture.list, {})).map((row) => row._id)).toEqual([ownId]);
+		const attemptedGraph = graph();
+		attemptedGraph.nodes[0].label = 'Unauthorized replacement';
+		for (const id of [foreignId, missingId]) {
+			expect(await caller.query(api.architecture.get, { id })).toBeNull();
+			await expect(
+				caller.mutation(api.architecture.save, {
+					id,
+					name: 'Unauthorized replacement',
+					graph: attemptedGraph
+				})
+			).rejects.toHaveProperty('data', {
+				code: 'NOT_FOUND',
+				message: 'Snapshot not found.'
+			});
+			await expect(caller.mutation(api.architecture.remove, { id })).rejects.toHaveProperty(
+				'data',
+				{
+					code: 'NOT_FOUND',
+					message: 'Snapshot not found.'
+				}
+			);
+		}
+	}
+
+	expect(
+		await t.run(async (ctx) => ({
+			alice: await ctx.db.get('architectureSnapshots', aliceId),
+			other: await ctx.db.get('architectureSnapshots', otherId)
+		}))
+	).toEqual(before);
+	expect(await alice.query(api.architecture.get, { id: aliceId })).toEqual(
+		expect.objectContaining({ name: 'Alice private snapshot', graph: graph() })
+	);
+	expect(await other.query(api.architecture.get, { id: otherId })).toEqual(
+		expect.objectContaining({ name: 'Other private snapshot', graph: otherGraph })
+	);
+	expect((await alice.query(api.architecture.list, {})).map((row) => row._id)).toEqual([aliceId]);
+	expect((await other.query(api.architecture.list, {})).map((row) => row._id)).toEqual([otherId]);
+});
+
 test('anonymous callers cannot list, read or mutate architecture snapshots', async () => {
 	const t = convexTest(schema, modules);
 	const alice = t.withIdentity(identity('alice'));
 	const id = await alice.mutation(api.architecture.save, { name: 'Private', graph: graph() });
+	const before = await t.run((ctx) => ctx.db.get('architectureSnapshots', id));
 	await expect(t.query(api.architecture.list, {})).rejects.toThrow('Sign in');
 	await expect(t.query(api.architecture.get, { id })).rejects.toThrow('Sign in');
 	await expect(
 		t.mutation(api.architecture.save, { name: 'Guest', graph: graph() })
 	).rejects.toThrow('Sign in');
+	await expect(
+		t.mutation(api.architecture.save, { id, name: 'Anonymous overwrite', graph: graph() })
+	).rejects.toThrow('Sign in');
 	await expect(t.mutation(api.architecture.remove, { id })).rejects.toThrow('Sign in');
+	expect(await t.run((ctx) => ctx.db.get('architectureSnapshots', id))).toEqual(before);
+	expect((await alice.query(api.architecture.list, {})).map((row) => row._id)).toEqual([id]);
 });
 
 test('invalid graph identities and ports cannot corrupt new or existing snapshots', async () => {

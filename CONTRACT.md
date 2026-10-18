@@ -48,7 +48,8 @@ replacement requires the actual LiveChat script/license for Diagram. See
 MANEF targets the existing WorkOS project for its shared production identity. The WorkOS adapter and
 rollout requirements are documented in [WorkOS sign-in](docs/workos-login.md). Direct
 Google OIDC remains a compatibility opt-in; no Google-owned data is silently migrated
-by email. Private ownership uses the verified issuer and subject. Hosted login, backend
+by email. Private ownership uses the verified issuer and subject. The client, query cache and private form lifetime follow that identity; token delivery
+rejects an expected identity that differs from the cookie owner. Hosted login, backend
 JWT configuration, and real production consent are separate acceptance gates.
 
 ## Current baseline

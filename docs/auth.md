@@ -7,9 +7,10 @@ production rollout.
 
 Local backend regression coverage also verifies two distinct WorkOS subjects and
 the same subject under different issuers: sharing an email never grants note access.
-These test identities are synthetic; this does not replace production login and
-private CRUD acceptance, currently blocked by the Google callback in
-[WorkOS sign-in](workos-login.md#live-configuration-check--2026-10-11).
+These test identities are synthetic; they do not replace deployed login and private
+CRUD acceptance. The production callback findings in [WorkOS sign-in](workos-login.md)
+are dated evidence, not a claim about the current provider state. The Workers pilot
+has separate single-account acceptance; deployed two-account isolation remains open.
 
 ## Direct Google compatibility adapter
 
@@ -84,8 +85,12 @@ There is no long-lived refresh-token database.
 - `getConvexToken(event, { forceRefreshToken? })`: an ID token or `null`, for the Convex
   client/server connection. Do not log it or serialize it into layout/page data.
 
-`POST /auth/token` accepts `{}` or `{ "forceRefreshToken": true }` from the configured
-origin and returns an uncached `{ idToken }` response. The browser passes that token to
+`POST /auth/token` accepts optional `forceRefreshToken` (boolean) and
+`expectedTokenIdentifier` (nonempty string, at most 2,048 characters) from the configured
+origin. The browser sends its displayed session identity; a different cookie identity
+returns a null token, so a second-tab account switch cannot authenticate the old page
+as the new owner. The expected identity constrains token delivery and never grants access.
+The endpoint returns an uncached `{ idToken }` response. The browser passes that token to
 the Convex auth client in memory. The refresh token remains in the encrypted HttpOnly
 cookie. `POST /auth/logout` requires the same origin and clears the cookies. There is
 no GET logout endpoint.
@@ -123,3 +128,20 @@ Sources: [Google OIDC](https://developers.google.com/identity/openid-connect/ope
 [openid-client](https://github.com/panva/openid-client),
 [Convex custom OIDC](https://docs.convex.dev/auth/advanced/custom-auth),
 [Convex test harness](https://docs.convex.dev/testing/convex-test).
+
+## Client lifetime and local failure coverage
+
+The layout uses an account-keyed Convex provider. Changing verified issuer/subject
+destroys the former client, subscriptions, query cache and pending authentication
+callbacks before the new client confirms authentication. Private note form state
+exists only while the backend confirms sign-in; losing authentication discards the
+draft and edit selection. A failed save for the same authenticated owner preserves
+the draft. Old mutation completions cannot update a new owner's form.
+
+`bun run test:notes` runs a loopback-only Vite fixture on port 4198, with the actual
+provider, convex-svelte and note components. The Convex browser client (including its
+auth/cache behavior) and token HTTP responses use synthetic fixtures. The fixture covers delayed account confirmation, auth
+loss/recovery, late mutations, query failure/recovery and safe save errors on desktop
+and phone. It neither bypasses production auth nor proves deployed provider/JWT
+configuration. Architecture snapshot persistence remains a backend API; the public
+canvas has no private snapshot-save UI.

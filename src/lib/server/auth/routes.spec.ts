@@ -87,3 +87,40 @@ test('disabled auth and callbacks without a login transaction fail closed', asyn
 	privateEnv.AUTH_ENABLED = 'false';
 	await expect(token(event('/auth/token'))).rejects.toMatchObject({ status: 404 });
 });
+
+test('an account switch in another tab cannot supply its token to the previous page identity', async () => {
+	const config = authConfiguration();
+	if (!config.enabled) throw new Error('Test auth disabled.');
+	const expectedTokenIdentifier = 'https://accounts.google.com|alice';
+	const alice = event('/auth/token', undefined, { expectedTokenIdentifier });
+	await establishSession(alice, config, {
+		subject: 'alice',
+		idToken: 'alice-token',
+		idTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600
+	});
+	expect(await (await token(alice)).json()).toEqual({ idToken: 'alice-token' });
+	await establishSession(alice, config, {
+		subject: 'bob',
+		idToken: 'bob-token',
+		idTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600
+	});
+	const stalePage = event('/auth/token', undefined, { expectedTokenIdentifier });
+	stalePage.cookies = alice.cookies;
+	const response = await token(stalePage);
+	expect(response.headers.get('cache-control')).toBe('no-store');
+	expect(await response.json()).toEqual({ idToken: null });
+	const currentPage = event('/auth/token', undefined, {
+		expectedTokenIdentifier: 'https://accounts.google.com|bob'
+	});
+	currentPage.cookies = alice.cookies;
+	expect(await (await token(currentPage)).json()).toEqual({ idToken: 'bob-token' });
+});
+
+test.each([null, false, '', 42, 'x'.repeat(2049)])(
+	'rejects invalid expected page identity %s',
+	async (expectedTokenIdentifier) => {
+		await expect(
+			token(event('/auth/token', undefined, { expectedTokenIdentifier }))
+		).rejects.toMatchObject({ status: 400 });
+	}
+);

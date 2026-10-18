@@ -8,7 +8,7 @@
 	import { pageMetadata, pageIndexable, seoSettings } from '$lib/config/metadata';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
-	import { setupConvex, setupAuth } from 'convex-svelte';
+	import ConvexProvider from '$lib/components/convex-provider.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -23,37 +23,9 @@
 		document.documentElement.dataset.theme = themePreference.theme;
 		document.documentElement.classList.toggle('dark', themePreference.theme === 'dark');
 	});
-	const convexUrl = page.url.pathname.startsWith('/embed/workspace')
-		? undefined
-		: env.PUBLIC_CONVEX_URL;
-	if (convexUrl) {
-		setupConvex(convexUrl);
-		setupAuth(() => ({
-			isLoading: false,
-			isAuthenticated: Boolean(data.auth.session),
-			fetchAccessToken: async ({ forceRefreshToken }) => {
-				if (!data.auth.session) return null;
-				try {
-					const response = await fetch('/auth/token', {
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify({ forceRefreshToken }),
-						signal: AbortSignal.timeout(15_000)
-					});
-					if (!response.ok) return null;
-					const result: unknown = await response.json();
-					return result &&
-						typeof result === 'object' &&
-						'idToken' in result &&
-						typeof result.idToken === 'string'
-						? result.idToken
-						: null;
-				} catch {
-					return null;
-				}
-			}
-		}));
-	}
+	const convexUrl = $derived(
+		page.url.pathname.startsWith('/embed/workspace') ? undefined : env.PUBLIC_CONVEX_URL
+	);
 	const seo = seoSettings(env);
 	const metadata = $derived(
 		pageMetadata(
@@ -98,4 +70,10 @@
 		/>{/if}
 	{#if seo.bingVerification}<meta name="msvalidate.01" content={seo.bingVerification} />{/if}
 </svelte:head>
-{@render children()}
+{#if convexUrl}
+	<ConvexProvider url={convexUrl} session={data.auth.session}>
+		{@render children()}
+	</ConvexProvider>
+{:else}
+	{@render children()}
+{/if}
