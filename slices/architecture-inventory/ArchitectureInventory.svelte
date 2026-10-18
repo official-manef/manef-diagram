@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { Tabs } from 'bits-ui';
 	import { asset, resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -49,7 +50,8 @@
 		patchNode,
 		patchPort,
 		withEdgePatch,
-		withoutPort
+		withoutPort,
+		withoutNodes
 	} from './lib/edit';
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
 	import { panForZoom } from './lib/camera';
@@ -106,6 +108,7 @@
 			focusMode = view.focus;
 			if (view.seeds[0] && graph.nodes.some((node) => node.id === view.seeds[0])) {
 				selectedNodeId = view.seeds[0];
+				selectedNodeIds = [view.seeds[0]];
 			}
 		} catch {
 			actionMessage = 'This shared graph link is invalid or too large. The default graph is shown.';
@@ -124,6 +127,8 @@
 	let tagQuery = $state('');
 	let tagSort = $state<'name' | 'count'>('name');
 	let filtersOpen = $state(false);
+	let filterTrigger = $state<HTMLButtonElement | null>(null);
+	let filterMenu = $state<HTMLDivElement | null>(null);
 	let mobileCanvas = $state(false);
 	let mobileForces = $state(false);
 	let inventorySearch = $state('');
@@ -451,6 +456,30 @@
 			return false;
 		}
 		root = updated;
+		selectedNodeIds = selectedNodeIds.filter((id) => next.nodes.some((node) => node.id === id));
+		selectedEdgeIds = selectedEdgeIds.filter((id) => next.edges.some((edge) => edge.id === id));
+		selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
+		selectedEdgeId =
+			selectedNodeIds.length === 0 && selectedEdgeIds.length === 1 ? selectedEdgeIds[0] : null;
+		if (
+			armedOutput &&
+			!next.nodes.some(
+				(node) =>
+					node.id === armedOutput?.nodeId &&
+					node.outputs.some((port) => port.id === armedOutput?.portId)
+			)
+		)
+			armedOutput = null;
+		if (
+			openView &&
+			!next.nodes.some(
+				(node) =>
+					node.id === openView?.nodeId && node.views?.some((view) => view.id === openView?.viewId)
+			)
+		) {
+			openView = null;
+			viewError = '';
+		}
 		return true;
 	}
 
@@ -503,6 +532,10 @@
 		selectedEdgeIds = edgeIds;
 		selectedNodeId = nodeIds.length === 1 ? nodeIds[0] : null;
 		selectedEdgeId = nodeIds.length === 0 && edgeIds.length === 1 ? edgeIds[0] : null;
+		if (openView && openView.nodeId !== selectedNodeId) {
+			openView = null;
+			viewError = '';
+		}
 		if (nodeIds.length === 1 || edgeIds.length === 1) inspectorTab = 'details';
 	}
 
@@ -575,6 +608,47 @@
 		const node = createNode(graph);
 		commitVisible({ ...graph, nodes: [...graph.nodes, node] });
 		selectNode(node.id);
+	}
+
+	function removeSelectedNodes() {
+		const ids = selectedNodeIds.filter((id) => graph.nodes.some((node) => node.id === id));
+		if (ids.length === 0) return;
+		if (
+			!confirm(
+				`Remove ${ids.length === 1 ? 'this node' : `${ids.length} selected nodes`} and its component diagrams and views? Connections to the removed nodes will also be removed.`
+			)
+		)
+			return;
+		const removed = new Set(ids);
+		const next = withoutNodes(graph, ids);
+		if (
+			!commitVisible({
+				...next,
+				edges: next.edges.filter((edge) => !selectedEdgeIds.includes(edge.id))
+			})
+		)
+			return;
+		overrides = Object.fromEntries(Object.entries(overrides).filter(([id]) => !removed.has(id)));
+		layouts = Object.fromEntries(
+			Object.entries(layouts).filter(([key]) => {
+				try {
+					const path: unknown = JSON.parse(key);
+					return !(
+						Array.isArray(path) &&
+						diagramPath.every((id, index) => path[index] === id) &&
+						removed.has(path[diagramPath.length])
+					);
+				} catch {
+					return true;
+				}
+			})
+		);
+		rememberSelection([], []);
+		actionMessage =
+			ids.length === 1
+				? 'Node removed with its diagrams and connections.'
+				: `${ids.length} nodes removed with their diagrams and connections.`;
+		jsonMessage = actionMessage;
 	}
 
 	function connectTo(targetNodeId: string, targetPortId: string) {
@@ -813,6 +887,24 @@
 			return;
 		}
 		commitVisible(next);
+	}
+
+	function closeFilters() {
+		filtersOpen = false;
+		filterTrigger?.focus();
+	}
+
+	function toggleFilters() {
+		if (filtersOpen) {
+			closeFilters();
+			return;
+		}
+		filtersOpen = true;
+		void tick()
+			.then(() => {
+				if (filtersOpen) filterMenu?.querySelector('input')?.focus();
+			})
+			.catch(() => undefined);
 	}
 
 	function toggleTag(tag: string) {
@@ -1066,6 +1158,7 @@
 				const mermaid = mod.default;
 				mermaid.initialize({
 					startOnLoad: false,
+					suppressErrorRendering: true,
 					securityLevel: 'strict',
 					theme: theme === 'composio-dark' ? 'dark' : 'neutral',
 					fontFamily: 'inherit'
@@ -1110,18 +1203,24 @@
 	}
 
 	function onKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && filtersOpen) {
+			event.preventDefault();
+			closeFilters();
+			return;
+		}
 		const tag = (event.target as HTMLElement | null)?.tagName;
 		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 		if (event.key === 'Escape') {
-			if (filtersOpen) {
-				filtersOpen = false;
-				return;
-			}
 			if (armedOutput) {
 				armedOutput = null;
 				return;
 			}
 			rememberSelection([], []);
+		}
+		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNodeIds.length > 0) {
+			event.preventDefault();
+			removeSelectedNodes();
+			return;
 		}
 		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEdgeIds.length > 0) {
 			event.preventDefault();
@@ -1368,9 +1467,10 @@
 					<button
 						type="button"
 						class="filter-toggle"
+						bind:this={filterTrigger}
 						aria-expanded={filtersOpen}
 						aria-controls="tag-filter-menu"
-						onclick={() => (filtersOpen = !filtersOpen)}
+						onclick={toggleFilters}
 					>
 						<span>Filter{activeTags.length ? ` (${activeTags.length})` : ''}</span>
 						<span aria-hidden="true">{filtersOpen ? '▴' : '▾'}</span>
@@ -1380,9 +1480,16 @@
 							type="button"
 							class="filter-backdrop"
 							aria-label="Close filters"
-							onclick={() => (filtersOpen = false)}
+							onclick={closeFilters}
+							tabindex="-1"
 						></button>
-						<div id="tag-filter-menu" class="filter-menu" role="dialog" aria-label="Tag filters">
+						<div
+							id="tag-filter-menu"
+							bind:this={filterMenu}
+							class="filter-menu"
+							role="dialog"
+							aria-label="Tag filters"
+						>
 							<Input aria-label="Filter tags" placeholder="Filter tags…" bind:value={tagQuery} />
 							<div class="sort-row" role="group" aria-label="Sort tags">
 								<span>Sort</span>
@@ -1493,13 +1600,19 @@
 					disabled={!hydrated}
 					variant={mobileCanvas ? 'outline' : 'default'}
 					aria-pressed={!mobileCanvas}
-					onclick={() => (mobileCanvas = false)}>List</Button
+					onclick={() => {
+						openView = null;
+						viewError = '';
+						mobileCanvas = false;
+					}}>List</Button
 				>
 				<Button
 					disabled={!hydrated}
 					variant={mobileCanvas ? 'default' : 'outline'}
 					aria-pressed={mobileCanvas}
 					onclick={async () => {
+						openView = null;
+						viewError = '';
 						mobileCanvas = true;
 						await tick();
 						fitView();
@@ -1912,370 +2025,384 @@
 
 		<aside class="inspector" id="diagram-inspector">
 			<a class="mobile-inspect" href="#diagram-map">Back to map ↑</a>
-			<div class="tabs" role="tablist" aria-label="Inspector">
-				<button
-					type="button"
-					role="tab"
-					aria-selected={inspectorTab === 'details'}
-					class:active={inspectorTab === 'details'}
-					onclick={() => (inspectorTab = 'details')}>Details</button
-				>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={inspectorTab === 'inventory'}
-					class:active={inspectorTab === 'inventory'}
-					onclick={() => (inspectorTab = 'inventory')}>Inventory</button
-				>
-				<button
-					type="button"
-					role="tab"
-					aria-selected={inspectorTab === 'json'}
-					class:active={inspectorTab === 'json'}
-					onclick={() => (inspectorTab = 'json')}>JSON</button
-				>
-			</div>
-
-			{#if inspectorTab === 'inventory'}
-				<div class="panel">
-					<p class="help">
-						References {inventoryCount(inventory, 'reference')} · Repos {inventoryCount(
-							inventory,
-							'repo'
-						)} · Domains {inventoryCount(inventory, 'domain')} · Hosts {inventoryCount(
-							inventory,
-							'hostname'
-						)} · Convex {inventoryCount(inventory, 'convex')}. Private records are not in this
-						bundled inventory. Imported documents stay in this browser until you export them.
-					</p>
-					<select
-						class="theme-select"
-						aria-label="Inventory type"
-						value={inventoryKind}
-						onchange={(event) => {
-							const value = parseInventoryFilter(event.currentTarget.value);
-							if (value) inventoryKind = value;
-						}}
+			<Tabs.Root
+				value={inspectorTab}
+				onValueChange={(value) => {
+					if (value === 'details' || value === 'inventory' || value === 'json')
+						inspectorTab = value;
+				}}
+			>
+				<Tabs.List class="tabs" aria-label="Inspector">
+					<Tabs.Trigger value="details" class={inspectorTab === 'details' ? 'active' : ''}
+						>Details</Tabs.Trigger
 					>
-						<option value="all">All</option>
-						<option value="reference">References</option>
-						<option value="repo">GitHub repos</option>
-						<option value="domain">Root domains</option>
-						<option value="hostname">Hostnames</option>
-						<option value="convex">Convex DNS</option>
-					</select>
-					<Input
-						aria-label="Search inventory"
-						placeholder="Search inventory…"
-						bind:value={inventorySearch}
-					/>
-					<div class="inventory-list">
-						{#each inventoryItems as item (item.id)}
-							<div class="inventory-item">
-								<div>
-									<strong>{item.label}</strong>
-									<small>{item.subtitle}</small>
-								</div>
-								<Button size="sm" variant="outline" onclick={() => materialize(item.id)}>
-									{graph.nodes.some((node) => node.id === item.id) ? 'Open' : 'Add'}
-								</Button>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{:else if inspectorTab === 'json'}
-				<div class="panel">
-					<select class="theme-select" aria-label="Input format" bind:value={inputFormat}>
-						<option value="json">JSON document or n8n workflow</option>
-						<option value="md">Markdown document</option>
-					</select>
-					<p class="help">
-						JSON and Markdown preserve the complete document. A bare graph JSON replaces the open
-						diagram level.
-					</p>
-					<p class="help">
-						<a href={asset('/workflows/manef-diagram-converter.json')} download
-							>Download n8n converter workflow</a
-						>
-						· <a href={resolve('/guide?section=converters')}>Converter guide</a>
-					</p>
-					<textarea
-						class="json"
-						bind:value={jsonText}
-						spellcheck="false"
-						aria-label="Architecture graph JSON"></textarea>
-					<div class="json-actions">
-						<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
-						<Button size="sm" variant="outline" onclick={formatJson}>Format</Button>
-						<Button size="sm" onclick={importJson}
-							>{inputFormat === 'md' ? 'Apply Markdown' : 'Apply JSON'}</Button
-						>
-					</div>
-					{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
-				</div>
-			{:else if selectedNodeIds.length > 1}
-				<div class="panel">
-					<h2>{selectedNodeIds.length} nodes selected</h2>
-					<p class="help">
-						Drag left to right selects only what is fully inside. Drag right to left also selects
-						what the box touches.
-					</p>
-				</div>
-			{:else if selectedNode}
-				<div class="panel">
-					<h2>Node details</h2>
-					{#if selectedNode.child}
-						<Button size="sm" onclick={() => openDiagram(selectedNode.id)}
-							>Open component diagram</Button
-						>
-						<p class="help">Click the selected service again to open its components.</p>
-					{:else if diagramPath.length >= MAX_DIAGRAM_DEPTH}
-						<p>This is as deep as a diagram can go.</p>
-					{:else}
-						<Button size="sm" variant="outline" onclick={() => addComponentDiagram(selectedNode.id)}
-							>Add component diagram</Button
-						>
-					{/if}
-					<div class="view-editor">
-						<span>Views</span>
-						{#if selectedNode.views?.length}
-							<div class="view-list">
-								{#each selectedNode.views as view (view.id)}
-									<button
-										type="button"
-										class:active={openView?.viewId === view.id}
-										onclick={() => (openView = { nodeId: selectedNode.id, viewId: view.id })}
-										>{view.title}</button
-									>
-								{/each}
-							</div>
-						{:else}
-							<p class="help">
-								Add a view from the center menu. Markdown or JSON, one diagram per view.
-							</p>
-						{/if}
-						{#if activeView && openView?.nodeId === selectedNode.id}
-							<div class="segmented">
-								<button
-									type="button"
-									aria-pressed={activeView.format === 'md'}
-									onclick={() => setViewFormat('md')}>Markdown</button
-								>
-								<button
-									type="button"
-									aria-pressed={activeView.format === 'json'}
-									onclick={() => setViewFormat('json')}>JSON</button
-								>
-							</div>
-							<textarea
-								class="view-source"
-								aria-label="Diagram source"
-								spellcheck="false"
-								value={activeView.source}
-								oninput={(event) => replaceView({ source: event.currentTarget.value })}></textarea>
-							<Button size="sm" variant="outline" onclick={removeView}>Remove view</Button>
-						{/if}
-					</div>
-					<label>
-						<span>Label</span>
-						<Input
-							value={selectedNode.label}
-							oninput={(event) => updateNode(selectedNode.id, { label: event.currentTarget.value })}
-						/>
-					</label>
-					<label>
-						<span>Subtitle</span>
-						<Input
-							value={selectedNode.subtitle ?? ''}
-							oninput={(event) =>
-								updateNode(selectedNode.id, { subtitle: event.currentTarget.value })}
-						/>
-					</label>
-					<label>
-						<span>Tags</span>
-						<textarea
-							rows="3"
-							value={selectedNode.tags.join(', ')}
-							aria-label="Tags"
-							onchange={(event) =>
-								updateNode(selectedNode.id, {
-									tags: event.currentTarget.value
-										.split(',')
-										.map((tag) => tag.trim())
-										.filter(Boolean)
-								})}></textarea>
-					</label>
-					<div class="port-editor">
-						<p class="mobile-help">
-							To connect services, choose Use output, return to the map, select the target service,
-							then choose Connect on its input.
+					<Tabs.Trigger value="inventory" class={inspectorTab === 'inventory' ? 'active' : ''}
+						>Inventory</Tabs.Trigger
+					>
+					<Tabs.Trigger value="json" class={inspectorTab === 'json' ? 'active' : ''}
+						>JSON</Tabs.Trigger
+					>
+				</Tabs.List>
+
+				<Tabs.Content value="inventory">
+					<div class="panel">
+						<p class="help">
+							References {inventoryCount(inventory, 'reference')} · Repos {inventoryCount(
+								inventory,
+								'repo'
+							)} · Domains {inventoryCount(inventory, 'domain')} · Hosts {inventoryCount(
+								inventory,
+								'hostname'
+							)} · Convex {inventoryCount(inventory, 'convex')}. Private records are not in this
+							bundled inventory. Imported documents stay in this browser until you export them.
 						</p>
-						{#if armedOutput}<Button
-								class="mobile-port-action"
-								variant="outline"
-								onclick={() => (armedOutput = null)}>Cancel connection</Button
-							>{/if}
-						<div>
-							<div class="editor-heading">
-								<strong>Inputs</strong>
-								<Button
-									size="sm"
-									variant="outline"
-									aria-label="Add input port"
-									onclick={() => addPort(selectedNode.id, 'inputs')}>+</Button
-								>
-							</div>
-							{#each selectedNode.inputs as port (port.id)}
-								<div class="port-row">
-									<Input
-										aria-label={`Input port label: ${port.label}`}
-										value={port.label}
-										oninput={(event) =>
-											updatePort(selectedNode.id, 'inputs', port.id, {
-												label: event.currentTarget.value
-											})}
-									/>
-									<Button
-										class="mobile-port-action"
-										size="sm"
-										variant="outline"
-										disabled={!armedOutput}
-										onclick={() => connectTo(selectedNode.id, port.id)}>Connect</Button
-									>
-									<Button
-										size="sm"
-										variant="ghost"
-										aria-label={`Remove input port: ${port.label}`}
-										onclick={() => removePort(selectedNode.id, 'inputs', port.id)}>×</Button
-									>
-								</div>
-							{/each}
-						</div>
-						<div>
-							<div class="editor-heading">
-								<strong>Outputs</strong>
-								<Button
-									size="sm"
-									variant="outline"
-									aria-label="Add output port"
-									onclick={() => addPort(selectedNode.id, 'outputs')}>+</Button
-								>
-							</div>
-							{#each selectedNode.outputs as port (port.id)}
-								<div class="port-row">
-									<Input
-										aria-label={`Output port label: ${port.label}`}
-										value={port.label}
-										oninput={(event) =>
-											updatePort(selectedNode.id, 'outputs', port.id, {
-												label: event.currentTarget.value
-											})}
-									/>
-									<Button
-										class="mobile-port-action"
-										size="sm"
-										variant="outline"
-										aria-pressed={armedOutput?.nodeId === selectedNode.id &&
-											armedOutput?.portId === port.id}
-										onclick={() => (armedOutput = { nodeId: selectedNode.id, portId: port.id })}
-										>Use output</Button
-									>
-									<Button
-										size="sm"
-										variant="ghost"
-										aria-label={`Remove output port: ${port.label}`}
-										onclick={() => removePort(selectedNode.id, 'outputs', port.id)}>×</Button
-									>
-								</div>
-							{/each}
-						</div>
-					</div>
-				</div>
-			{:else if selectedEdge}
-				<div class="panel">
-					<h2>Connection details</h2>
-					<label>
-						<span>Label</span>
+						<select
+							class="theme-select"
+							aria-label="Inventory type"
+							value={inventoryKind}
+							onchange={(event) => {
+								const value = parseInventoryFilter(event.currentTarget.value);
+								if (value) inventoryKind = value;
+							}}
+						>
+							<option value="all">All</option>
+							<option value="reference">References</option>
+							<option value="repo">GitHub repos</option>
+							<option value="domain">Root domains</option>
+							<option value="hostname">Hostnames</option>
+							<option value="convex">Convex DNS</option>
+						</select>
 						<Input
-							value={selectedEdge.label ?? ''}
-							oninput={(event) =>
-								commitVisible({
-									...graph,
-									edges: graph.edges.map((edge) =>
-										edge.id === selectedEdge.id
-											? { ...edge, label: event.currentTarget.value }
-											: edge
-									)
-								})}
+							aria-label="Search inventory"
+							placeholder="Search inventory…"
+							bind:value={inventorySearch}
 						/>
-					</label>
-					<p class="help">
-						{selectedEdge.source}:{selectedEdge.sourcePort} → {selectedEdge.target}:{selectedEdge.targetPort}
-					</p>
-					<label>
-						<span>Source node</span>
-						<select
-							class="theme-select"
-							aria-label="Source node"
-							value={selectedEdge.source}
-							onchange={(event) => retargetEdge({ source: event.currentTarget.value })}
-						>
-							{#each graph.nodes as node (node.id)}
-								<option value={node.id}>{node.label}</option>
+						<div class="inventory-list">
+							{#each inventoryItems as item (item.id)}
+								<div class="inventory-item">
+									<div>
+										<strong>{item.label}</strong>
+										<small>{item.subtitle}</small>
+									</div>
+									<Button size="sm" variant="outline" onclick={() => materialize(item.id)}>
+										{graph.nodes.some((node) => node.id === item.id) ? 'Open' : 'Add'}
+									</Button>
+								</div>
 							{/each}
-						</select>
-					</label>
-					<label>
-						<span>Source output</span>
-						<select
-							class="theme-select"
-							aria-label="Source output"
-							value={selectedEdge.sourcePort}
-							onchange={(event) => retargetEdge({ sourcePort: event.currentTarget.value })}
-						>
-							{#each graph.nodes.find((node) => node.id === selectedEdge.source)?.outputs ?? [] as port (port.id)}
-								<option value={port.id}>{port.label}</option>
-							{/each}
-						</select>
-					</label>
-					<label>
-						<span>Target node</span>
-						<select
-							class="theme-select"
-							aria-label="Target node"
-							value={selectedEdge.target}
-							onchange={(event) => retargetEdge({ target: event.currentTarget.value })}
-						>
-							{#each graph.nodes as node (node.id)}
-								<option value={node.id}>{node.label}</option>
-							{/each}
-						</select>
-					</label>
-					<label>
-						<span>Target input</span>
-						<select
-							class="theme-select"
-							aria-label="Target input"
-							value={selectedEdge.targetPort}
-							onchange={(event) => retargetEdge({ targetPort: event.currentTarget.value })}
-						>
-							{#each graph.nodes.find((node) => node.id === selectedEdge.target)?.inputs ?? [] as port (port.id)}
-								<option value={port.id}>{port.label}</option>
-							{/each}
-						</select>
-					</label>
-					<Button variant="destructive" size="sm" onclick={() => disconnectEdge(selectedEdge.id)}>
-						Disconnect
-					</Button>
-				</div>
-			{:else}
-				<div class="panel">
-					<div class="empty">
-						<b>No selection</b>
-						<p>Click a service to edit it, or click it again when it has components.</p>
+						</div>
 					</div>
-				</div>
-			{/if}
+				</Tabs.Content>
+				<Tabs.Content value="json">
+					<div class="panel">
+						<select class="theme-select" aria-label="Input format" bind:value={inputFormat}>
+							<option value="json">JSON document or n8n workflow</option>
+							<option value="md">Markdown document</option>
+						</select>
+						<p class="help">
+							JSON and Markdown preserve the complete document. A bare graph JSON replaces the open
+							diagram level.
+						</p>
+						<p class="help">
+							<a href={asset('/workflows/manef-diagram-converter.json')} download
+								>Download n8n converter workflow</a
+							>
+							· <a href={resolve('/guide?section=converters')}>Converter guide</a>
+						</p>
+						<textarea
+							class="json"
+							bind:value={jsonText}
+							spellcheck="false"
+							aria-label="Architecture graph JSON"></textarea>
+						<div class="json-actions">
+							<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
+							<Button size="sm" variant="outline" onclick={formatJson}>Format</Button>
+							<Button size="sm" onclick={importJson}
+								>{inputFormat === 'md' ? 'Apply Markdown' : 'Apply JSON'}</Button
+							>
+						</div>
+						{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
+					</div>
+				</Tabs.Content>
+				<Tabs.Content value="details">
+					{#if selectedNodeIds.length > 1}
+						<div class="panel">
+							<h2>{selectedNodeIds.length} nodes selected</h2>
+							<p class="help">
+								Drag left to right selects only what is fully inside. Drag right to left also
+								selects what the box touches.
+							</p>
+							<Button variant="destructive" size="sm" onclick={removeSelectedNodes}
+								>Remove selected nodes</Button
+							>
+						</div>
+					{:else if selectedNode}
+						<div class="panel">
+							<h2>Node details</h2>
+							{#if selectedNode.child}
+								<Button size="sm" onclick={() => openDiagram(selectedNode.id)}
+									>Open component diagram</Button
+								>
+								<p class="help">Click the selected service again to open its components.</p>
+							{:else if diagramPath.length >= MAX_DIAGRAM_DEPTH}
+								<p>This is as deep as a diagram can go.</p>
+							{:else}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => addComponentDiagram(selectedNode.id)}>Add component diagram</Button
+								>
+							{/if}
+							<div class="view-editor">
+								<span>Views</span>
+								{#if selectedNode.views?.length}
+									<div class="view-list">
+										{#each selectedNode.views as view (view.id)}
+											<button
+												type="button"
+												class:active={openView?.viewId === view.id}
+												onclick={() => (openView = { nodeId: selectedNode.id, viewId: view.id })}
+												>{view.title}</button
+											>
+										{/each}
+									</div>
+								{:else}
+									<p class="help">
+										Add a view from the center menu. Markdown or JSON, one diagram per view.
+									</p>
+								{/if}
+								{#if activeView && openView?.nodeId === selectedNode.id}
+									<div class="segmented">
+										<button
+											type="button"
+											aria-pressed={activeView.format === 'md'}
+											onclick={() => setViewFormat('md')}>Markdown</button
+										>
+										<button
+											type="button"
+											aria-pressed={activeView.format === 'json'}
+											onclick={() => setViewFormat('json')}>JSON</button
+										>
+									</div>
+									<textarea
+										class="view-source"
+										aria-label="Diagram source"
+										spellcheck="false"
+										value={activeView.source}
+										oninput={(event) => replaceView({ source: event.currentTarget.value })}
+									></textarea>
+									<Button size="sm" variant="outline" onclick={removeView}>Remove view</Button>
+								{/if}
+							</div>
+							<label>
+								<span>Label</span>
+								<Input
+									value={selectedNode.label}
+									oninput={(event) =>
+										updateNode(selectedNode.id, { label: event.currentTarget.value })}
+								/>
+							</label>
+							<label>
+								<span>Subtitle</span>
+								<Input
+									value={selectedNode.subtitle ?? ''}
+									oninput={(event) =>
+										updateNode(selectedNode.id, { subtitle: event.currentTarget.value })}
+								/>
+							</label>
+							<label>
+								<span>Tags</span>
+								<textarea
+									rows="3"
+									value={selectedNode.tags.join(', ')}
+									aria-label="Tags"
+									onchange={(event) =>
+										updateNode(selectedNode.id, {
+											tags: event.currentTarget.value
+												.split(',')
+												.map((tag) => tag.trim())
+												.filter(Boolean)
+										})}></textarea>
+							</label>
+							<div class="port-editor">
+								<p class="mobile-help">
+									To connect services, choose Use output, return to the map, select the target
+									service, then choose Connect on its input.
+								</p>
+								{#if armedOutput}<Button
+										class="mobile-port-action"
+										variant="outline"
+										onclick={() => (armedOutput = null)}>Cancel connection</Button
+									>{/if}
+								<div>
+									<div class="editor-heading">
+										<strong>Inputs</strong>
+										<Button
+											size="sm"
+											variant="outline"
+											aria-label="Add input port"
+											onclick={() => addPort(selectedNode.id, 'inputs')}>+</Button
+										>
+									</div>
+									{#each selectedNode.inputs as port (port.id)}
+										<div class="port-row">
+											<Input
+												aria-label={`Input port label: ${port.label}`}
+												value={port.label}
+												oninput={(event) =>
+													updatePort(selectedNode.id, 'inputs', port.id, {
+														label: event.currentTarget.value
+													})}
+											/>
+											<Button
+												class="mobile-port-action"
+												size="sm"
+												variant="outline"
+												disabled={!armedOutput}
+												onclick={() => connectTo(selectedNode.id, port.id)}>Connect</Button
+											>
+											<Button
+												size="sm"
+												variant="ghost"
+												aria-label={`Remove input port: ${port.label}`}
+												onclick={() => removePort(selectedNode.id, 'inputs', port.id)}>×</Button
+											>
+										</div>
+									{/each}
+								</div>
+								<div>
+									<div class="editor-heading">
+										<strong>Outputs</strong>
+										<Button
+											size="sm"
+											variant="outline"
+											aria-label="Add output port"
+											onclick={() => addPort(selectedNode.id, 'outputs')}>+</Button
+										>
+									</div>
+									{#each selectedNode.outputs as port (port.id)}
+										<div class="port-row">
+											<Input
+												aria-label={`Output port label: ${port.label}`}
+												value={port.label}
+												oninput={(event) =>
+													updatePort(selectedNode.id, 'outputs', port.id, {
+														label: event.currentTarget.value
+													})}
+											/>
+											<Button
+												class="mobile-port-action"
+												size="sm"
+												variant="outline"
+												aria-pressed={armedOutput?.nodeId === selectedNode.id &&
+													armedOutput?.portId === port.id}
+												onclick={() => (armedOutput = { nodeId: selectedNode.id, portId: port.id })}
+												>Use output</Button
+											>
+											<Button
+												size="sm"
+												variant="ghost"
+												aria-label={`Remove output port: ${port.label}`}
+												onclick={() => removePort(selectedNode.id, 'outputs', port.id)}>×</Button
+											>
+										</div>
+									{/each}
+								</div>
+							</div>
+							<Button variant="destructive" size="sm" onclick={removeSelectedNodes}
+								>Remove node</Button
+							>
+						</div>
+					{:else if selectedEdge}
+						<div class="panel">
+							<h2>Connection details</h2>
+							<label>
+								<span>Label</span>
+								<Input
+									value={selectedEdge.label ?? ''}
+									oninput={(event) =>
+										commitVisible({
+											...graph,
+											edges: graph.edges.map((edge) =>
+												edge.id === selectedEdge.id
+													? { ...edge, label: event.currentTarget.value }
+													: edge
+											)
+										})}
+								/>
+							</label>
+							<p class="help">
+								{selectedEdge.source}:{selectedEdge.sourcePort} → {selectedEdge.target}:{selectedEdge.targetPort}
+							</p>
+							<label>
+								<span>Source node</span>
+								<select
+									class="theme-select"
+									aria-label="Source node"
+									value={selectedEdge.source}
+									onchange={(event) => retargetEdge({ source: event.currentTarget.value })}
+								>
+									{#each graph.nodes as node (node.id)}
+										<option value={node.id}>{node.label}</option>
+									{/each}
+								</select>
+							</label>
+							<label>
+								<span>Source output</span>
+								<select
+									class="theme-select"
+									aria-label="Source output"
+									value={selectedEdge.sourcePort}
+									onchange={(event) => retargetEdge({ sourcePort: event.currentTarget.value })}
+								>
+									{#each graph.nodes.find((node) => node.id === selectedEdge.source)?.outputs ?? [] as port (port.id)}
+										<option value={port.id}>{port.label}</option>
+									{/each}
+								</select>
+							</label>
+							<label>
+								<span>Target node</span>
+								<select
+									class="theme-select"
+									aria-label="Target node"
+									value={selectedEdge.target}
+									onchange={(event) => retargetEdge({ target: event.currentTarget.value })}
+								>
+									{#each graph.nodes as node (node.id)}
+										<option value={node.id}>{node.label}</option>
+									{/each}
+								</select>
+							</label>
+							<label>
+								<span>Target input</span>
+								<select
+									class="theme-select"
+									aria-label="Target input"
+									value={selectedEdge.targetPort}
+									onchange={(event) => retargetEdge({ targetPort: event.currentTarget.value })}
+								>
+									{#each graph.nodes.find((node) => node.id === selectedEdge.target)?.inputs ?? [] as port (port.id)}
+										<option value={port.id}>{port.label}</option>
+									{/each}
+								</select>
+							</label>
+							<Button
+								variant="destructive"
+								size="sm"
+								onclick={() => disconnectEdge(selectedEdge.id)}
+							>
+								Disconnect
+							</Button>
+						</div>
+					{:else}
+						<div class="panel">
+							<div class="empty">
+								<b>No selection</b>
+								<p>Click a service to edit it, or click it again when it has components.</p>
+							</div>
+						</div>
+					{/if}
+				</Tabs.Content>
+			</Tabs.Root>
 		</aside>
 	</div>
 </main>

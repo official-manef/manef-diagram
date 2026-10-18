@@ -1,6 +1,72 @@
 import { describe, expect, it } from 'vitest';
 import { defaultGraph } from '../config/default-graph';
-import { appendPort, createNode, patchNode, withEdgePatch, withoutPort } from './edit';
+import {
+	appendPort,
+	createNode,
+	patchNode,
+	withEdgePatch,
+	withoutNodes,
+	withoutPort
+} from './edit';
+import { validateGraph } from './graph';
+import type { ArchitectureGraph, ArchitectureNode } from '../types';
+
+function node(id: string): ArchitectureNode {
+	return {
+		id,
+		label: id,
+		tags: [],
+		inputs: [{ id: 'in', label: 'Input' }],
+		outputs: [{ id: 'out', label: 'Output' }]
+	};
+}
+
+function removalFixture(): ArchitectureGraph {
+	const removed = node('a');
+	const kept = node('b');
+	removed.child = { schemaVersion: 1, nodes: [node('removed-component')], edges: [] };
+	removed.views = [
+		{
+			id: 'removed-view',
+			kind: 'flowchart',
+			title: 'Removed view',
+			format: 'md',
+			source: 'flowchart LR\nA-->B'
+		}
+	];
+	kept.child = Object.assign(
+		{ schemaVersion: 1 as const, nodes: [node('a')], edges: [] },
+		{ metadata: { nested: 'preserved' } }
+	);
+	kept.views = [
+		{
+			id: 'kept-view',
+			kind: 'flowchart',
+			title: 'Kept view',
+			format: 'md',
+			source: 'flowchart LR\nA-->B'
+		}
+	];
+	Object.assign(kept, { extension: { metadata: ['keep', true] } });
+	Object.assign(kept.inputs[0], { metadata: { port: true } });
+	Object.assign(kept.views[0], { metadata: { view: true } });
+	const connections = [
+		['incoming', 'b', 'a'],
+		['outgoing', 'a', 'c'],
+		['self', 'a', 'a'],
+		['keep', 'b', 'c'],
+		['keep-other', 'b', 'd']
+	].map(([id, source, target]) => ({ id, source, sourcePort: 'out', target, targetPort: 'in' }));
+	Object.assign(connections[3], { metadata: { edge: ['preserved'] } });
+	return Object.assign(
+		{
+			schemaVersion: 1 as const,
+			nodes: [removed, kept, node('c'), node('d')],
+			edges: connections
+		},
+		{ metadata: { document: ['preserved'] } }
+	);
+}
 
 describe('diagram edits', () => {
 	it('patches a node and adds a port without touching the others', () => {
@@ -53,5 +119,50 @@ describe('diagram edits', () => {
 		expect(defaultGraph.nodes.some((item) => item.id === node.id)).toBe(false);
 		expect(node.inputs).toHaveLength(1);
 		expect(node.outputs).toHaveLength(1);
+	});
+	it('removes a node, its descendants and views, and every incoming, outgoing and self connection', () => {
+		const graph = removalFixture();
+		const before = JSON.stringify(graph);
+		expect(validateGraph(graph)).toBe(true);
+		const next = withoutNodes(graph, ['a']);
+		expect(next.nodes.map((item) => item.id)).toEqual(['b', 'c', 'd']);
+		expect(next.edges.map((edge) => edge.id)).toEqual(['keep', 'keep-other']);
+		expect(JSON.stringify(next)).not.toContain('removed-component');
+		expect(JSON.stringify(next)).not.toContain('removed-view');
+		expect(next.nodes[0]).toBe(graph.nodes[1]);
+		expect(next.nodes[0].child?.nodes[0].id).toBe('a');
+		expect(next.edges[0]).toBe(graph.edges[3]);
+		expect(next).toMatchObject({ metadata: { document: ['preserved'] } });
+		expect(next.nodes[0]).toMatchObject({
+			extension: { metadata: ['keep', true] },
+			inputs: [{ metadata: { port: true } }],
+			views: [{ metadata: { view: true } }],
+			child: { metadata: { nested: 'preserved' } }
+		});
+		expect(next.edges[0]).toMatchObject({ metadata: { edge: ['preserved'] } });
+		expect(validateGraph(next)).toBe(true);
+		expect(JSON.stringify(graph)).toBe(before);
+	});
+
+	it('removes several selected nodes once even with repeated or unknown ids', () => {
+		const graph = removalFixture();
+		const ids = ['a', 'missing', 'c', 'a', 'c'];
+		const next = withoutNodes(graph, ids);
+		expect(next.nodes.map((item) => item.id)).toEqual(['b', 'd']);
+		expect(next.edges.map((edge) => edge.id)).toEqual(['keep-other']);
+		expect(validateGraph(next)).toBe(true);
+		expect(withoutNodes(next, ids)).toBe(next);
+		expect(ids).toEqual(['a', 'missing', 'c', 'a', 'c']);
+		const empty = withoutNodes(next, ['b', 'd']);
+		expect(empty.nodes).toEqual([]);
+		expect(empty.edges).toEqual([]);
+		expect(empty).toMatchObject({ metadata: { document: ['preserved'] } });
+		expect(validateGraph(empty)).toBe(true);
+	});
+
+	it('keeps the original graph reference when no existing nodes are selected', () => {
+		const graph = removalFixture();
+		expect(withoutNodes(graph, [])).toBe(graph);
+		expect(withoutNodes(graph, ['missing', 'missing', 'removed-component'])).toBe(graph);
 	});
 });
