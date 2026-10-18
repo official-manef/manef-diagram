@@ -193,3 +193,16 @@ work until tested on that licensed connection.
   not stretch to the inspector height. Browser checks bound form buttons and canvas size.
 - Production visual acceptance requires screenshots of all main UI route families,
   representative light/dark themes, and a mobile regression check after deployment.
+
+## Local account-isolation regression coverage — 2026-10-18
+
+The client now starts a fresh Convex auth/cache lifetime for each verified issuer
+and subject. Private note drafts and edit selections are discarded on backend auth
+loss, and a second-tab cookie switch cannot give its token to the former displayed
+identity. Local desktop/phone fixtures with a synthetic Convex browser client cover account
+transitions, delayed writes and
+recoverable failures. Synthetic backend tests cover reciprocal WorkOS account and
+issuer isolation, including save-with-id denial and unchanged owner records.
+This coverage does not accept current production login, provider configuration or
+deployed two-account private CRUD. The historical callback findings above remain
+dated evidence. Private architecture snapshots still have no canvas-save UI.

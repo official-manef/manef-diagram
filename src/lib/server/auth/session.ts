@@ -214,7 +214,14 @@ export async function requireSession(event: AuthEvent): Promise<Session> {
 
 export async function getConvexToken(
 	event: AuthEvent,
-	options: { forceRefreshToken?: boolean } = {}
+	options: { forceRefreshToken?: boolean; expectedTokenIdentifier?: string } = {}
 ): Promise<string | null> {
-	return (await readRecord(event, options.forceRefreshToken))?.idToken ?? null;
+	const record = await readRecord(event, options.forceRefreshToken);
+	if (!record) return null;
+	if (
+		options.expectedTokenIdentifier !== undefined &&
+		options.expectedTokenIdentifier !== `${record.issuer ?? GOOGLE_ISSUER}|${record.subject}`
+	)
+		return null;
+	return record.idToken;
 }

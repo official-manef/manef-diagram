@@ -1,0 +1,11 @@
+{
+	"extends": "../../../tsconfig.json",
+	"include": [
+		"../../../src/app.d.ts",
+		"../../../.svelte-kit/ambient.d.ts",
+		"../../../.svelte-kit/non-ambient.d.ts",
+		"../../../.svelte-kit/env.d.ts",
+		"./**/*.ts",
+		"./**/*.svelte"
+	]
+}
