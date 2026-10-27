@@ -1,4 +1,4 @@
-import { siteLinks } from '$lib/config/navigation';
+import { siteLinks } from '#lib/config/navigation.js';
 
 const localHosts = new Set(['localhost', '127.0.0.1']);
 const ownerOrigins = [siteLinks.ecosystemOrigin, 'https://staging.manef.dev'];

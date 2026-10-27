@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 	let { label = 'Loading content', rows = 3 }: { label?: string; rows?: number } = $props();
 </script>
 

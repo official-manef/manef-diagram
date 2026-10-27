@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { siteLinks } from '$lib/config/navigation';
+	import { siteLinks } from '#lib/config/navigation.js';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { ecosystem } from './store.svelte';

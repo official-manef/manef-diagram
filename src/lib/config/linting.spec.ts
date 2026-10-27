@@ -23,10 +23,10 @@ function boundaries(code: string, filename = 'src/lib/example.ts') {
 test('browser boundaries reject private imports, re-exports and literal dynamic imports', () => {
 	for (const code of [
 		"import { env } from '$env/dynamic/private';",
-		"export { secret } from '$lib/server/secrets';",
+		"export { secret } from '#lib/server/secrets';",
 		"export * from './secrets.server';",
 		"await import('./server/integrations/email');",
-		'await import(`$lib/server/integrations/email`);',
+		'await import(`#lib/server/integrations/email`);',
 		"import { read } from '$app/server';",
 		"import { env } from '$app/env/private';",
 		"import { readFile } from 'node:fs/promises';",
@@ -34,7 +34,7 @@ test('browser boundaries reject private imports, re-exports and literal dynamic 
 		"import { query } from 'convex/server';",
 		"await import('../convex/starter');",
 		"import { query } from '../convex/_generated/server';",
-		"import raw from '$lib/server/secrets.ts?raw';"
+		"import raw from '#lib/server/secrets.ts?raw';"
 	]) {
 		const messages = boundaries(code);
 		expect(messages, code).toHaveLength(1);
@@ -49,9 +49,9 @@ test('server modules, generated client API and erased type imports remain usable
 		["import { env } from '$env/dynamic/private';", 'src/routes/example/+page.server.ts'],
 		["import { createHash } from 'node:crypto';", 'src/lib/server/example.ts'],
 		["import { api } from '../convex/_generated/api';", 'src/lib/example.ts'],
-		["import type { Session } from '$lib/server/session';", 'src/lib/example.ts'],
-		["import { type Session } from '$lib/server/session';", 'src/lib/example.ts'],
-		["export type { Session } from '$lib/server/session';", 'src/lib/example.ts'],
+		["import type { Session } from '#lib/server/session';", 'src/lib/example.ts'],
+		["import { type Session } from '#lib/server/session';", 'src/lib/example.ts'],
+		["export type { Session } from '#lib/server/session';", 'src/lib/example.ts'],
 		["import { env } from '$env/dynamic/public';", 'src/lib/example.ts'],
 		["import { name } from './config/app';", 'src/lib/example.ts']
 	]) {
@@ -62,7 +62,7 @@ test('server modules, generated client API and erased type imports remain usable
 test('Convex rejects SvelteKit dependencies and requires Node action runtime for built-ins', () => {
 	for (const code of [
 		"import { env } from '$env/static/public';",
-		"import type { Config } from '$lib/config/app';",
+		"import type { Config } from '#lib/config/app';",
 		"export * from '$app/environment';",
 		"await import('../lib/server/integrations/email');",
 		'await import(`../../slices/dashboard`);',

@@ -24,11 +24,14 @@ function inside(directory, target) {
 
 /** @param {string} filename @param {string} source */
 function resolveLocal(filename, source) {
-	// Query suffixes do not change the module's runtime ownership.
-	const value = source.split(/[?#]/)[0];
+	// Query suffixes do not change the module's runtime ownership. Strip '?' and any '#' that is
+	// not the leading character of a subpath import ('#lib/...', '#features/...').
+	const value = source.split('?')[0].replace(/(.)#.*$/, '$1');
 	for (const [alias, directory] of [
 		['$features', sliceRoot],
-		['$lib', path.join(projectRoot, 'src', 'lib')]
+		['#features', sliceRoot],
+		['$lib', path.join(projectRoot, 'src', 'lib')],
+		['#lib', path.join(projectRoot, 'src', 'lib')]
 	]) {
 		if (value === alias || value.startsWith(`${alias}/`)) {
 			return path.resolve(directory, value.slice(alias.length + 1));
@@ -124,7 +127,7 @@ export const runtimeBoundary = {
 			const target = resolveLocal(filename, source);
 			if (isConvex) {
 				if (
-					/^(?:\$(?:app|env|lib|features)(?:\/|$)|\$service-worker$|@sveltejs\/kit(?:\/|$))/.test(
+					/^(?:\$(?:app|env|features)(?:\/|$)|\$service-worker$|#lib(?:\/|$)|@sveltejs\/kit(?:\/|$))/.test(
 						source
 					) ||
 					(target &&

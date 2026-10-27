@@ -1,17 +1,17 @@
-import { env } from '$env/dynamic/private';
+import { AI_ENABLED, AI_MODELS_JSON } from '$app/env/private';
 import { error } from '@sveltejs/kit';
-import { requireCapabilityAccess, readJsonBody } from '$lib/server/access';
-import { parseChat } from '$lib/server/ai/config';
-import { chatResponse } from '$lib/server/ai/chat';
+import { requireCapabilityAccess, readJsonBody } from '#lib/server/access.js';
+import { parseChat } from '#lib/server/ai/config.js';
+import { chatResponse } from '#lib/server/ai/chat.js';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {
-	if (env.AI_ENABLED !== 'true') error(404, 'AI chat is disabled.');
+	if (AI_ENABLED !== 'true') error(404, 'AI chat is disabled.');
 	await requireCapabilityAccess(event);
 	const body = await readJsonBody(event.request);
 	let input: ReturnType<typeof parseChat>;
 	try {
-		input = parseChat(env, body);
+		input = parseChat({ AI_ENABLED, AI_MODELS_JSON }, body);
 	} catch {
 		error(400, 'Check the approved provider/model, key and conversation limits.');
 	}

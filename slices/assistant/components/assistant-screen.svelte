@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { SignalBanner } from '$lib/components/app-ui';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { SignalBanner } from '#lib/components/app-ui/index.js';
 	import type {
 		AiProvider,
 		AssistantSettings,

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { useQuery } from 'convex-svelte';
 	import { api } from '../../../src/convex/_generated/api';
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
 
 	const status = useQuery(api.starter.status, {});
 </script>

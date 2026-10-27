@@ -1,11 +1,11 @@
 <script lang="ts">
 	import './layout.css';
 	import { onMount } from 'svelte';
-	import { themePreference } from '$lib/theme.svelte';
-	import { siteLinks } from '$lib/config/navigation';
-	import { appConfig } from '$lib/config/app';
+	import { themePreference } from '#lib/theme.svelte.js';
+	import { siteLinks } from '#lib/config/navigation.js';
+	import { appConfig } from '#lib/config/app.js';
 	import { assets, assetMimeType } from '../../assets.config';
-	import { pageMetadata, pageIndexable, seoSettings } from '$lib/config/metadata';
+	import { pageMetadata, pageIndexable, seoSettings } from '#lib/config/metadata.js';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 	import ConvexProvider from '$lib/components/convex-provider.svelte';

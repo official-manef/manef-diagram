@@ -1,10 +1,10 @@
-import { env } from '$env/dynamic/private';
+import { MCP_CLIENT_ENABLED, MCP_SERVERS_JSON } from '$app/env/private';
 import { error, json } from '@sveltejs/kit';
 import { z } from 'zod';
-import { requireCapabilityAccess, readJsonBody } from '$lib/server/access';
-import { byokToken } from '$lib/server/ai/config';
-import { connectionFor } from '$lib/server/mcp/config';
-import { executeRemoteTool, listRemoteTools } from '$lib/server/mcp/client';
+import { requireCapabilityAccess, readJsonBody } from '#lib/server/access.js';
+import { byokToken } from '#lib/server/ai/config.js';
+import { connectionFor } from '#lib/server/mcp/config.js';
+import { executeRemoteTool, listRemoteTools } from '#lib/server/mcp/client.js';
 import type { RequestHandler } from './$types';
 
 const bodySchema = z.discriminatedUnion('action', [
@@ -22,16 +22,16 @@ const bodySchema = z.discriminatedUnion('action', [
 ]);
 
 export const POST: RequestHandler = async (event) => {
-	if (env.MCP_CLIENT_ENABLED !== 'true') error(404, 'Remote tools are disabled.');
+	if (MCP_CLIENT_ENABLED !== 'true') error(404, 'Remote tools are disabled.');
 	await requireCapabilityAccess(event);
-	if (env.MCP_CLIENT_ENABLED !== 'true') error(404, 'MCP client is disabled.');
+	if (MCP_CLIENT_ENABLED !== 'true') error(404, 'MCP client is disabled.');
 	const value = await readJsonBody(event.request);
 	let input: z.infer<typeof bodySchema>;
 	let connection: ReturnType<typeof connectionFor>;
 	try {
 		input = bodySchema.parse(value);
 		byokToken(input.token);
-		connection = connectionFor(env, input.alias);
+		connection = connectionFor({ MCP_CLIENT_ENABLED, MCP_SERVERS_JSON }, input.alias);
 		if (input.action === 'execute' && !connection.tools.includes(input.tool))
 			throw new Error('Unapproved tool');
 	} catch {

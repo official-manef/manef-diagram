@@ -7,10 +7,74 @@ import { authConfiguration, establishSession } from './session';
 
 const { privateEnv, publicEnv } = vi.hoisted(() => ({
 	privateEnv: {} as Record<string, string>,
-	publicEnv: { PUBLIC_SITE_URL: 'https://app.example.com' }
+	publicEnv: { PUBLIC_SITE_URL: 'https://app.example.com' } as Record<string, string>
 }));
-vi.mock('$env/dynamic/private', () => ({ env: privateEnv }));
-vi.mock('$env/dynamic/public', () => ({ env: publicEnv }));
+// SvelteKit 3 replaced $env/dynamic/* with declared vars in $app/env/*. Getters keep the
+// specs able to change values between assertions.
+vi.mock('$app/env/private', () => ({
+	get AI_ENABLED() {
+		return (privateEnv.AI_ENABLED ?? '') as string;
+	},
+	get AI_MODELS_JSON() {
+		return (privateEnv.AI_MODELS_JSON ?? '') as string;
+	},
+	get MCP_CLIENT_ENABLED() {
+		return (privateEnv.MCP_CLIENT_ENABLED ?? '') as string;
+	},
+	get MCP_SERVERS_JSON() {
+		return (privateEnv.MCP_SERVERS_JSON ?? '') as string;
+	},
+	get MCP_SERVER_ENABLED() {
+		return (privateEnv.MCP_SERVER_ENABLED ?? '') as string;
+	},
+	get MCP_SERVER_TOKEN() {
+		return (privateEnv.MCP_SERVER_TOKEN ?? '') as string;
+	},
+	get CAPABILITY_ACCESS_TOKEN() {
+		return (privateEnv.CAPABILITY_ACCESS_TOKEN ?? '') as string;
+	},
+	get AUTH_ENABLED() {
+		return (privateEnv.AUTH_ENABLED ?? '') as string;
+	},
+	get AUTH_PROVIDER() {
+		return (privateEnv.AUTH_PROVIDER ?? '') as string;
+	},
+	get AUTH_CLIENT_ID() {
+		return (privateEnv.AUTH_CLIENT_ID ?? '') as string;
+	},
+	get AUTH_CLIENT_SECRET() {
+		return (privateEnv.AUTH_CLIENT_SECRET ?? '') as string;
+	},
+	get AUTH_SESSION_SECRET() {
+		return (privateEnv.AUTH_SESSION_SECRET ?? '') as string;
+	},
+	get WORKOS_CLIENT_ID() {
+		return (privateEnv.WORKOS_CLIENT_ID ?? '') as string;
+	},
+	get WORKOS_API_KEY() {
+		return (privateEnv.WORKOS_API_KEY ?? '') as string;
+	}
+}));
+vi.mock('$app/env/public', () => ({
+	get PUBLIC_CONVEX_URL() {
+		return (publicEnv.PUBLIC_CONVEX_URL ?? '') as string;
+	},
+	get PUBLIC_SITE_URL() {
+		return (publicEnv.PUBLIC_SITE_URL ?? '') as string;
+	},
+	get PUBLIC_SEO_INDEXABLE() {
+		return (publicEnv.PUBLIC_SEO_INDEXABLE ?? '') as string;
+	},
+	get PUBLIC_GOOGLE_SITE_VERIFICATION() {
+		return (publicEnv.PUBLIC_GOOGLE_SITE_VERIFICATION ?? '') as string;
+	},
+	get PUBLIC_BING_SITE_VERIFICATION() {
+		return (publicEnv.PUBLIC_BING_SITE_VERIFICATION ?? '') as string;
+	},
+	get PUBLIC_TWITTER_SITE() {
+		return (publicEnv.PUBLIC_TWITTER_SITE ?? '') as string;
+	}
+}));
 
 function event<Route extends '/auth/token' | '/auth/logout' | '/auth/callback'>(
 	path: Route,

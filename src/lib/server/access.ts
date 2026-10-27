@@ -1,9 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { error, isHttpError, type RequestEvent } from '@sveltejs/kit';
-import { siteOrigin } from '$lib/config/metadata';
-import { env } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
-import { readSession } from '$lib/server/auth/session';
+import { siteOrigin } from '#lib/config/metadata.js';
+import { CAPABILITY_ACCESS_TOKEN } from '$app/env/private';
+import { PUBLIC_SITE_URL } from '$app/env/public';
+import { readSession } from '#lib/server/auth/session.js';
 
 export function matchesSecret(actual: string, expected: string): boolean {
 	if (!actual || !expected) return false;
@@ -41,9 +41,10 @@ export function consumeBurst(key: string, now = Date.now()): void {
 }
 
 export async function requireCapabilityAccess(event: RequestEvent): Promise<void> {
-	if (event.request.method !== 'GET') requireAppOrigin(event.request, publicEnv.PUBLIC_SITE_URL);
+	if (event.request.method !== 'GET') requireAppOrigin(event.request, PUBLIC_SITE_URL);
 	const authorization = event.request.headers.get('authorization') ?? '';
-	const configured = env.CAPABILITY_ACCESS_TOKEN;
+	const configured = CAPABILITY_ACCESS_TOKEN;
+
 	if (
 		configured &&
 		configured.length >= 32 &&
@@ -63,6 +64,7 @@ export async function readJsonBody(request: Request, maxBytes = 65_536): Promise
 	)
 		error(415, 'Send application/json.');
 	const length = request.headers.get('content-length');
+
 	if (length && (!/^\d+$/.test(length) || Number(length) > maxBytes))
 		error(413, 'The request is too large.');
 	if (!request.body) error(400, 'A JSON body is required.');

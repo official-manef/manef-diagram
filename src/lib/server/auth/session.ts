@@ -1,6 +1,14 @@
 import { error, type RequestEvent } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
+import {
+	AUTH_CLIENT_ID,
+	AUTH_CLIENT_SECRET,
+	AUTH_ENABLED,
+	AUTH_PROVIDER,
+	AUTH_SESSION_SECRET,
+	WORKOS_API_KEY,
+	WORKOS_CLIENT_ID
+} from '$app/env/private';
+import { PUBLIC_SITE_URL } from '$app/env/public';
 import { EncryptJWT, jwtDecrypt } from 'jose';
 import { z } from 'zod';
 import { resolveAuthConfig, type AuthConfig } from './config';
@@ -39,7 +47,16 @@ const recordSchema = z.object({
 type SessionRecord = z.infer<typeof recordSchema>;
 
 export function authConfiguration() {
-	return resolveAuthConfig({ ...env, ...publicEnv });
+	return resolveAuthConfig({
+		AUTH_ENABLED,
+		AUTH_PROVIDER,
+		AUTH_CLIENT_ID,
+		AUTH_CLIENT_SECRET,
+		AUTH_SESSION_SECRET,
+		WORKOS_API_KEY,
+		WORKOS_CLIENT_ID,
+		PUBLIC_SITE_URL
+	});
 }
 
 export function configuredAuth(): AuthConfig {

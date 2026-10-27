@@ -19,7 +19,7 @@
 				<p>
 					<a
 						class="nav-item"
-						href={resolve(`/guide?section=${item.id}`)}
+						href={resolve(`guide?section=${item.id}`)}
 						aria-current={section === item.id ? 'page' : undefined}>{item.title}</a
 					>
 				</p>
@@ -86,8 +86,7 @@
 				</p>
 				{#if page.data.auth?.enabled}
 					<p>
-						<a class="btn" href={resolve('/auth/login')} data-sveltekit-reload>Sign in with MANEF</a
-						>
+						<a class="btn" href={resolve('auth/login')} data-sveltekit-reload>Sign in with MANEF</a>
 					</p>
 				{:else}
 					<p class="notice">
@@ -126,12 +125,13 @@
 						Inspect the selected service and its connections. Use filters or focus to narrow the
 						view.
 					</li>
+
 					<li>
 						Edit or import your graph, then export JSON to keep the result. Private backend storage
 						has separate setup requirements.
 					</li>
 				</ol>
-				<p><a class="btn primary" href={resolve('/app')}>Open Diagram</a></p>
+				<p><a class="btn primary" href={resolve('app')}>Open Diagram</a></p>
 			{/if}
 			{#if section !== 'start'}
 				<p>

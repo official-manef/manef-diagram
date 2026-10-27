@@ -1,15 +1,15 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import {
 		DisclosureCard,
 		FeatureGrid,
 		SegmentedControl,
 		SignalBanner,
 		type SegmentItem
-	} from '$lib/components/app-ui';
+	} from '#lib/components/app-ui/index.js';
 
 	const sections = [
 		{ id: 'workspace', label: 'Workspace' },

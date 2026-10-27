@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import { PUBLIC_SITE_URL } from '$app/env/public';
 	import { page } from '$app/state';
-	import { siteOrigin } from '$lib/config/metadata';
+	import { siteOrigin } from '#lib/config/metadata.js';
 	import { GRAPH_TOOL_NAMES } from '$features/architecture-inventory';
 
 	const endpoint = $derived(
-		new URL('/api/mcp/server', siteOrigin(env.PUBLIC_SITE_URL) ?? page.url.origin).href
+		new URL('/api/mcp/server', siteOrigin(PUBLIC_SITE_URL) ?? page.url.origin).href
 	);
+
 	const codexConfig = $derived(`[mcp_servers.diagram]
 url = "${endpoint}"
 bearer_token_env_var = "MCP_DIAGRAM_TOKEN"`);

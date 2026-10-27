@@ -17,8 +17,8 @@
 					workspace. Start with the public MANEF map, then edit or import your own graph.
 				</p>
 				<div class="row" style="margin-top: 22px">
-					<a class="btn primary" href={resolve('/app')}>Start mapping</a>
-					<a class="btn" href={resolve('/guide')}>Read the guide</a>
+					<a class="btn primary" href={resolve('app')}>Start mapping</a>
+					<a class="btn" href={resolve('guide')}>Read the guide</a>
 				</div>
 			</div>
 		</section>
@@ -36,7 +36,7 @@
 			<h2>Connect Diagram through MCP</h2>
 			<McpConnection />
 			<p style="margin-top: 18px">
-				<a class="btn" href={resolve('/guide?section=mcp')}>Read the MCP guide</a>
+				<a class="btn" href={resolve('guide?section=mcp')}>Read the MCP guide</a>
 			</p>
 		</section>
 		<section class="public-section">

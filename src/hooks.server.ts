@@ -1,6 +1,6 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
-import { appConfig } from '$lib/config/app';
-import { dev } from '$app/environment';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
+import { appConfig } from '#lib/config/app.js';
+import { dev } from '$app/env';
 import { workspaceFrameAncestors } from '$features/workspace';
 
 if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(appConfig.locale)) {
@@ -32,7 +32,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-export const handleError: HandleServerError = ({ event, status }) => {
+// SvelteKit 3 passes a discriminated CaughtError: framework, app and validation errors carry
+// a status, unknown errors are always 500. The status used to arrive as a top-level argument.
+function caughtStatus(caught: Parameters<HandleServerError>[0]): number {
+	return caught.kind === 'unknown' ? 500 : caught.error.status;
+}
+
+export const handleError: HandleServerError = (caught) => {
+	const { event } = caught;
+	const status = caughtStatus(caught);
 	const id = event.locals.requestId ?? crypto.randomUUID();
 	// Provider exceptions may contain credentials or request payloads. Log only correlation data.
 	console.error('request_failed', {
