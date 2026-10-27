@@ -12,6 +12,85 @@ For a new product or requested redesign, first state the audience, main task, vi
 direction and what must remain intact. Do not apply a marketing aesthetic to an editor
 or replace a working layout just to make it look newly generated.
 
+## Palette, measured
+
+Values are the literals in `src/routes/layout.css`. Ratios computed from sRGB then
+WCAG relative luminance, against the page ground in the same theme.
+
+Light (`:root`, `layout.css:6-38`):
+
+| token                | value     | use                         | contrast |
+| -------------------- | --------- | --------------------------- | -------- |
+| `--background`       | `#f4f4f7` | page ground                 |          |
+| `--foreground`       | `#171719` | body text                   | 16.31:1  |
+| `--card`             | `#f4f4f7` | panel ground                |          |
+| `--secondary`        | `#ebebee` | inset blocks, control wells |          |
+| `--muted-foreground` | `#656568` | secondary text              | 5.29:1   |
+| `--border`           | `#d8d8db` | rules, dividers             |          |
+| `--ring`             | `#1f6df0` | focus ring                  |          |
+| `--destructive`      | `#ba334b` | destructive action          |          |
+
+Dark (`.dark`, `layout.css:39-58`):
+
+| token                | value                  | use            | contrast |
+| -------------------- | ---------------------- | -------------- | -------- |
+| `--background`       | `#171719`              | page ground    |          |
+| `--foreground`       | `#f4f4f7`              | body text      | 16.31:1  |
+| `--card`             | `#171719`              | panel ground   |          |
+| `--muted-foreground` | `#b7b7bc`              | secondary text | 8.96:1   |
+| `--border`           | translucent foreground | rules          |          |
+
+Both themes clear 4.5:1 on every text token. `--primary` aliases `--foreground`
+and `--primary-foreground` proxies `--background`, so the accent is "the ink
+colour" rather than a second hue: this is an architecture explorer, and a second
+hue would compete with the node-type colours the graph already needs.
+
+## Type
+
+- One family: `Inter` with a system fallback (`layout.css:107`). A diagram tool is
+  read in long sessions next to code, so a neutral grotesque with a large x-height
+  beats a display face that would only appear in four headings.
+- Monospace (`--font-mono`, `layout.css:29`) is reserved for identifiers, schema
+  names and code blocks. Never for labels or headings.
+- Scale: `--app-touch-target: 2.75rem` sets the interactive floor. Body copy is
+  14px in the workspace shell (`.eco`, `ecosystem.css:16`); table and dense metadata
+  drop to 12px, and 10px is the floor, used only for table headers and eyebrow
+  labels. Nothing renders below 10px.
+
+## Dial
+
+```
+ENERGY  2   /* quiet working surface; the graph supplies the contrast, not the chrome */
+RHYTHM  2   /* one shell, consistent sections, deliberate breaks at the audit table
+               and the public directory listing */
+MOTION  2   /* state feedback and one reveal; no ambient movement */
+```
+
+This restates the existing `variance 4/10, motion 2/10, density 6/10` profile on the
+three-level scale: density maps to RHYTHM 2 (consistent, with breaks), motion maps
+directly to MOTION 2, and the low variance is ENERGY 2.
+
+## Allowed
+
+- A ruled table with no card chrome, for comparable rows. The audit screen is the
+  reference case.
+- One accent per screen: focus ring and primary action. Node-type colour is data,
+  not accent, and only appears inside the graph.
+- Hairline borders instead of shadows to separate regions.
+- Horizontal rails on narrow screens for peer content, with a visible continuation.
+- Monospace for schema and function identifiers, in both themes.
+
+## Forbidden
+
+- A statistic, customer name or testimonial that is not a real row. The public
+  directory lists the actual slice registry; the audit screen cites the file it read.
+- An "AI powered", "seamless" or "production-ready" claim with no specific fact behind it.
+- A second display typeface, a decorative gradient, glow, glass, or status dot with
+  no information.
+- A table that scrolls the document instead of its own container.
+- Em dash in shipped copy.
+- Text below 10px, or below 12px outside table headers and eyebrow labels.
+
 ## Sources and ownership
 
 | Concern                                            | Edit here                                                |

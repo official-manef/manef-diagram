@@ -50,6 +50,8 @@
 		"build:n8n": "bun scripts/build-n8n-converter.mjs",
 		"check:n8n": "bun scripts/build-n8n-converter.mjs --check",
 		"check:core": "tsc --noEmit -p tests/fixtures/core/tsconfig.json"
+,
+		"env:check": "node scripts/env-check.mjs"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.14.0",
