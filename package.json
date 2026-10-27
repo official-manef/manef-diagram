@@ -99,7 +99,7 @@
 		"@modelcontextprotocol/sdk": "1.30.0",
 		"ai": "7.0.93",
 		"bits-ui": "2.19.0",
-		"convex": "1.45.0",
+		"convex": "1.48.0",
 		"convex-svelte": "0.14.0",
 		"jose": "6.2.12",
 		"mermaid": "^12.1.0",
