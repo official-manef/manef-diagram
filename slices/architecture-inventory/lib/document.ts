@@ -187,7 +187,7 @@ export function parseDiagramDocument(json: string): DiagramDocument {
 		throw new Error('Unsupported diagram document format.');
 	}
 	if (isRecord(value) && ('format' in value || 'graph' in value)) {
-		if ('nodes' in value || 'edges' in value) {
+		if (value.format !== 'manef-diagram' && ('nodes' in value || 'edges' in value)) {
 			throw new Error('Ambiguous diagram document: put graph nodes and edges inside graph.');
 		}
 		if (value.schemaVersion !== undefined && value.schemaVersion !== 1) {

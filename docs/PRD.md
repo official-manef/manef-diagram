@@ -238,14 +238,14 @@ inventory goal and the 18 October interaction handoff. The recovery change fixes
 repeat-click filter dismissal, rejected connection select rollback with inline
 feedback, and demo link/context/host draft retention after rejected submissions.
 The public TypeScript entry point is now core.ts; index.ts preserves Svelte imports.
-Explicit unsupported document formats and mixed envelope/bare-graph inputs fail
+Explicit unsupported document formats and untagged mixed envelope/bare-graph inputs fail
 closed. Accepted imports reserve Markdown envelope space; exports fall back to
 compact canonical JSON without dropping data when indentation/projections exceed
 the transport budget. The bundled n8n converter is regenerated from the same core.
 
 Local evidence for this recovery implementation (not production acceptance):
 
-- Bun 1.4.2 frozen-lockfile install, check, lint, 305 unit tests and Vercel build passed.
+- Bun 1.4.2 frozen-lockfile install, check, lint, 306 unit tests and Vercel build passed.
 - Standalone TypeScript consumer compilation passed without Svelte declarations or app aliases.
 - All 222 E2E cases passed in separate complete mobile/narrow-mobile (148) and desktop (74) runs.
 - Eight synthetic note-isolation browser cases and two development hydration cases passed.
@@ -261,3 +261,5 @@ remain external acceptance work. Full-document Convex persistence stays explicit
 deferred. No deployment, account grant, DNS, credential or private inventory change
 was made by this recovery task. Merge/release requires review and CI for the exact
 remote revision; do not infer deployment from a successful local build or dry-run.
+
+Review follow-up: explicitly tagged canonical documents retain root nodes/edges extension metadata. Only untagged hybrid envelopes are ambiguous. A dedicated JSON/Markdown/clone regression covers both metadata values and graph-shaped root extensions.

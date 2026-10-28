@@ -107,7 +107,23 @@ describe('canonical diagram documents', () => {
 		{ format: 'manef-diagram', schemaVersion: 1, nodes: [], edges: [] },
 		{ schemaVersion: 1, nodes: [], edges: [], graph: { schemaVersion: 1, nodes: [], edges: [] } }
 	])('rejects explicitly tagged or ambiguous bare graphs: %j', (value) => {
-		expect(() => parseDiagramDocument(JSON.stringify(value))).toThrow(/format|Ambiguous/);
+		expect(() => parseDiagramDocument(JSON.stringify(value))).toThrow(/format|Ambiguous|contract/);
+	});
+
+	it('preserves root nodes and edges extensions when the canonical format is explicit', () => {
+		for (const extensions of [
+			{ nodes: { providerMetadata: true }, edges: ['provider metadata'] },
+			{ nodes: [], edges: [] }
+		]) {
+			const document = Object.assign(
+				createDocument({ schemaVersion: 1, nodes: [], edges: [] }),
+				extensions
+			);
+			expect(validateDiagramDocument(document)).toBe(true);
+			expect(cloneDocument(document)).toEqual(document);
+			expect(parseDiagramDocument(documentAsJson(document))).toEqual(document);
+			expect(parseDiagramMarkdown(documentAsMarkdown(document))).toEqual(document);
+		}
 	});
 
 	it('keeps accepted compact documents exportable when indentation exceeds the text limit', () => {

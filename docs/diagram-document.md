@@ -115,7 +115,7 @@ semantic round-trip checks.
 `parseDiagramDocument` also accepts the existing bare graph and untagged `{graph,...}`
 export shapes. It migrates them to the version 1 document, retaining JSON-safe
 fields. Explicit unsupported formats or versions fail with an actionable error.
-Top-level format and graph identify document envelopes; envelopes mixed with top-level nodes or edges are rejected as ambiguous. To retain graph extensions named format or graph, place that graph inside an explicit canonical document rather than an ambiguous bare graph.
+An explicit manef-diagram format selects the canonical envelope, retaining root nodes or edges fields as unknown metadata. Untagged envelopes mixed with top-level nodes or edges are rejected as ambiguous. To retain graph extensions named format or graph, place that graph inside an explicit canonical document rather than an ambiguous bare graph.
 
 Legacy graph-only consumers can continue to use the graph parser; a consumer that
 must retain the complete document should use the document APIs above.

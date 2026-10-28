@@ -8,6 +8,8 @@ function fixtureDocument() {
 		schemaVersion: 1,
 		title: 'Dokumen utuh 日本語 🧭',
 		metadata: { unknownRoot: [false, null, { language: 'id' }] },
+		nodes: { providerMetadata: true },
+		edges: ['root extension, not graph edges'],
 		graph: {
 			schemaVersion: 1,
 			unknownGraph: { ordered: ['first', 'second'] },

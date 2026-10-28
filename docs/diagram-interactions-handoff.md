@@ -41,7 +41,7 @@ The recovery change fixes the desktop filter trigger stacking, rejected connecti
 control rollback/inline feedback and demo link/context/host draft retention. Regression
 coverage now includes repeat trigger clicks, rejected retarget with unchanged export,
 duplicate/self links and whitespace-only drafts followed by correction. All 222
-browser cases passed across the three configured projects, plus 305 unit, eight
+browser cases passed across the three configured projects, plus 306 unit, eight
 synthetic notes and two dev cases. Local verify, Node smoke and Workers dry-run passed.
 See the PRD goal audit for exact local runtime limitations and pending external gates.
 Remote CI, production auth and destination n8n acceptance are not claimed by this follow-up.
