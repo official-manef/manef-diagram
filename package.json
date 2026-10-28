@@ -29,7 +29,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p src/convex && node scripts/version.mjs --check && bun run assets:check && bun run check:n8n",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p src/convex && node scripts/version.mjs --check && bun run assets:check && bun run check:n8n && bun run check:core",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint . && bun run lint:svelte5",
 		"lint:svelte5": "node scripts/check-svelte5.mjs",
@@ -48,7 +48,8 @@
 		"verify": "bun run check && bun run lint && bun run test && bun run build",
 		"test:notes": "playwright test --config playwright.notes.config.ts",
 		"build:n8n": "bun scripts/build-n8n-converter.mjs",
-		"check:n8n": "bun scripts/build-n8n-converter.mjs --check"
+		"check:n8n": "bun scripts/build-n8n-converter.mjs --check",
+		"check:core": "tsc --noEmit -p tests/fixtures/core/tsconfig.json"
 	},
 	"devDependencies": {
 		"@convex-dev/eslint-plugin": "4.0.0",

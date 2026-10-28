@@ -128,8 +128,12 @@ class EcosystemStore {
 
 	addContext(label: string, notes: string, kind = 'document') {
 		const next = addContext(this.current, label, notes, kind);
-		if (next === this.current) return;
+		if (next === this.current) {
+			this.toast = 'Enter a non-empty context label.';
+			return false;
+		}
 		this.commit(next, 'Context added to the demo graph.');
+		return true;
 	}
 
 	editNotes(id: string, notes: string) {
@@ -147,9 +151,10 @@ class EcosystemStore {
 		const next = linkDemoNodes(this.current, source, target, label);
 		if (next === this.current) {
 			this.toast = 'That demo link was rejected. Use two different nodes and a new direction.';
-			return;
+			return false;
 		}
 		this.commit(next, 'Demo link added.');
+		return true;
 	}
 
 	unlink(id: string) {
@@ -197,8 +202,12 @@ class EcosystemStore {
 
 	planDomain(host: string) {
 		const next = addDomainPlan(this.current, host);
-		if (next === this.current) return;
+		if (next === this.current) {
+			this.toast = 'Enter a non-empty host label.';
+			return false;
+		}
 		this.commit(next, 'Plan saved locally. No domain was provisioned.');
+		return true;
 	}
 
 	toggleSignIn() {

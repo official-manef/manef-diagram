@@ -1,6 +1,6 @@
 import type { ArchitectureGraph, ArchitectureNode, ArchitecturePort, Point } from '../types';
 import {
-	MAX_DOCUMENT_INPUT_CHARS,
+	documentAsJson,
 	createDocument,
 	validateDiagramDocument,
 	type DiagramDocument
@@ -200,7 +200,9 @@ export function importN8nWorkflow(source: string | unknown): DiagramDocument {
 	if (!validateDiagramDocument(document)) {
 		invalid('$', 'cannot fit the canonical document contract.');
 	}
-	if (JSON.stringify(document).length > MAX_DOCUMENT_INPUT_CHARS) {
+	try {
+		documentAsJson(document);
+	} catch {
 		invalid(
 			'$',
 			'the expanded MANEF document exceeds the canonical import size limit. Import a smaller workflow.'

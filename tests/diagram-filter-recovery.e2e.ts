@@ -87,3 +87,19 @@ for (const width of [320, 390]) {
 		}
 	});
 }
+
+for (const width of [320, 390, 1440]) {
+	test(`filter can be closed by clicking its trigger again at ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: 844 });
+		await page.goto('/app');
+		const trigger = page.getByRole('button', { name: 'Filter', exact: true });
+		await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
+		for (let attempt = 0; attempt < 2; attempt++) {
+			await trigger.click();
+			await expect(page.getByRole('dialog', { name: 'Tag filters' })).toBeVisible();
+			await trigger.click();
+			await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+			await expect(trigger).toBeFocused();
+		}
+	});
+}
