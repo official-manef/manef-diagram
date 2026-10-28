@@ -56,7 +56,7 @@ within JavaScript's safe integer range; represent larger identifiers and counter
 as strings. Negative zero is rejected because JSON serialization would change it
 to zero. Unsupported JavaScript values, cycles, accessors and invalid required structures produce errors instead of
 being silently omitted. JSON validation bounds nesting and value count; document
-text import/export is limited to 5,000,000 characters.
+text import/export is limited to 5,000,000 characters. Accepted imports reserve space for a collision-safe canonical Markdown fence. Export uses compact JSON when indentation would exceed the limit, and Markdown can omit readable projections near the limit; the authoritative payload is always retained. The structural validator checks shape and JSON safety; parsers and serializers also enforce the transport budget.
 
 ## Markdown
 
@@ -115,6 +115,8 @@ semantic round-trip checks.
 `parseDiagramDocument` also accepts the existing bare graph and untagged `{graph,...}`
 export shapes. It migrates them to the version 1 document, retaining JSON-safe
 fields. Explicit unsupported formats or versions fail with an actionable error.
+Top-level format and graph identify document envelopes; envelopes mixed with top-level nodes or edges are rejected as ambiguous. To retain graph extensions named format or graph, place that graph inside an explicit canonical document rather than an ambiguous bare graph.
+
 Legacy graph-only consumers can continue to use the graph parser; a consumer that
 must retain the complete document should use the document APIs above.
 

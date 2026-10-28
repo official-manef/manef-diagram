@@ -317,12 +317,12 @@
 				onsubmit={(event) => {
 					const read = readForm(event);
 					if (!read) return;
-					ecosystem.link(
+					const saved = ecosystem.link(
 						String(read.data.get('source') ?? ''),
 						String(read.data.get('target') ?? ''),
 						String(read.data.get('label') ?? '')
 					);
-					read.form.reset();
+					if (saved) read.form.reset();
 				}}
 			>
 				<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
@@ -367,12 +367,12 @@
 			onsubmit={(event) => {
 				const read = readForm(event);
 				if (!read) return;
-				ecosystem.addContext(
+				const saved = ecosystem.addContext(
 					String(read.data.get('label') ?? ''),
 					String(read.data.get('notes') ?? ''),
 					String(read.data.get('kind') ?? 'document')
 				);
-				read.form.reset();
+				if (saved) read.form.reset();
 			}}
 		>
 			<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>
@@ -533,8 +533,7 @@
 				onsubmit={(event) => {
 					const read = readForm(event);
 					if (!read) return;
-					ecosystem.planDomain(String(read.data.get('host') ?? ''));
-					read.form.reset();
+					if (ecosystem.planDomain(String(read.data.get('host') ?? ''))) read.form.reset();
 				}}
 			>
 				<fieldset class="demo-form-fields" disabled={!ecosystem.loaded}>

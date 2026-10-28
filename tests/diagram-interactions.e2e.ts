@@ -246,3 +246,33 @@ test('inspector tabs use arrow keys, Home and End with one tab stop and a labell
 		await expect(panel).toHaveAttribute('aria-labelledby', (await tab.getAttribute('id'))!);
 	}
 });
+
+test('rejected retarget restores the select, shows feedback and leaves exported data unchanged', async ({
+	page
+}) => {
+	const document = fixture([]);
+	document.graph.edges.push({
+		...document.graph.edges[0],
+		id: 'other-connection',
+		target: 'other'
+	});
+	await page.locator('input[type="file"]').setInputFiles({
+		name: 'retarget.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify(document))
+	});
+	await expect(page.getByRole('status')).toHaveText('Imported retarget.json.');
+	// The connection list works on desktop and phones, without aiming at scaled paths.
+	await page
+		.locator(page.viewportSize()!.width < 1024 ? '.mobile-edge' : '.edge-strip button')
+		.first()
+		.click();
+	const target = page.getByLabel('Target node', { exact: true });
+	await expect(target).toHaveValue('target');
+	await target.selectOption('other');
+	await expect(page.getByRole('alert')).toContainText('The connection is unchanged');
+	await expect(target).toHaveValue('target');
+	expect((await exportDocument(page)).graph).toEqual(document.graph);
+	await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+	await expect(page.getByRole('alert')).toBeHidden();
+});

@@ -85,7 +85,8 @@ export const sliceBoundary = {
 			if (
 				slice === owner ||
 				segments.length === 0 ||
-				/^index(?:\.[cm]?[jt]s)?$/.test(segments.join('/'))
+				/^index(?:\.[cm]?[jt]s)?$/.test(segments.join('/')) ||
+				(slice === 'architecture-inventory' && /^core(?:\.[cm]?[jt]s)?$/.test(segments.join('/')))
 			)
 				return;
 			context.report({ node, messageId: 'barrel', data: { slice } });

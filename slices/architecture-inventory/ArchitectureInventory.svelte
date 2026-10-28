@@ -142,6 +142,7 @@
 	let armedOutput = $state<{ nodeId: string; portId: string } | null>(null);
 	let jsonText = $state(JSON.stringify(defaultGraph, null, 2));
 	let jsonMessage = $state('');
+	let connectionMessage = $state('');
 	let actionMessage = $state('');
 	let zoom = $state(0.72);
 	let pan = $state({ x: 32, y: 28 });
@@ -528,6 +529,7 @@
 	}
 
 	function rememberSelection(nodeIds: string[], edgeIds: string[]) {
+		connectionMessage = '';
 		selectedNodeIds = nodeIds;
 		selectedEdgeIds = edgeIds;
 		selectedNodeId = nodeIds.length === 1 ? nodeIds[0] : null;
@@ -879,14 +881,21 @@
 		}
 	}
 
-	function retargetEdge(patch: Partial<ArchitectureEdge>) {
+	function retargetEdge(
+		field: 'source' | 'sourcePort' | 'target' | 'targetPort',
+		control: HTMLSelectElement
+	) {
 		if (!selectedEdge) return;
-		const next = withEdgePatch(graph, selectedEdge, patch);
-		if (!next) {
-			jsonMessage = 'That connection already exists or the port does not match.';
+		const previous = selectedEdge[field];
+		const next = withEdgePatch(graph, selectedEdge, { [field]: control.value });
+		if (!next || !commitVisible(next)) {
+			control.value = previous;
+			connectionMessage =
+				'That connection already exists or the port does not match. The connection is unchanged.';
+			jsonMessage = connectionMessage;
 			return;
 		}
-		commitVisible(next);
+		connectionMessage = '';
 	}
 
 	function closeFilters() {
@@ -2315,6 +2324,9 @@
 					{:else if selectedEdge}
 						<div class="panel">
 							<h2>Connection details</h2>
+							{#if connectionMessage}
+								<p role="alert">{connectionMessage}</p>
+							{/if}
 							<label>
 								<span>Label</span>
 								<Input
@@ -2339,7 +2351,7 @@
 									class="theme-select"
 									aria-label="Source node"
 									value={selectedEdge.source}
-									onchange={(event) => retargetEdge({ source: event.currentTarget.value })}
+									onchange={(event) => retargetEdge('source', event.currentTarget)}
 								>
 									{#each graph.nodes as node (node.id)}
 										<option value={node.id}>{node.label}</option>
@@ -2352,7 +2364,7 @@
 									class="theme-select"
 									aria-label="Source output"
 									value={selectedEdge.sourcePort}
-									onchange={(event) => retargetEdge({ sourcePort: event.currentTarget.value })}
+									onchange={(event) => retargetEdge('sourcePort', event.currentTarget)}
 								>
 									{#each graph.nodes.find((node) => node.id === selectedEdge.source)?.outputs ?? [] as port (port.id)}
 										<option value={port.id}>{port.label}</option>
@@ -2365,7 +2377,7 @@
 									class="theme-select"
 									aria-label="Target node"
 									value={selectedEdge.target}
-									onchange={(event) => retargetEdge({ target: event.currentTarget.value })}
+									onchange={(event) => retargetEdge('target', event.currentTarget)}
 								>
 									{#each graph.nodes as node (node.id)}
 										<option value={node.id}>{node.label}</option>
@@ -2378,7 +2390,7 @@
 									class="theme-select"
 									aria-label="Target input"
 									value={selectedEdge.targetPort}
-									onchange={(event) => retargetEdge({ targetPort: event.currentTarget.value })}
+									onchange={(event) => retargetEdge('targetPort', event.currentTarget)}
 								>
 									{#each graph.nodes.find((node) => node.id === selectedEdge.target)?.inputs ?? [] as port (port.id)}
 										<option value={port.id}>{port.label}</option>

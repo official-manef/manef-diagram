@@ -83,12 +83,11 @@ describe('canonical diagram documents', () => {
 	it('migrates bare graphs and legacy envelopes while retaining unknown fields', () => {
 		const bare = JSON.stringify(defaultGraph);
 		expect(parseDiagramDocument(bare).graph).toEqual(defaultGraph);
-		const graphWithEnvelopeNames = Object.assign(cloneGraph(defaultGraph), {
-			graph: { custom: 'graph-level metadata' },
-			format: 'custom graph extension'
+		const graphWithMetadata = Object.assign(cloneGraph(defaultGraph), {
+			custom: { graph: 'graph-level metadata' }
 		});
-		expect(parseDiagramDocument(JSON.stringify(graphWithEnvelopeNames)).graph).toEqual(
-			graphWithEnvelopeNames
+		expect(parseDiagramDocument(JSON.stringify(graphWithMetadata)).graph).toEqual(
+			graphWithMetadata
 		);
 		const legacy = {
 			schemaVersion: 1,
@@ -101,6 +100,42 @@ describe('canonical diagram documents', () => {
 			...legacy,
 			format: 'manef-diagram'
 		});
+	});
+
+	it.each([
+		{ format: 'unsupported', schemaVersion: 1, nodes: [], edges: [] },
+		{ format: 'manef-diagram', schemaVersion: 1, nodes: [], edges: [] },
+		{ schemaVersion: 1, nodes: [], edges: [], graph: { schemaVersion: 1, nodes: [], edges: [] } }
+	])('rejects explicitly tagged or ambiguous bare graphs: %j', (value) => {
+		expect(() => parseDiagramDocument(JSON.stringify(value))).toThrow(/format|Ambiguous/);
+	});
+
+	it('keeps accepted compact documents exportable when indentation exceeds the text limit', () => {
+		const original = createDocument({ schemaVersion: 1, nodes: [], edges: [] });
+		original.extensions = {
+			text: 'x'.repeat(4_200_000),
+			values: Array.from({ length: 100_000 }, () => 1)
+		};
+		expect(JSON.stringify(original, null, 2).length).toBeGreaterThan(MAX_DOCUMENT_INPUT_CHARS);
+		const imported = parseDiagramDocument(JSON.stringify(original));
+		const json = documentAsJson(imported);
+		const markdown = documentAsMarkdown(imported);
+		expect(json.length).toBeLessThanOrEqual(MAX_DOCUMENT_INPUT_CHARS);
+		expect(markdown.length).toBeLessThanOrEqual(MAX_DOCUMENT_INPUT_CHARS);
+		expect(parseDiagramDocument(json)).toEqual(original);
+		expect(parseDiagramMarkdown(markdown)).toEqual(original);
+	});
+
+	it('reserves a collision-safe Markdown envelope at the canonical transport boundary', () => {
+		const original = createDocument({ schemaVersion: 1, nodes: [], edges: [] });
+		original.extension = '';
+		const overhead = JSON.stringify(original).length;
+		original.extension = 'x'.repeat(MAX_DOCUMENT_INPUT_CHARS - overhead - 64);
+		const accepted = parseDiagramDocument(JSON.stringify(original));
+		expect(parseDiagramMarkdown(documentAsMarkdown(accepted))).toEqual(original);
+		original.extension = 'x'.repeat(MAX_DOCUMENT_INPUT_CHARS - overhead);
+		expect(JSON.stringify(original).length).toBe(MAX_DOCUMENT_INPUT_CHARS);
+		expect(() => parseDiagramDocument(JSON.stringify(original))).toThrow(/5,000,000/);
 	});
 
 	it('preserves graph root metadata, nested extensions and independent clones after edits', () => {

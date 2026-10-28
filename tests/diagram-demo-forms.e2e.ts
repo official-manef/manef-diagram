@@ -56,3 +56,74 @@ test('operations accepts Enter to save a local plan and restores it after reload
 	await page.reload();
 	await expect(page.getByText('catalog-qa.example.test', { exact: true })).toBeVisible();
 });
+
+test('rejected demo links retain input until a valid link is saved', async ({ page }) => {
+	await page.goto('/embed/workspace/diagram');
+	const from = page.getByLabel('Link from', { exact: true });
+	const to = page.getByLabel('Link to', { exact: true });
+	const form = page.locator('form').filter({ has: from });
+	const label = form.getByRole('textbox', { name: 'Label', exact: true });
+	await expect(from).toBeEnabled();
+	const ids = await from
+		.locator('option')
+		.evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value));
+	await from.selectOption(ids[1]);
+	await to.selectOption(ids[1]);
+	await label.fill('Keep this draft');
+	await form.getByRole('button', { name: 'Add demo link' }).click();
+	await expect(
+		page.getByText('That demo link was rejected. Use two different nodes and a new direction.', {
+			exact: true
+		})
+	).toBeVisible();
+	await expect(from).toHaveValue(ids[1]);
+	await expect(to).toHaveValue(ids[1]);
+	await expect(label).toHaveValue('Keep this draft');
+	// Select a reverse direction absent from the default graph.
+	await from.selectOption(ids[ids.length - 1]);
+	await to.selectOption(ids[0]);
+	await form.getByRole('button', { name: 'Add demo link' }).click();
+	await expect(page.getByText('Demo link added.', { exact: true })).toBeVisible();
+	await expect(label).toHaveValue('');
+	await from.selectOption(ids[ids.length - 1]);
+	await to.selectOption(ids[0]);
+	await label.fill('Duplicate draft');
+	await form.getByRole('button', { name: 'Add demo link' }).click();
+	await expect(label).toHaveValue('Duplicate draft');
+	await expect(from).toHaveValue(ids[ids.length - 1]);
+	await expect(to).toHaveValue(ids[0]);
+});
+
+for (const surface of ['context', 'ops']) {
+	test(`${surface}: whitespace-only submission retains draft and permits correction`, async ({
+		page
+	}) => {
+		await page.goto(`/embed/workspace/${surface}`);
+		const input = page.getByRole('textbox', {
+			name: surface === 'context' ? 'Label' : 'Host label',
+			exact: true
+		});
+		await expect(input).toBeEnabled();
+		await input.fill('   ');
+		if (surface === 'context')
+			await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('Keep notes');
+		await input.press('Enter');
+		await expect(input).toHaveValue('   ');
+		await expect(
+			page.getByText(
+				surface === 'context'
+					? 'Enter a non-empty context label.'
+					: 'Enter a non-empty host label.',
+				{ exact: true }
+			)
+		).toBeVisible();
+		if (surface === 'context')
+			await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(
+				'Keep notes'
+			);
+		await input.fill('Corrected draft');
+		await input.press('Enter');
+		await expect(input).toHaveValue('');
+		await expect(page.getByText('Corrected draft', { exact: true })).toBeVisible();
+	});
+}

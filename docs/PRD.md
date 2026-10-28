@@ -80,7 +80,7 @@ work until tested on that licensed connection.
 - Canonical UI: Svelte 5 + SvelteKit
 - Backend: Convex Cloud, optional until configured
 - Runtime hosting: Vercel, with adapter-node available for separately managed hosts
-- Reusable contract: `slices/architecture-inventory/index.ts`
+- Reusable contract: `slices/architecture-inventory/core.ts`; `index.ts` also exports the Svelte renderer.
 
 ## Acceptance
 
@@ -230,3 +230,34 @@ issuer isolation, including save-with-id denial and unchanged owner records.
 This coverage does not accept current production login, provider configuration or
 deployed two-account private CRUD. The historical callback findings above remain
 dated evidence. Private architecture snapshots still have no canvas-save UI.
+
+## Goal audit and local recovery — 2026-10-29
+
+Reviewed main c6e5f42573b726300ee6ad2a9972a2776dd5db14 against the architecture
+inventory goal and the 18 October interaction handoff. The recovery change fixes
+repeat-click filter dismissal, rejected connection select rollback with inline
+feedback, and demo link/context/host draft retention after rejected submissions.
+The public TypeScript entry point is now core.ts; index.ts preserves Svelte imports.
+Explicit unsupported document formats and mixed envelope/bare-graph inputs fail
+closed. Accepted imports reserve Markdown envelope space; exports fall back to
+compact canonical JSON without dropping data when indentation/projections exceed
+the transport budget. The bundled n8n converter is regenerated from the same core.
+
+Local evidence for this recovery implementation (not production acceptance):
+
+- Bun 1.4.2 frozen-lockfile install, check, lint, 305 unit tests and Vercel build passed.
+- Standalone TypeScript consumer compilation passed without Svelte declarations or app aliases.
+- All 222 E2E cases passed in separate complete mobile/narrow-mobile (148) and desktop (74) runs.
+- Eight synthetic note-isolation browser cases and two development hydration cases passed.
+- Node build and standalone route smoke passed; Workers build, type check and deployment dry-run passed.
+- Runtime: Node 24.22.1; browser tests used locally available Chromium 156.0.8078.73 via executable override, not Playwright's downloaded browser revision. The notes suite used a temporary config with only that executable override.
+- An initial combined E2E run hit the execution time limit; the complete project-group reruns above supersede it. An earlier focused run had two new-test locator failures on hidden desktop controls in phone mode; selecting the visible mobile connection list corrected the test, and both complete reruns passed.
+
+These results establish local recovery, not completion of every ecosystem goal.
+Destination n8n import/manual execution, current production WorkOS consent/refresh
+and reciprocal two-account CRUD, licensed LiveChat/Airin connection, authorized
+private inventory, production revision/browser acceptance and distributed capacity
+remain external acceptance work. Full-document Convex persistence stays explicitly
+deferred. No deployment, account grant, DNS, credential or private inventory change
+was made by this recovery task. Merge/release requires review and CI for the exact
+remote revision; do not infer deployment from a successful local build or dry-run.

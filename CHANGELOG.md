@@ -5,6 +5,9 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Complete interaction recovery: keep the filter trigger clickable above its backdrop, restore rejected connection controls with inline feedback, and retain invalid demo form drafts.
+- Expose a framework-neutral core entry point with standalone TypeScript consumer validation. Reject ambiguous document envelopes and keep accepted documents exportable within the JSON/Markdown transport budget. Regenerate the offline n8n converter from that same core.
+
 - Add a versioned full-diagram document with lossless JSON/Markdown transport for nested graphs, all 24 Mermaid kinds, metadata, inventory and layout. Preserve imported n8n workflows and provide an inactive standalone converter workflow with offline regression coverage.
 
 - Isolate private note drafts, Convex auth callbacks and query caches by verified account. Reject token delivery when a page expects another cookie owner; cover local account/issuer denial and browser failure recovery.

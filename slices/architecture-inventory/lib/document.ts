@@ -151,6 +151,7 @@ function requireDocument(value: unknown): asserts value is DiagramDocument {
 			'Document does not match the MANEF diagram document contract (version 1, a valid graph, and JSON-safe fields are required).'
 		);
 	}
+	boundedInput(fenced(JSON.stringify(value), DOCUMENT_MARKDOWN_LANGUAGE));
 }
 
 function boundedInput(text: string): void {
@@ -182,12 +183,12 @@ export function cloneDocument(document: DiagramDocument): DiagramDocument {
 export function parseDiagramDocument(json: string): DiagramDocument {
 	boundedInput(json);
 	const value: unknown = JSON.parse(json);
-	if (isRecord(value) && value.format !== 'manef-diagram' && validateGraph(value)) {
-		return createDocument(value);
+	if (isRecord(value) && 'format' in value && value.format !== 'manef-diagram') {
+		throw new Error('Unsupported diagram document format.');
 	}
-	if (isRecord(value) && 'graph' in value) {
-		if (value.format !== undefined && value.format !== 'manef-diagram') {
-			throw new Error('Unsupported diagram document format.');
+	if (isRecord(value) && ('format' in value || 'graph' in value)) {
+		if ('nodes' in value || 'edges' in value) {
+			throw new Error('Ambiguous diagram document: put graph nodes and edges inside graph.');
 		}
 		if (value.schemaVersion !== undefined && value.schemaVersion !== 1) {
 			throw new Error('Unsupported diagram document version.');
@@ -210,8 +211,7 @@ export function parseDiagramDocument(json: string): DiagramDocument {
 export function documentAsJson(document: DiagramDocument): string {
 	requireDocument(document);
 	const text = JSON.stringify(document, null, 2);
-	boundedInput(text);
-	return text;
+	return text.length <= MAX_DOCUMENT_INPUT_CHARS ? text : JSON.stringify(document);
 }
 
 function fenced(source: string, language: string): string {
@@ -275,8 +275,9 @@ export function documentAsMarkdown(document: DiagramDocument): string {
 	graphSummary(document.graph, []);
 	parts.push('## Canonical document', fenced(payload, DOCUMENT_MARKDOWN_LANGUAGE));
 	const text = parts.join('\n\n') + '\n';
-	boundedInput(text);
-	return text;
+	if (text.length <= MAX_DOCUMENT_INPUT_CHARS) return text;
+	// Readable projections and indentation are optional; the authoritative payload is not.
+	return fenced(JSON.stringify(document), DOCUMENT_MARKDOWN_LANGUAGE);
 }
 
 export function parseDiagramMarkdown(markdown: string): DiagramDocument {

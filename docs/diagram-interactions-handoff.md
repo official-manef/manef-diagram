@@ -33,3 +33,15 @@ Implementation stopped at owner request. Preserve this branch; do not count part
 - [ ] No panelcollapse/footer redesign started; publicheader/footer/left/rightpanelreflow checked320/390/1440 withnooverflow.
 
 Screenshots/scripts/results: task-3/evidence/interactions/audit-desktop,audit-mobile,reviewer. Worktreebase localba7ff1b89779b1678f08b8b0d9984ddc3ba5a8e2 is syntheticarchive history equivalent to remotePR43headb09be2f40ea08bd08e887c9c0b92c5e738c009af. No productionmanualdeploy,grants,credentials or accesssettings changed.
+
+## Recovery follow-up — 2026-10-29
+
+The unchecked source defects above are historical findings at the stopped revision.
+The recovery change fixes the desktop filter trigger stacking, rejected connection
+control rollback/inline feedback and demo link/context/host draft retention. Regression
+coverage now includes repeat trigger clicks, rejected retarget with unchanged export,
+duplicate/self links and whitespace-only drafts followed by correction. All 222
+browser cases passed across the three configured projects, plus 305 unit, eight
+synthetic notes and two dev cases. Local verify, Node smoke and Workers dry-run passed.
+See the PRD goal audit for exact local runtime limitations and pending external gates.
+Remote CI, production auth and destination n8n acceptance are not claimed by this follow-up.
