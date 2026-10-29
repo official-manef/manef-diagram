@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { useAuth } from 'convex-svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import NotesForm from './notes-form.svelte';
 
 	const auth = useAuth();

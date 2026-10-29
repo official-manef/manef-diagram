@@ -7,8 +7,15 @@
 	import { assets, assetMimeType } from '../../assets.config';
 	import { pageMetadata, pageIndexable, seoSettings } from '#lib/config/metadata.js';
 	import { page } from '$app/state';
-	import { env } from '$env/dynamic/public';
-	import ConvexProvider from '$lib/components/convex-provider.svelte';
+	import {
+		PUBLIC_CONVEX_URL,
+		PUBLIC_SITE_URL,
+		PUBLIC_SEO_INDEXABLE,
+		PUBLIC_GOOGLE_SITE_VERIFICATION,
+		PUBLIC_BING_SITE_VERIFICATION,
+		PUBLIC_TWITTER_SITE
+	} from '$app/env/public';
+	import ConvexProvider from '#lib/components/convex-provider.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -24,9 +31,15 @@
 		document.documentElement.classList.toggle('dark', themePreference.theme === 'dark');
 	});
 	const convexUrl = $derived(
-		page.url.pathname.startsWith('/embed/workspace') ? undefined : env.PUBLIC_CONVEX_URL
+		page.url.pathname.startsWith('/embed/workspace') ? undefined : PUBLIC_CONVEX_URL
 	);
-	const seo = seoSettings(env);
+	const seo = seoSettings({
+		PUBLIC_SITE_URL,
+		PUBLIC_SEO_INDEXABLE,
+		PUBLIC_GOOGLE_SITE_VERIFICATION,
+		PUBLIC_BING_SITE_VERIFICATION,
+		PUBLIC_TWITTER_SITE
+	});
 	const metadata = $derived(
 		pageMetadata(
 			page.error ? { title: `${page.status}` } : page.data.meta,

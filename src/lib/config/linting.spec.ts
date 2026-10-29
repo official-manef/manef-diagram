@@ -22,7 +22,7 @@ function boundaries(code: string, filename = 'src/lib/example.ts') {
 
 test('browser boundaries reject private imports, re-exports and literal dynamic imports', () => {
 	for (const code of [
-		"import { env } from '$env/dynamic/private';",
+		"import { env } from '$app/env/private';",
 		"export { secret } from '#lib/server/secrets';",
 		"export * from './secrets.server';",
 		"await import('./server/integrations/email');",
@@ -44,15 +44,15 @@ test('browser boundaries reject private imports, re-exports and literal dynamic 
 
 test('server modules, generated client API and erased type imports remain usable', () => {
 	for (const [code, filename] of [
-		["import { env } from '$env/dynamic/private';", 'src/hooks.server.ts'],
+		["import { env } from '$app/env/private';", 'src/hooks.server.ts'],
 		["import { env } from '$env/static/private';", 'src/routes/example/+server.ts'],
-		["import { env } from '$env/dynamic/private';", 'src/routes/example/+page.server.ts'],
+		["import { env } from '$app/env/private';", 'src/routes/example/+page.server.ts'],
 		["import { createHash } from 'node:crypto';", 'src/lib/server/example.ts'],
 		["import { api } from '../convex/_generated/api';", 'src/lib/example.ts'],
 		["import type { Session } from '#lib/server/session';", 'src/lib/example.ts'],
 		["import { type Session } from '#lib/server/session';", 'src/lib/example.ts'],
 		["export type { Session } from '#lib/server/session';", 'src/lib/example.ts'],
-		["import { env } from '$env/dynamic/public';", 'src/lib/example.ts'],
+		["import { env } from '$app/env/public';", 'src/lib/example.ts'],
 		["import { name } from './config/app';", 'src/lib/example.ts']
 	]) {
 		expect(boundaries(code, filename), code).toEqual([]);
@@ -63,7 +63,7 @@ test('Convex rejects SvelteKit dependencies and requires Node action runtime for
 	for (const code of [
 		"import { env } from '$env/static/public';",
 		"import type { Config } from '#lib/config/app';",
-		"export * from '$app/environment';",
+		"export * from '$app/env';",
 		"await import('../lib/server/integrations/email');",
 		'await import(`../../slices/dashboard`);',
 		"import { redirect } from '@sveltejs/kit';",

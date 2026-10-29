@@ -3,8 +3,8 @@
 	import { ConvexError } from 'convex/values';
 	import { api } from '../../../src/convex/_generated/api';
 	import type { Id } from '../../../src/convex/_generated/dataModel';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 
 	const client = useConvexClient();
 	const notes = useQuery(api.notes.list, {});

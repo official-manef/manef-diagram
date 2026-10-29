@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { workspaceUrl } from '$lib/config/navigation';
+	import { workspaceUrl } from '#lib/config/navigation.js';
 	import { asset, resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PublicFrame from './public-frame.svelte';
@@ -39,7 +39,7 @@
 				<h2>Use the converter in n8n</h2>
 				<ol class="mapping-steps">
 					<li>
-						<a href={asset('/workflows/manef-diagram-converter.json')} download
+						<a href={asset('workflows/manef-diagram-converter.json')} download
 							>Download the inactive n8n converter workflow</a
 						> and import it from a file in your own n8n instance.
 					</li>

@@ -19,8 +19,8 @@ export default defineConfig({
 			$features: local('../../../slices'),
 			$lib: local('../../../src/lib'),
 			'$app/state': local('./page.svelte.ts'),
-			'$app/environment': local('./environment.ts'),
-			'$env/dynamic/public': local('./environment.ts'),
+			'$app/env': local('./environment.ts'),
+			'$app/env/public': local('./environment.ts'),
 			'convex/browser': local('./client.svelte.ts')
 		},
 		dedupe: ['svelte']

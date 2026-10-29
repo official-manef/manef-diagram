@@ -169,14 +169,14 @@ test('an account switch in another tab cannot supply its token to the previous p
 		idTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600
 	});
 	const stalePage = event('/auth/token', undefined, { expectedTokenIdentifier });
-	stalePage.cookies = alice.cookies;
+	Object.assign(stalePage, { cookies: alice.cookies });
 	const response = await token(stalePage);
 	expect(response.headers.get('cache-control')).toBe('no-store');
 	expect(await response.json()).toEqual({ idToken: null });
 	const currentPage = event('/auth/token', undefined, {
 		expectedTokenIdentifier: 'https://accounts.google.com|bob'
 	});
-	currentPage.cookies = alice.cookies;
+	Object.assign(currentPage, { cookies: alice.cookies });
 	expect(await (await token(currentPage)).json()).toEqual({ idToken: 'bob-token' });
 });
 

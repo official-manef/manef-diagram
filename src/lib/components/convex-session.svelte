@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { ConvexClient } from 'convex/browser';
 	import { setConvexClientContext, setupAuth } from 'convex-svelte';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
-	import type { Session } from '$lib/server/auth/session';
+	import type { Session } from '#lib/server/auth/session.js';
 
 	let { url, session, children }: { url: string; session: Session | null; children: Snippet } =
 		$props();
