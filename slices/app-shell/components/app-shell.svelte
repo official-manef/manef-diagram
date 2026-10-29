@@ -3,19 +3,19 @@
 	import { navigating } from '$app/state';
 	import FileText from '@lucide/svelte/icons/file-text';
 	import MessageSquare from '@lucide/svelte/icons/message-square';
-	import { LoadingState } from '$lib/components/app-ui';
+	import { LoadingState } from '#lib/components/app-ui/index.js';
 	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import Activity from '@lucide/svelte/icons/activity';
 	import Settings from '@lucide/svelte/icons/settings';
-	import { appConfig } from '$lib/config/app';
-	import { themePreference } from '$lib/theme.svelte';
+	import { appConfig } from '#lib/config/app.js';
+	import { themePreference } from '#lib/theme.svelte.js';
 	import { assets } from '../../../assets.config';
 	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as DropdownMenu from '#lib/components/ui/dropdown-menu/index.js';
 	import { APP_REGISTRY, getApp, type AppSlug } from '../registry';
 	import type { FeatureIcon } from '../types';
 
@@ -50,7 +50,7 @@
 <div class="flex h-dvh w-full overflow-hidden bg-background">
 	<aside class="hidden w-64 shrink-0 flex-col border-r bg-card/70 p-4 lg:flex">
 		<a
-			href={resolve('/apps/dashboard')}
+			href={resolve('apps/dashboard')}
 			class="flex min-h-12 items-center gap-3 rounded-xl px-2"
 			aria-label={`${appConfig.name} home`}
 		>
@@ -64,8 +64,8 @@
 		<div class="mt-4 rounded-xl border bg-muted/30 px-3 py-3">
 			<p class="text-xs font-semibold">{workspace.label}</p>
 			<p class="mt-1 text-xs text-muted-foreground">
-				<a class="underline" href={resolve('/app')}>Open the diagram</a>. This switcher is only a
-				local label.
+				<a class="underline" href={resolve('app')}>Open the diagram</a>
+				. This switcher is only a local label.
 			</p>
 		</div>
 		<nav aria-label="Apps" class="mt-5 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
@@ -82,7 +82,7 @@
 			{/each}
 		</nav>
 		<a
-			href={resolve('/app')}
+			href={resolve('app')}
 			class="rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground"
 		>
 			Public map of MANEF services.

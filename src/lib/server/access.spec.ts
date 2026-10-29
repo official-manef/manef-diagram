@@ -8,10 +8,78 @@ import {
 	requireCapabilityAccess
 } from './access';
 
-const state = vi.hoisted(() => ({ env: { CAPABILITY_ACCESS_TOKEN: '' }, session: vi.fn() }));
-vi.mock('$env/dynamic/private', () => ({ env: state.env }));
-vi.mock('$env/dynamic/public', () => ({ env: { PUBLIC_SITE_URL: 'https://app.example' } }));
-vi.mock('$lib/server/auth/session', () => ({ readSession: state.session }));
+const state = vi.hoisted(() => ({
+	env: {} as Record<string, string>,
+	publicEnv: { PUBLIC_SITE_URL: 'https://app.example' } as Record<string, string>,
+	session: vi.fn()
+}));
+// SvelteKit 3 replaced $env/dynamic/* with declared vars in $app/env/*. Getters keep the
+// specs able to change values between assertions.
+vi.mock('$app/env/private', () => ({
+	get AI_ENABLED() {
+		return (state.env.AI_ENABLED ?? '') as string;
+	},
+	get AI_MODELS_JSON() {
+		return (state.env.AI_MODELS_JSON ?? '') as string;
+	},
+	get MCP_CLIENT_ENABLED() {
+		return (state.env.MCP_CLIENT_ENABLED ?? '') as string;
+	},
+	get MCP_SERVERS_JSON() {
+		return (state.env.MCP_SERVERS_JSON ?? '') as string;
+	},
+	get MCP_SERVER_ENABLED() {
+		return (state.env.MCP_SERVER_ENABLED ?? '') as string;
+	},
+	get MCP_SERVER_TOKEN() {
+		return (state.env.MCP_SERVER_TOKEN ?? '') as string;
+	},
+	get CAPABILITY_ACCESS_TOKEN() {
+		return (state.env.CAPABILITY_ACCESS_TOKEN ?? '') as string;
+	},
+	get AUTH_ENABLED() {
+		return (state.env.AUTH_ENABLED ?? '') as string;
+	},
+	get AUTH_PROVIDER() {
+		return (state.env.AUTH_PROVIDER ?? '') as string;
+	},
+	get AUTH_CLIENT_ID() {
+		return (state.env.AUTH_CLIENT_ID ?? '') as string;
+	},
+	get AUTH_CLIENT_SECRET() {
+		return (state.env.AUTH_CLIENT_SECRET ?? '') as string;
+	},
+	get AUTH_SESSION_SECRET() {
+		return (state.env.AUTH_SESSION_SECRET ?? '') as string;
+	},
+	get WORKOS_CLIENT_ID() {
+		return (state.env.WORKOS_CLIENT_ID ?? '') as string;
+	},
+	get WORKOS_API_KEY() {
+		return (state.env.WORKOS_API_KEY ?? '') as string;
+	}
+}));
+vi.mock('$app/env/public', () => ({
+	get PUBLIC_CONVEX_URL() {
+		return (state.publicEnv.PUBLIC_CONVEX_URL ?? '') as string;
+	},
+	get PUBLIC_SITE_URL() {
+		return (state.publicEnv.PUBLIC_SITE_URL ?? '') as string;
+	},
+	get PUBLIC_SEO_INDEXABLE() {
+		return (state.publicEnv.PUBLIC_SEO_INDEXABLE ?? '') as string;
+	},
+	get PUBLIC_GOOGLE_SITE_VERIFICATION() {
+		return (state.publicEnv.PUBLIC_GOOGLE_SITE_VERIFICATION ?? '') as string;
+	},
+	get PUBLIC_BING_SITE_VERIFICATION() {
+		return (state.publicEnv.PUBLIC_BING_SITE_VERIFICATION ?? '') as string;
+	},
+	get PUBLIC_TWITTER_SITE() {
+		return (state.publicEnv.PUBLIC_TWITTER_SITE ?? '') as string;
+	}
+}));
+vi.mock('#lib/server/auth/session.js', () => ({ readSession: state.session }));
 beforeEach(() => {
 	state.env.CAPABILITY_ACCESS_TOKEN = '';
 	state.session.mockReset().mockResolvedValue(null);

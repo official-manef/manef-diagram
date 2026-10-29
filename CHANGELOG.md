@@ -5,6 +5,9 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Upgrade the toolchain to SvelteKit 3, Vite 8.3.5, eslint 10.13, Convex 1.48 and zod 4.6.7. Kit 3 removed the `$lib` alias and the `$env/dynamic/*` shims, so imports use `#lib` and `$app/env/public|private`, the layout reads declared public values, cross-origin workspace redirects are allowlisted and `handleError` uses the discriminated `CaughtError`. The notes fixture declares the same env names.
+- Declare every environment variable the code reads and add `env:check`; the design guide records the measured palette, type scale and dial line.
+
 - Prevent desktop editor header controls overlapping under different platform/font metrics by wrapping intrinsic-width groups and sizing the header row automatically. Add native hit-testing across four widths and font-metric stress cases.
 
 - Make upper-right arrows control four-way Flow layout and direction-aware ports/curves; retain separate camera-pan controls and persist direction in documents/links/history.

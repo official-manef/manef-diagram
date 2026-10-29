@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { appConfig } from '$lib/config/app';
+	import { appConfig } from '#lib/config/app.js';
 	import { HomeScreen } from '$features/directory';
 </script>
 

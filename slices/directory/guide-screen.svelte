@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { workspaceUrl } from '$lib/config/navigation';
+	import { workspaceUrl } from '#lib/config/navigation.js';
 	import { asset, resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import PublicFrame from './public-frame.svelte';
@@ -19,7 +19,7 @@
 				<p>
 					<a
 						class="nav-item"
-						href={resolve(`/guide?section=${item.id}`)}
+						href={resolve(`guide?section=${item.id}`)}
 						aria-current={section === item.id ? 'page' : undefined}>{item.title}</a
 					>
 				</p>
@@ -39,7 +39,7 @@
 				<h2>Use the converter in n8n</h2>
 				<ol class="mapping-steps">
 					<li>
-						<a href={asset('/workflows/manef-diagram-converter.json')} download
+						<a href={asset('workflows/manef-diagram-converter.json')} download
 							>Download the inactive n8n converter workflow</a
 						> and import it from a file in your own n8n instance.
 					</li>
@@ -86,8 +86,7 @@
 				</p>
 				{#if page.data.auth?.enabled}
 					<p>
-						<a class="btn" href={resolve('/auth/login')} data-sveltekit-reload>Sign in with MANEF</a
-						>
+						<a class="btn" href={resolve('auth/login')} data-sveltekit-reload>Sign in with MANEF</a>
 					</p>
 				{:else}
 					<p class="notice">
@@ -126,12 +125,13 @@
 						Inspect the selected service and its connections. Use filters or focus to narrow the
 						view.
 					</li>
+
 					<li>
 						Edit or import your graph, then export JSON to keep the result. Private backend storage
 						has separate setup requirements.
 					</li>
 				</ol>
-				<p><a class="btn primary" href={resolve('/app')}>Open Diagram</a></p>
+				<p><a class="btn primary" href={resolve('app')}>Open Diagram</a></p>
 			{/if}
 			{#if section !== 'start'}
 				<p>

@@ -76,7 +76,7 @@ when the ID token expires. A failed refresh clears the session. Forced refresh r
 use the refresh credential when available; otherwise a still-valid ID token is returned.
 There is no long-lived refresh-token database.
 
-`$lib/server/auth/session` exposes:
+`#lib/server/auth/session.js` exposes:
 
 - `readSession(event)`: `null` or `{ subject, tokenIdentifier, email?, expiresAt }`.
   `email` is present only when verified by Google; authorization uses stable subject

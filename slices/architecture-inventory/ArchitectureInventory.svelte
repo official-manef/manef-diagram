@@ -4,8 +4,8 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { asset, resolve } from '$app/paths';
 	import { beforeNavigate } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import {
 		addEdge,
 		addInventoryItem,
@@ -74,7 +74,7 @@
 	} from './lib/document';
 	import { importN8nWorkflow, exportN8nWorkflow } from './lib/n8n';
 	import './editor.css';
-	import { themePreference } from '$lib/theme.svelte';
+	import { themePreference } from '#lib/theme.svelte.js';
 
 	let root = $state<ArchitectureGraph>(cloneGraph(defaultGraph));
 	let importedDocument = $state<DiagramDocument>({
@@ -2914,7 +2914,7 @@
 							diagram level.
 						</p>
 						<p class="help">
-							<a href={asset('/workflows/manef-diagram-converter.json')} download
+							<a href={asset('workflows/manef-diagram-converter.json')} download
 								>Download n8n converter workflow</a
 							>
 							· <a href={resolve('/guide?section=converters')}>Converter guide</a>

@@ -38,8 +38,7 @@ test('unexpected server errors expose correlation data without provider exceptio
 	current.locals.requestId = 'server-correlation';
 	const result = await handleError({
 		event: current,
-		status: 500,
-		message: 'Internal Error',
+		kind: 'unknown',
 		error: new Error('provider-secret-key and private request payload')
 	});
 	expect(result).toEqual({
@@ -58,9 +57,8 @@ test('missing routes report not found without leaking the request', async () => 
 	current.locals.requestId = 'missing-route';
 	const result = await handleError({
 		event: current,
-		status: 404,
-		message: 'Not Found',
-		error: new Error('private-code')
+		kind: 'framework',
+		error: { status: 404, message: 'Not Found' }
 	});
 	expect(result).toEqual({ message: 'Page not found.', id: 'missing-route' });
 	expect(JSON.stringify(log.mock.calls)).not.toMatch(/private-code/);

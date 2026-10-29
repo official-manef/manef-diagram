@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
-import { readJsonBody, requireAppOrigin } from '$lib/server/access';
-import { configuredAuth, getConvexToken } from '$lib/server/auth/session';
+import { readJsonBody, requireAppOrigin } from '#lib/server/access.js';
+import { configuredAuth, getConvexToken } from '#lib/server/auth/session.js';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async (event) => {

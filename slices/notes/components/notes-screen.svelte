@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { env } from '$env/dynamic/public';
-	import { Button } from '$lib/components/ui/button';
-	import * as Card from '$lib/components/ui/card';
+	import { PUBLIC_CONVEX_URL } from '$app/env/public';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
 	import NotesEditor from './notes-editor.svelte';
 </script>
 
@@ -28,7 +28,8 @@
 				<form action="/auth/logout" method="POST">
 					<Button type="submit" variant="outline">Sign out</Button>
 				</form>
-				{#if !env.PUBLIC_CONVEX_URL}
+
+				{#if !PUBLIC_CONVEX_URL}
 					<p class="text-sm text-muted-foreground">
 						Connect a Convex deployment before saving notes.
 					</p>
@@ -36,7 +37,7 @@
 			{/if}
 		</Card.Content>
 	</Card.Root>
-	{#if page.data.auth.session && env.PUBLIC_CONVEX_URL}
+	{#if page.data.auth.session && PUBLIC_CONVEX_URL}
 		<NotesEditor />
 	{/if}
 </div>

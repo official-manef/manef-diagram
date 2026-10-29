@@ -1,1 +1,1 @@
-export { themePreference } from '$lib/theme.svelte';
+export { themePreference } from '#lib/theme.svelte.js';

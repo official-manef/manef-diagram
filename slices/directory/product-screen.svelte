@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { workspaceUrl } from '$lib/config/navigation';
+	import { workspaceUrl } from '#lib/config/navigation.js';
 	import { resolve } from '$app/paths';
 	import PublicFrame from './public-frame.svelte';
 	import type { Product } from './catalog';
@@ -16,7 +16,7 @@
 				<p class="lead">{product.description}</p>
 				<div class="row" style="margin-top: 20px">
 					{#if product.id === 'diagram'}
-						<a class="btn primary" href={resolve('/app')}>Open the public map</a>
+						<a class="btn primary" href={resolve('app')}>Open the public map</a>
 					{:else if product.id === 'agent-at-manef'}
 						<a class="btn primary" href={product.live} rel="external noreferrer">View source ↗</a>
 						<a class="btn" href={workspaceUrl('context')} rel="external">Explore context demo ↗</a>

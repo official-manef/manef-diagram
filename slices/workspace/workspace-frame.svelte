@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { siteLinks } from '$lib/config/navigation';
+	import { siteLinks } from '#lib/config/navigation.js';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { onMount, tick } from 'svelte';
 	import { ecosystem } from './store.svelte';
 	import { workspaceNavGroups, type WorkspaceSurfaceId } from './surfaces';
 	import { workspaceHostOrigin, workspaceParentOrigin } from './embedding';
-	import '$lib/styles/ecosystem.css';
+	import '#lib/styles/ecosystem.css';
 
 	let { children }: { children: import('svelte').Snippet } = $props();
 	let paletteQuery = $state('');

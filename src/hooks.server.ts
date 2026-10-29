@@ -1,6 +1,6 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
-import { appConfig } from '$lib/config/app';
-import { dev } from '$app/environment';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
+import { appConfig } from '#lib/config/app.js';
+import { dev } from '$app/env';
 import { workspaceFrameAncestors } from '$features/workspace';
 
 if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(appConfig.locale)) {
@@ -32,7 +32,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-export const handleError: HandleServerError = ({ event, status }) => {
+// SvelteKit 3 passes a discriminated CaughtError: framework, app and validation errors carry
+// a status, unknown errors are always 500. The status used to arrive as a top-level argument.
+// A thrown App.Error object also carries the status at runtime, which its type does not declare.
+function caughtStatus(caught: Parameters<HandleServerError>[0]): number {
+	if (caught.kind === 'unknown') return 500;
+	return (caught.error as { status: number }).status;
+}
+
+export const handleError: HandleServerError = (caught) => {
+	const { event } = caught;
+	const status = caughtStatus(caught);
 	const id = event.locals.requestId ?? crypto.randomUUID();
 	// Provider exceptions may contain credentials or request payloads. Log only correlation data.
 	console.error('request_failed', {
@@ -41,8 +51,13 @@ export const handleError: HandleServerError = ({ event, status }) => {
 		method: event.request.method,
 		route: event.route.id
 	});
-	return {
-		message: status === 404 ? 'Page not found.' : 'Something went wrong. Please try again.',
-		id
-	};
+	// An error thrown with error(404, 'App not found') carries a reviewed message that the page
+	// shows. Framework messages and unknown errors keep this app's own copy instead.
+	const message =
+		caught.kind === 'app'
+			? caught.error.message
+			: status === 404
+				? 'Page not found.'
+				: 'Something went wrong. Please try again.';
+	return { message, id };
 };

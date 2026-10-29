@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { env } from '$env/dynamic/public';
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
-	import { FeatureGrid, SignalBanner, ViewportSnapSection } from '$lib/components/app-ui';
+	import { PUBLIC_CONVEX_URL } from '$app/env/public';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { FeatureGrid, SignalBanner, ViewportSnapSection } from '#lib/components/app-ui/index.js';
 	import LiveStatus from './live-status.svelte';
-	const configured = Boolean(env.PUBLIC_CONVEX_URL);
+	const configured = Boolean(PUBLIC_CONVEX_URL);
 </script>
 
 <div class="space-y-5">

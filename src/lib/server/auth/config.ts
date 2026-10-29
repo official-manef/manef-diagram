@@ -1,4 +1,4 @@
-import { siteOrigin } from '$lib/config/metadata';
+import { siteOrigin } from '#lib/config/metadata.js';
 
 export type AuthConfig = {
 	enabled: true;

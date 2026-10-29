@@ -77,7 +77,7 @@ See [actions](https://docs.convex.dev/functions/actions) and
 
 Secrets for Convex code belong in that Convex deployment's environment; SvelteKit
 environment values do not automatically appear there. Do not use SvelteKit aliases
-such as `$lib/server` or SvelteKit environment modules in Convex. Node-compatible
+such as `#lib/server` or SvelteKit environment modules in Convex. Node-compatible
 integration code must first be moved/extracted into a backend-owned runtime-neutral
 module before a Node action imports it; `src/lib/server` stays inside the SvelteKit boundary.
 See [integrations](integrations.md). Shared domain/config modules must stay runtime-neutral.
