@@ -1,3 +1,4 @@
+import { addDiagramView } from './helpers/diagram-picker';
 import { expect, test } from '@playwright/test';
 
 async function expectNoOverflow(page: import('@playwright/test').Page) {
@@ -132,7 +133,7 @@ test('long imported phone names, JSON, exports and added views stay contained', 
 	await page.getByRole('button', { name: 'Export', exact: true }).click();
 	expect((await download).suggestedFilename()).toMatch(/\.json$/);
 	await page.getByRole('button', { name: 'Canvas', exact: true }).click();
-	await page.getByLabel('Add view').selectOption({ label: 'Flowchart' });
+	await addDiagramView(page, 'Flowchart');
 	await expect(page.locator('.view-canvas svg')).toBeVisible();
 	await expectNoOverflow(page);
 	await page.getByRole('button', { name: 'Map', exact: true }).click();

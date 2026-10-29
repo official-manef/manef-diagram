@@ -42,6 +42,8 @@
 		ArchitectureNode,
 		ArchitecturePort,
 		DiagramMode,
+		FlowDirection,
+		NodeView,
 		InventoryKind,
 		Point,
 		TraceMode
@@ -58,13 +60,7 @@
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
 	import { panForZoom, wheelGesture } from './lib/camera';
 	import { rememberSnapshot } from './lib/history';
-	import {
-		createNodeView,
-		isDiagramKind,
-		kindGroups,
-		mermaidSource,
-		convertNodeView
-	} from './lib/diagram-views';
+	import { createNodeView, kindGroups, mermaidSource, convertNodeView } from './lib/diagram-views';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import {
 		createDocument,
@@ -89,6 +85,7 @@
 	let documentRevision = $state(0);
 	let cameraGeneration = 0;
 	let skipImportedFit = false;
+	let skipSelectionFit = false;
 	let exportFormat = $state<'json' | 'md' | 'n8n' | 'n8n-inactive'>('json');
 	let inputFormat = $state<'json' | 'md'>('json');
 	const inventory = $derived(importedDocument.inventory ?? defaultInventory);
@@ -107,6 +104,7 @@
 			search = view.query;
 			activeTags = view.tags;
 			diagramMode = view.mode;
+			flowDirection = view.flowDirection;
 			traceMode = view.trace;
 			focusMode = view.focus;
 			selectedNodeIds = [
@@ -158,6 +156,13 @@
 	});
 
 	let diagramMode = $state<DiagramMode>('flow');
+	let flowDirection = $state<FlowDirection>('LR');
+	let diagramPreview = $state<NodeView | null>(null);
+	let pickerOpen = $state(false);
+	let pickerIndex = $state(0);
+	let pickerTrigger = $state<HTMLButtonElement | null>(null);
+	let pickerList = $state<HTMLDivElement | null>(null);
+	let pickerWrapper = $state<HTMLDivElement | null>(null);
 	let openView = $state<{ nodeId: string; viewId: string } | null>(null);
 	let viewHost = $state<HTMLDivElement | null>(null);
 	let viewError = $state('');
@@ -290,7 +295,7 @@
 		);
 	}
 
-	const positions = $derived(layoutGraph(graph, diagramMode));
+	const positions = $derived(layoutGraph(graph, diagramMode, flowDirection));
 	const basePositions = $derived(
 		Object.fromEntries(
 			graph.nodes.map((node) => [
@@ -310,12 +315,14 @@
 	const highlightedEdgeIds = $derived(new Set(trace.edgeIds));
 	const selectedNode = $derived(graph.nodes.find((node) => node.id === selectedNodeId));
 	const activeView = $derived.by(() => {
+		if (diagramPreview) return diagramPreview;
 		const opened = openView;
 		if (!opened) return null;
 		const node = graph.nodes.find((item) => item.id === opened.nodeId);
 		return node?.views?.find((view) => view.id === opened.viewId) ?? null;
 	});
 	const diagramKindGroups = kindGroups();
+	const pickerKinds = diagramKindGroups.flatMap((group) => group.kinds);
 	const selectedEdge = $derived(graph.edges.find((edge) => edge.id === selectedEdgeId));
 	const allTags = $derived([...new Set(graph.nodes.flatMap((node) => node.tags))].sort());
 	const tagGroups = $derived(
@@ -363,10 +370,10 @@
 	const contextNodeIds = $derived(new Set(related.contextIds));
 	const visibleNodes = $derived(graph.nodes.filter((node) => related.nodeIds.includes(node.id)));
 	const visibleEdges = $derived(related.edges);
-	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
+	const routes = $derived(routeEdges(graph, basePositions, diagramMode, flowDirection));
 	const emphasize = $derived(traceSeeds.length > 0 && highlightedNodeIds.size > 1);
 	const fitKey = $derived(
-		`${diagramPath.join('/')}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
+		`${JSON.stringify(selectedNodeIds)}:${flowDirection}:${diagramPath.join('/')}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
 			.map((node) => node.id)
 			.join(',')}:${focusMode}`
 	);
@@ -483,6 +490,7 @@
 
 	function showFlow() {
 		openView = null;
+		diagramPreview = null;
 		stopSettle();
 		const from: Record<string, Point> = {};
 		for (const node of graph.nodes) {
@@ -493,7 +501,8 @@
 					: point;
 		}
 		diagramMode = 'flow';
-		const to = layoutGraph(graph, 'flow');
+		const to = layoutGraph(graph, 'flow', flowDirection);
+		const cameraAtStart = cameraGeneration;
 		if (reducedMotion) {
 			overrides = {};
 			void tick()
@@ -522,7 +531,9 @@
 			settleHandle = 0;
 			overrides = {};
 			void tick()
-				.then(() => fitView(true))
+				.then(() => {
+					if (cameraAtStart === cameraGeneration) fitView(true);
+				})
 				.catch(() => undefined);
 		};
 		settleHandle = requestAnimationFrame(step);
@@ -533,8 +544,9 @@
 		const key = fitKey;
 		void documentRevision;
 		const generation = cameraGeneration;
-		if (skipImportedFit) {
+		if (skipImportedFit || skipSelectionFit) {
 			skipImportedFit = false;
+			skipSelectionFit = false;
 			return;
 		}
 		const ids = untrack(() => visibleNodes.map((node) => node.id));
@@ -622,6 +634,7 @@
 			)
 		) {
 			openView = null;
+			diagramPreview = null;
 			viewError = '';
 		}
 		return true;
@@ -636,6 +649,7 @@
 		armedOutput = null;
 		overrides = layouts[JSON.stringify(diagramPath)] ?? {};
 		openView = null;
+		diagramPreview = null;
 		search = '';
 		activeTags = [];
 		focusMode = false;
@@ -673,13 +687,22 @@
 	}
 
 	function rememberSelection(nodeIds: string[], edgeIds: string[]) {
+		cameraGeneration += 1;
+		if (JSON.stringify(nodeIds) !== JSON.stringify(selectedNodeIds)) skipSelectionFit = true;
+		fitWhenCool = false;
+		stopMotion();
 		connectionMessage = '';
+		if (diagramPreview) {
+			diagramPreview = null;
+			viewError = '';
+		}
 		selectedNodeIds = nodeIds;
 		selectedEdgeIds = edgeIds;
 		selectedNodeId = nodeIds.length === 1 ? nodeIds[0] : null;
 		selectedEdgeId = nodeIds.length === 0 && edgeIds.length === 1 ? edgeIds[0] : null;
 		if (openView && openView.nodeId !== selectedNodeId) {
 			openView = null;
+			diagramPreview = null;
 			viewError = '';
 		}
 		if (nodeIds.length === 1 || edgeIds.length === 1) {
@@ -837,7 +860,7 @@
 						preventScroll: true
 					});
 				} else if (kind === 'view-picker') {
-					document.querySelector<HTMLSelectElement>('select[aria-label="Add view"]')?.focus();
+					document.querySelector<HTMLButtonElement>('button[aria-label="Diagram type"]')?.focus();
 				} else if (!previous?.isConnected || document.activeElement === document.body) {
 					viewport?.focus();
 				}
@@ -846,6 +869,8 @@
 	}
 
 	function openNodeView(nodeId: string, viewId: string, opener?: HTMLElement) {
+		diagramPreview = null;
+		pickerOpen = false;
 		stopSettle();
 		viewReturnFocus =
 			opener ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -861,6 +886,7 @@
 
 	function closeNodeView() {
 		openView = null;
+		diagramPreview = null;
 		void tick()
 			.then(() => {
 				const target =
@@ -936,6 +962,9 @@
 				...importedDocument.ui,
 				themePreset: editorTheme,
 				diagramMode,
+				...(flowDirection !== 'LR' || importedDocument.ui?.flowDirection !== undefined
+					? { flowDirection }
+					: {}),
 				traceMode,
 				focusMode,
 				query: search,
@@ -1011,6 +1040,7 @@
 		resetLevel();
 		const ui = validated.ui;
 		diagramMode = ui?.diagramMode ?? 'flow';
+		flowDirection = ui?.flowDirection ?? 'LR';
 		traceMode = ui?.traceMode ?? 'direct';
 		focusMode = ui?.focusMode ?? false;
 		search = ui?.query ?? '';
@@ -1176,6 +1206,7 @@
 					seeds: selectedNodeIds,
 					open: diagramPath,
 					mode: diagramMode,
+					flowDirection,
 					trace: traceMode,
 					focus: focusMode
 				},
@@ -1371,16 +1402,80 @@
 		);
 	}
 
-	function addDiagramView(kind: string, opener?: HTMLElement) {
-		if (!isDiagramKind(kind)) return;
-		const node = selectedNode;
-		if (!node) {
-			actionMessage = 'Select a node, then add a view.';
+	function chooseDiagram(index: number) {
+		pickerIndex = Math.max(0, Math.min(pickerKinds.length - 1, index));
+		viewReturnFocus = pickerTrigger;
+		const kind = pickerKinds[pickerIndex];
+		stopSettle();
+		openView = null;
+		diagramPreview = createNodeView(kind.id, selectedNode?.label ?? importedDocument.title);
+		viewError = '';
+		void tick()
+			.then(() =>
+				document.getElementById(`diagram-kind-${kind.id}`)?.scrollIntoView({ block: 'nearest' })
+			)
+			.catch(() => undefined);
+	}
+
+	function closePicker() {
+		pickerOpen = false;
+		pickerTrigger?.focus();
+	}
+
+	function togglePicker() {
+		if (pickerOpen) {
+			closePicker();
 			return;
 		}
-		const view = createNodeView(kind, node.label);
-		commitVisible(patchNode(graph, node.id, { views: [...(node.views ?? []), view] }));
-		openNodeView(node.id, view.id, opener);
+		filtersOpen = false;
+		pickerOpen = true;
+		chooseDiagram(pickerIndex);
+		void tick()
+			.then(() => pickerList?.focus())
+			.catch(() => undefined);
+	}
+
+	function pickerKeydown(event: KeyboardEvent) {
+		if (event.key === 'Tab') {
+			event.preventDefault();
+			pickerOpen = false;
+			void tick()
+				.then(() => {
+					if (event.shiftKey) pickerTrigger?.focus();
+					else document.querySelector<HTMLSelectElement>('.top-end select')?.focus();
+				})
+				.catch(() => undefined);
+			return;
+		}
+		if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', 'Escape'].includes(event.key)) {
+			event.preventDefault();
+			event.stopPropagation();
+			if (event.key === 'ArrowDown') chooseDiagram((pickerIndex + 1) % pickerKinds.length);
+			else if (event.key === 'ArrowUp')
+				chooseDiagram((pickerIndex - 1 + pickerKinds.length) % pickerKinds.length);
+			else if (event.key === 'Home') chooseDiagram(0);
+			else if (event.key === 'End') chooseDiagram(pickerKinds.length - 1);
+			else closePicker();
+		}
+	}
+
+	function addPreview() {
+		const node = selectedNode;
+		const preview = diagramPreview;
+		if (!node || !preview) return;
+		const view = { ...preview };
+		if (!commitVisible(patchNode(graph, node.id, { views: [...(node.views ?? []), view] }))) return;
+		diagramPreview = null;
+		pickerOpen = false;
+		openNodeView(node.id, view.id, pickerTrigger ?? undefined);
+	}
+
+	function setFlowDirection(direction: FlowDirection) {
+		if (diagramMode !== 'flow' || flowDirection === direction || !recordHistory()) return;
+		stopSettle();
+		flowDirection = direction;
+		overrides = {};
+		layouts = { ...layouts, [JSON.stringify(diagramPath)]: {} };
 	}
 
 	function setViewFormat(format: 'md' | 'json') {
@@ -1404,6 +1499,7 @@
 			})
 		);
 		openView = null;
+		diagramPreview = null;
 		viewError = '';
 		actionMessage = 'View removed. Undo can restore its source.';
 		focusAfterChange('view-picker');
@@ -1424,6 +1520,9 @@
 		}
 		let cancel = false;
 		const renderId = `mmd-${crypto.randomUUID()}`;
+		host.dataset.viewKind = '';
+		host.setAttribute('aria-busy', 'true');
+		host.innerHTML = '';
 		void import('mermaid')
 			.then(async (mod) => {
 				if (cancel) return;
@@ -1438,11 +1537,14 @@
 				const drawn = await mermaid.render(renderId, source);
 				if (cancel) return;
 				host.innerHTML = drawn.svg;
+				host.dataset.viewKind = view.kind;
+				host.setAttribute('aria-busy', 'false');
 				viewError = '';
 			})
 			.catch((error: unknown) => {
 				if (cancel) return;
 				host.innerHTML = '';
+				host.setAttribute('aria-busy', 'false');
 				viewError = error instanceof Error ? error.message : 'This diagram could not be drawn.';
 			});
 		return () => {
@@ -1452,6 +1554,7 @@
 
 	function startSettle() {
 		openView = null;
+		diagramPreview = null;
 		const fromFlow = diagramMode !== 'graph';
 		const seed: Record<string, Point> = {};
 		for (const node of graph.nodes) {
@@ -1482,6 +1585,20 @@
 	}
 
 	function onKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && pickerOpen) {
+			event.preventDefault();
+			closePicker();
+			return;
+		}
+		if (pickerOpen) {
+			if (
+				event.key === 'Delete' ||
+				event.key === 'Backspace' ||
+				((event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase()))
+			)
+				event.preventDefault();
+			return;
+		}
 		if (event.key === 'Escape' && filtersOpen) {
 			event.preventDefault();
 			closeFilters();
@@ -1768,6 +1885,10 @@
 </script>
 
 <svelte:window
+	onpointerdown={(event) => {
+		if (pickerOpen && event.target instanceof Node && !pickerWrapper?.contains(event.target))
+			pickerOpen = false;
+	}}
 	onpointerup={stopNodeDrag}
 	onpointercancel={stopNodeDrag}
 	onbeforeunload={(event) => {
@@ -1797,9 +1918,10 @@
 	class:inspector-collapsed={inspectorCollapsed}
 	class:phone-canvas={mobileCanvas}
 	data-theme={appliedTheme}
+	data-flow-direction={flowDirection}
 >
 	<header class="topbar">
-		<div class="brand">
+		<div class="brand" inert={pickerOpen}>
 			<a class="logo" href={resolve('/')} aria-label="Manef Diagram home">M</a>
 			<div>
 				<h1>MANEF Architecture</h1>
@@ -1811,7 +1933,7 @@
 			</div>
 		</div>
 		<div class="mode-center">
-			<div class="segmented" aria-label="Diagram mode">
+			<div class="segmented" aria-label="Diagram mode" inert={pickerOpen}>
 				<Button
 					data-interactive
 					variant={diagramMode === 'flow' && !activeView ? 'default' : 'ghost'}
@@ -1829,27 +1951,74 @@
 					onclick={startSettle}>Graph</Button
 				>
 			</div>
-			<select
-				class="theme-select"
-				aria-label="Add view"
-				disabled={!hydrated}
-				onchange={(event) => {
-					const value = event.currentTarget.value;
-					event.currentTarget.value = '';
-					addDiagramView(value, event.currentTarget);
+			<div
+				class="diagram-picker"
+				bind:this={pickerWrapper}
+				onfocusout={(event) => {
+					if (
+						!(event.relatedTarget instanceof Node) ||
+						!pickerWrapper?.contains(event.relatedTarget)
+					)
+						pickerOpen = false;
 				}}
 			>
-				<option value="">Add view</option>
-				{#each diagramKindGroups as group (group.group)}
-					<optgroup label={group.group}>
-						{#each group.kinds as kind (kind.id)}
-							<option value={kind.id}>{kind.label}</option>
+				<button
+					type="button"
+					class="theme-select"
+					bind:this={pickerTrigger}
+					aria-label="Diagram type"
+					aria-haspopup="listbox"
+					aria-expanded={pickerOpen}
+					aria-controls="diagram-kind-list"
+					disabled={!hydrated}
+					onclick={togglePicker}
+					onkeydown={(event) => {
+						if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+							event.preventDefault();
+							if (!pickerOpen) {
+								togglePicker();
+								if (event.key === 'ArrowUp') chooseDiagram(pickerKinds.length - 1);
+							}
+						}
+					}}
+				>
+					Diagram type <span aria-hidden="true">▾</span>
+				</button>
+				{#if pickerOpen}
+					<div
+						id="diagram-kind-list"
+						class="diagram-kind-list"
+						role="listbox"
+						aria-label="Diagram types"
+						tabindex="0"
+						bind:this={pickerList}
+						aria-activedescendant={`diagram-kind-${pickerKinds[pickerIndex].id}`}
+						onkeydown={pickerKeydown}
+					>
+						{#each diagramKindGroups as group (group.group)}
+							<div role="group" aria-label={group.group}>
+								<div class="diagram-kind-group" aria-hidden="true">{group.group}</div>
+								{#each group.kinds as kind (kind.id)}
+									<button
+										type="button"
+										role="option"
+										tabindex="-1"
+										id={`diagram-kind-${kind.id}`}
+										aria-selected={pickerKinds[pickerIndex].id === kind.id}
+										onmousedown={(event) => event.preventDefault()}
+										onclick={() => {
+											chooseDiagram(pickerKinds.findIndex((item) => item.id === kind.id));
+											pickerList?.focus();
+										}}>{kind.label}</button
+									>
+								{/each}
+							</div>
 						{/each}
-					</optgroup>
-				{/each}
-			</select>
+					</div>
+				{/if}
+			</div>
 		</div>
-		<div class="top-end">
+		<div class="top-end" inert={pickerOpen}>
 			{#if diagramPath.length > 0}
 				<nav class="diagram-path" aria-label="Diagram level">
 					{#each crumbs as crumb (crumb.depth)}
@@ -1904,7 +2073,7 @@
 	</header>
 	{#if actionMessage}<p class="toast" role="status">{actionMessage}</p>{/if}
 
-	<div class="layout">
+	<div class="layout" inert={pickerOpen}>
 		<aside class="sidebar" id="diagram-explorer">
 			<section class="search-section">
 				<h2>Explore canvas</h2>
@@ -1986,6 +2155,23 @@
 						{/each}
 					</div>
 				{/if}
+			</section>
+			<section>
+				<h2>Camera pan</h2>
+				<div class="camera-pan-buttons" role="group" aria-label="Pan without dragging">
+					<Button size="sm" variant="outline" aria-label="Pan left" onclick={() => panBy(80, 0)}
+						>←</Button
+					>
+					<Button size="sm" variant="outline" aria-label="Pan up" onclick={() => panBy(0, 80)}
+						>↑</Button
+					>
+					<Button size="sm" variant="outline" aria-label="Pan down" onclick={() => panBy(0, -80)}
+						>↓</Button
+					>
+					<Button size="sm" variant="outline" aria-label="Pan right" onclick={() => panBy(-80, 0)}
+						>→</Button
+					>
+				</div>
 			</section>
 			<section>
 				<h2>Highlight</h2>
@@ -2077,7 +2263,6 @@
 									aria-label={[node.label, node.subtitle].filter(Boolean).join(' ')}
 									onclick={() => {
 										selectNode(node.id);
-										fitPoints(basePositions, [node.id], false, false);
 										viewport?.focus({ preventScroll: true });
 									}}>{node.label}</button
 								>
@@ -2097,6 +2282,7 @@
 					aria-pressed={!mobileCanvas}
 					onclick={() => {
 						openView = null;
+						diagramPreview = null;
 						viewError = '';
 						mobileCanvas = false;
 					}}>List</Button
@@ -2107,6 +2293,7 @@
 					aria-pressed={mobileCanvas}
 					onclick={async () => {
 						openView = null;
+						diagramPreview = null;
 						viewError = '';
 						mobileCanvas = true;
 						await tick();
@@ -2166,7 +2353,6 @@
 							event.target.closest('[data-node-id]')?.getAttribute('data-node-id');
 						if (id) {
 							selectNode(id);
-							fitPoints(basePositions, [id], false, false);
 						}
 					}
 					finishTouch(event);
@@ -2224,25 +2410,18 @@
 								onclick={() => (inspectorCollapsed = !inspectorCollapsed)}>Inspector</Button
 							>
 						</div>
-						<div role="group" aria-label="Pan without dragging">
-							<Button size="sm" variant="outline" aria-label="Pan left" onclick={() => panBy(80, 0)}
-								>←</Button
-							>
-							<Button size="sm" variant="outline" aria-label="Pan up" onclick={() => panBy(0, 80)}
-								>↑</Button
-							>
-							<Button
-								size="sm"
-								variant="outline"
-								aria-label="Pan down"
-								onclick={() => panBy(0, -80)}>↓</Button
-							>
-							<Button
-								size="sm"
-								variant="outline"
-								aria-label="Pan right"
-								onclick={() => panBy(-80, 0)}>→</Button
-							>
+						<div role="group" aria-label="Flow direction">
+							{#each [{ value: 'RL', symbol: '←', label: 'Flow right to left' }, { value: 'BT', symbol: '↑', label: 'Flow bottom to top' }, { value: 'TB', symbol: '↓', label: 'Flow top to bottom' }, { value: 'LR', symbol: '→', label: 'Flow left to right' }] as direction (direction.value)}
+								<Button
+									size="sm"
+									variant={flowDirection === direction.value ? 'default' : 'outline'}
+									aria-label={direction.label}
+									aria-pressed={flowDirection === direction.value}
+									disabled={diagramMode !== 'flow'}
+									onclick={() => setFlowDirection(direction.value as FlowDirection)}
+									>{direction.symbol}</Button
+								>
+							{/each}
 						</div>
 					</div>
 				{/if}
@@ -2250,6 +2429,11 @@
 					<div class="mermaid-view" bind:this={viewPanel} data-interactive>
 						<div class="view-bar">
 							<strong>{activeView.title}</strong>
+							{#if diagramPreview}<span>Preview — not added</span><Button
+									size="sm"
+									disabled={!selectedNode}
+									onclick={addPreview}>Add to selected node</Button
+								>{/if}
 							<span>{activeView.format === 'md' ? 'Markdown' : 'JSON'}</span>
 							<Button size="sm" variant="outline" onclick={closeNodeView}>Map</Button>
 						</div>
@@ -2440,10 +2624,11 @@
 									{/each}
 								</div>
 								<div class="port-side inputs">
-									{#each node.inputs as port (port.id)}
+									{#each node.inputs as port, index (port.id)}
 										<button
 											type="button"
 											class="port in"
+											style={`--port-position: ${18 + ((index + 1) / (node.inputs.length + 1)) * ((flowDirection === 'TB' || flowDirection === 'BT' ? flowCard.width : flowCard.height) - 36)}px`}
 											disabled={overview || node.inputs.length > 3}
 											aria-hidden={overview || node.inputs.length > 3}
 											aria-label={`${node.label}: input ${port.label}`}
@@ -2455,10 +2640,11 @@
 									{/each}
 								</div>
 								<div class="port-side outputs">
-									{#each node.outputs as port (port.id)}
+									{#each node.outputs as port, index (port.id)}
 										<button
 											type="button"
 											class="port out"
+											style={`--port-position: ${18 + ((index + 1) / (node.outputs.length + 1)) * ((flowDirection === 'TB' || flowDirection === 'BT' ? flowCard.width : flowCard.height) - 36)}px`}
 											disabled={overview || node.outputs.length > 3}
 											aria-hidden={overview || node.outputs.length > 3}
 											aria-label={`${node.label}: output ${port.label}`}
@@ -2589,7 +2775,7 @@
 						size="sm"
 						variant="outline"
 						disabled={selectedNodeIds.length === 0 && selectedEdgeIds.length === 0}
-						onclick={zoomSelection}>Selection</Button
+						onclick={zoomSelection}>Zoom selection</Button
 					>
 					<Button size="sm" variant="outline" onclick={zoomActual}>100%</Button>
 					<Button size="sm" variant="outline" onclick={() => zoomBy(0.9)} aria-label="Zoom out"
@@ -2613,7 +2799,8 @@
 					{/if}
 				</div>
 				<div class="status">
-					{overview ? 'Overview · choose a service to zoom · ' : ''}{diagramMode === 'flow'
+					{overview ? 'Overview · select a service, then Zoom selection · ' : ''}{diagramMode ===
+					'flow'
 						? 'Flow'
 						: 'Graph'} · {selectedNodeIds.length > 1
 						? `${selectedNodeIds.length} selected`
@@ -2823,7 +3010,8 @@
 									</div>
 								{:else}
 									<p class="help">
-										Add a view from the center menu. Markdown or JSON, one diagram per view.
+										Preview a type in Diagram type, then use Add to selected node. Markdown or JSON,
+										one diagram per saved view.
 									</p>
 								{/if}
 								{#if activeView && openView?.nodeId === selectedNode.id}

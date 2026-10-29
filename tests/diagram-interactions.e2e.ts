@@ -1,3 +1,4 @@
+import { addDiagramView } from './helpers/diagram-picker';
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -181,12 +182,12 @@ test('adding a node closes the previous node view and the new node can open its 
 	page
 }) => {
 	await importFixture(page);
-	await page.getByLabel('Add view', { exact: true }).selectOption('flowchart');
+	await addDiagramView(page, 'Flowchart');
 	await expect(page.locator('.view-canvas svg')).toBeVisible();
 	await page.getByRole('button', { name: '+ Node', exact: true }).click();
 	await expect(page.locator('.mermaid-view')).toHaveCount(0);
 	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('New node');
-	await page.getByLabel('Add view', { exact: true }).selectOption('sequence');
+	await addDiagramView(page, 'Sequence');
 	await expect(page.locator('.view-canvas svg')).toBeVisible();
 	await expect(page.getByLabel('Diagram source', { exact: true })).toHaveValue(/sequenceDiagram/);
 	const current = await exportDocument(page);
@@ -202,7 +203,7 @@ test('invalid Mermaid views recover repeatedly without leaving error diagrams ou
 	page
 }) => {
 	await importFixture(page);
-	await page.getByLabel('Add view', { exact: true }).selectOption('flowchart');
+	await addDiagramView(page, 'Flowchart');
 	await expect(page.locator('.view-canvas svg')).toBeVisible();
 	const source = page.getByLabel('Diagram source', { exact: true });
 	const valid = await source.inputValue();

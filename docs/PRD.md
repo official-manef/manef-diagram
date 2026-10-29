@@ -304,3 +304,21 @@ singularity and hover do not collapse agent-requested multi-root context. Missin
 duplicate IDs are normalized without losing later valid seeds. Core/MCP-generated
 root/component URLs now have browser share/reload acceptance, with Unicode wire-size
 and stale-seed regressions. Final local acceptance includes 313 unit and 303 E2E cases.
+
+## Owner control correction — 2026-10-29
+
+The owner replaced the former top-right camera arrows with four Flow layout directions
+(LR/RL/TB/BT). Layout, sockets and edge curves follow that direction; Graph mode is
+unchanged and disables Flow-only direction buttons. JSON/Markdown, portable URLs and
+history retain direction, with LR backward compatibility.
+
+Diagram type is now a focused listbox with immediate Up/Down preview and no selected-node
+prerequisite. Preview is temporary: Add to selected node is the only action that creates
+a saved view. Single node/overview/explorer selection no longer zooms, including with
+Focus enabled; Zoom selection remains explicit. This supersedes earlier click-to-zoom
+acceptance in the quality audit.
+
+Local acceptance for this correction: 318 unit tests, 333 complete browser cases
+(111 per configured project), including all 24 preview types, four-direction socket/curve
+alignment, direction export/share/undo, selection camera stability, popup accessibility,
+and background-shortcut isolation. Notes 8, dev 2 and runtime builds are checked separately.

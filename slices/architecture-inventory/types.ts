@@ -69,6 +69,7 @@ export type InventoryItem = {
 
 export type TraceMode = 'direct' | 'component';
 export type DiagramMode = 'flow' | 'graph';
+export type FlowDirection = 'LR' | 'RL' | 'TB' | 'BT';
 
 export type TraceResult = {
 	nodeIds: string[];

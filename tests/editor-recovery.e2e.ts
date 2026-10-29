@@ -1,3 +1,4 @@
+import { addDiagramView } from './helpers/diagram-picker';
 import { expect, test, type Page } from '@playwright/test';
 
 function fixture() {
@@ -131,8 +132,8 @@ test('authored overlay isolates the covered map and returns focus to its opener'
 	page
 }) => {
 	await ready(page);
-	const picker = page.getByLabel('Add view', { exact: true });
-	await picker.selectOption({ label: 'Flowchart' });
+	const picker = page.getByRole('button', { name: 'Diagram type', exact: true });
+	await addDiagramView(page, 'Flowchart');
 	await expect(page.getByRole('button', { name: 'Map', exact: true })).toBeFocused();
 	await expect(page.locator('.world')).toHaveAttribute('inert', '');
 	await expect(page.locator('.world')).toBeHidden();
@@ -153,8 +154,8 @@ test('inventory selection and authored-view deletion have stable focus destinati
 	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue(
 		'New reference'
 	);
-	const picker = page.getByLabel('Add view', { exact: true });
-	await picker.selectOption({ label: 'Flowchart' });
+	const picker = page.getByRole('button', { name: 'Diagram type', exact: true });
+	await addDiagramView(page, 'Flowchart');
 	await page.getByRole('button', { name: 'Remove view', exact: true }).click();
 	await expect(picker).toBeFocused();
 	await expect(page.getByRole('status')).toContainText('Undo can restore its source');

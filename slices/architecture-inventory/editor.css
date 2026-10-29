@@ -1325,3 +1325,138 @@
 	visibility: hidden;
 	pointer-events: none;
 }
+
+/* A focused listbox previews types immediately; authoring remains an explicit action. */
+.workspace .diagram-picker {
+	position: relative;
+	min-width: 0;
+}
+.workspace .diagram-kind-list {
+	position: absolute;
+	z-index: 30;
+	top: calc(100% + 6px);
+	right: 0;
+	width: min(280px, calc(100vw - 24px));
+	max-height: min(24rem, 50dvh);
+	overflow: auto;
+	display: grid;
+	padding: 6px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--card);
+	box-shadow: 0 12px 32px var(--shadow-color);
+}
+.workspace .diagram-kind-list:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+.workspace .diagram-kind-list [role='option'] {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	width: 100%;
+	padding: 8px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--foreground);
+	text-align: left;
+	cursor: pointer;
+}
+.workspace .diagram-kind-list [aria-selected='true'] {
+	background: var(--accent);
+	border-color: var(--primary);
+}
+.workspace .diagram-kind-list small {
+	color: var(--muted-foreground);
+	font-size: 11px;
+}
+.workspace .camera-pan-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.workspace .camera-pan-buttons button {
+	min-width: 36px;
+	min-height: 36px;
+}
+
+/* Match sockets to direction-aware routing anchors while keeping cards upright. */
+.workspace .node .port-side.inputs,
+.workspace .node .port-side.outputs {
+	inset: 0;
+	display: block;
+	transform: none;
+	pointer-events: none;
+}
+.workspace .node .port {
+	position: absolute;
+	top: var(--port-position);
+	pointer-events: auto;
+}
+.workspace .node .port.in {
+	left: 0;
+	right: auto;
+	transform: translate(-6px, -50%);
+}
+.workspace .node .port.out {
+	left: auto;
+	right: 0;
+	transform: translate(6px, -50%);
+}
+.workspace[data-flow-direction='RL'] .node .port.in {
+	left: auto;
+	right: 0;
+	transform: translate(6px, -50%);
+	flex-direction: row-reverse;
+}
+.workspace[data-flow-direction='RL'] .node .port.out {
+	left: 0;
+	right: auto;
+	transform: translate(-6px, -50%);
+	flex-direction: row;
+}
+.workspace[data-flow-direction='TB'] .node .port,
+.workspace[data-flow-direction='BT'] .node .port {
+	left: var(--port-position);
+	right: auto;
+	max-width: 64px;
+	align-items: center;
+}
+.workspace[data-flow-direction='TB'] .node .port.in,
+.workspace[data-flow-direction='BT'] .node .port.out {
+	top: 0;
+	bottom: auto;
+	transform: translate(-50%, -6px);
+	flex-direction: column;
+}
+.workspace[data-flow-direction='TB'] .node .port.out,
+.workspace[data-flow-direction='BT'] .node .port.in {
+	top: auto;
+	bottom: 0;
+	transform: translate(-50%, 6px);
+	flex-direction: column-reverse;
+}
+.workspace[data-flow-direction='TB'] .node-head,
+.workspace[data-flow-direction='BT'] .node-head {
+	padding-top: 22px;
+}
+.workspace .node .port:disabled {
+	pointer-events: none;
+}
+@media (max-width: 64rem) {
+	.workspace .camera-pan-buttons button {
+		min-width: 44px;
+		min-height: 44px;
+	}
+}
+
+.workspace .diagram-kind-group {
+	padding: 8px;
+	color: var(--muted-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+}

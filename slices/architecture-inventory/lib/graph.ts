@@ -4,6 +4,7 @@ import type {
 	ArchitectureNode,
 	ArchitecturePort,
 	DiagramMode,
+	FlowDirection,
 	Point,
 	TraceMode,
 	TraceResult
@@ -280,11 +281,10 @@ export function graphNodeRadius(linkCount: number): number {
 }
 const flowRows = 4;
 
-function columnHeight(count: number) {
-	return count * flowCard.height + Math.max(0, count - 1) * flowCard.gapY;
-}
-
-function layoutFlow(graph: ArchitectureGraph): Record<string, Point> {
+function layoutFlow(
+	graph: ArchitectureGraph,
+	direction: FlowDirection = 'LR'
+): Record<string, Point> {
 	const levels = new Map<number, ArchitectureNode[]>();
 	for (const node of graph.nodes) {
 		const level = node.level ?? 3;
@@ -300,18 +300,29 @@ function layoutFlow(graph: ArchitectureGraph): Record<string, Point> {
 			lanes.push(nodes.slice(index, index + rows));
 		}
 	}
-	const maxHeight = Math.max(...lanes.map((nodes) => columnHeight(nodes.length)), flowCard.height);
+	const vertical = direction === 'TB' || direction === 'BT';
+	const crossSize = vertical ? flowCard.width : flowCard.height;
+	const primarySize = vertical ? flowCard.height : flowCard.width;
+	const laneSpan = (count: number) => count * crossSize + Math.max(0, count - 1) * flowCard.gapY;
+	const maxSpan = Math.max(...lanes.map((nodes) => laneSpan(nodes.length)), crossSize);
 	const points = Object.create(null) as Record<string, Point>;
 	lanes.forEach((nodes, lane) => {
-		const startY = 32 + (maxHeight - columnHeight(nodes.length)) / 2;
-		const x = 24 + lane * (flowCard.width + flowCard.gapX);
+		const crossStart = 32 + (maxSpan - laneSpan(nodes.length)) / 2;
+		const primary = 24 + lane * (primarySize + flowCard.gapX);
 		nodes.forEach((node, index) => {
-			points[node.id] = {
-				x,
-				y: startY + index * (flowCard.height + flowCard.gapY)
-			};
+			const cross = crossStart + index * (crossSize + flowCard.gapY);
+			points[node.id] = vertical ? { x: cross, y: primary } : { x: primary, y: cross };
 		});
 	});
+	if (direction === 'RL' || direction === 'BT') {
+		const maximum = Math.max(
+			...Object.values(points).map((point) => (vertical ? point.y : point.x))
+		);
+		for (const point of Object.values(points)) {
+			if (vertical) point.y = maximum + 24 - point.y;
+			else point.x = maximum + 24 - point.x;
+		}
+	}
 	return points;
 }
 
@@ -367,9 +378,13 @@ function layoutRadial(graph: ArchitectureGraph): Record<string, Point> {
 	return points;
 }
 
-export function layoutGraph(graph: ArchitectureGraph, mode: DiagramMode): Record<string, Point> {
+export function layoutGraph(
+	graph: ArchitectureGraph,
+	mode: DiagramMode,
+	direction: FlowDirection = 'LR'
+): Record<string, Point> {
 	if (graph.nodes.length === 0) return {};
-	return mode === 'graph' ? layoutRadial(graph) : layoutFlow(graph);
+	return mode === 'graph' ? layoutRadial(graph) : layoutFlow(graph, direction);
 }
 
 export type GraphLayout = 'web' | 'radial' | 'layered';
@@ -664,15 +679,19 @@ function cubicPoint(start: Point, control1: Point, control2: Point, end: Point, 
 
 function portAnchor(
 	origin: Point,
-	direction: 'inputs' | 'outputs',
+	ports: 'inputs' | 'outputs',
 	index: number,
-	count: number
+	count: number,
+	direction: FlowDirection = 'LR'
 ): Point {
-	const safeCount = Math.max(count, 1);
-	return {
-		x: origin.x + (direction === 'outputs' ? flowCard.width : 0),
-		y: origin.y + 18 + ((index + 1) / (safeCount + 1)) * (flowCard.height - 36)
-	};
+	const vertical = direction === 'TB' || direction === 'BT';
+	const forward = direction === 'LR' || direction === 'TB';
+	const farSide = (ports === 'outputs') === forward;
+	const crossSize = vertical ? flowCard.width : flowCard.height;
+	const offset = 18 + ((index + 1) / (Math.max(count, 1) + 1)) * (crossSize - 36);
+	return vertical
+		? { x: origin.x + offset, y: origin.y + (farSide ? flowCard.height : 0) }
+		: { x: origin.x + (farSide ? flowCard.width : 0), y: origin.y + offset };
 }
 
 function samplesHit(points: Point[], obstacles: Point[]) {
@@ -704,10 +723,17 @@ function curveThrough(
 	start: Point,
 	end: Point,
 	bend: number,
-	controlY: { start: number; end: number } | null
+	controlY: { start: number; end: number } | null,
+	direction: FlowDirection = 'LR'
 ): { d: string; points: Point[] } {
-	const control1 = { x: start.x + bend, y: controlY?.start ?? start.y };
-	const control2 = { x: end.x - bend, y: controlY?.end ?? end.y };
+	const vertical = direction === 'TB' || direction === 'BT';
+	const sign = direction === 'LR' || direction === 'TB' ? 1 : -1;
+	const control1 = vertical
+		? { x: controlY?.start ?? start.x, y: start.y + bend * sign }
+		: { x: start.x + bend * sign, y: controlY?.start ?? start.y };
+	const control2 = vertical
+		? { x: controlY?.end ?? end.x, y: end.y - bend * sign }
+		: { x: end.x - bend * sign, y: controlY?.end ?? end.y };
 	const points = Array.from({ length: 13 }, (_, step) =>
 		cubicPoint(start, control1, control2, end, step / 12)
 	);
@@ -725,32 +751,45 @@ function flowCurve(
 	sourceCount: number,
 	targetIndex: number,
 	targetCount: number,
-	obstacles: Point[]
+	obstacles: Point[],
+	direction: FlowDirection = 'LR'
 ): { d: string; points: Point[] } {
-	const start = portAnchor(source, 'outputs', sourceIndex, sourceCount);
-	const end = portAnchor(target, 'inputs', targetIndex, targetCount);
-	const bend = Math.max(60, Math.abs(end.x - start.x) * 0.42);
-	const direct = curveThrough(start, end, bend, null);
+	const vertical = direction === 'TB' || direction === 'BT';
+	const start = portAnchor(source, 'outputs', sourceIndex, sourceCount, direction);
+	const end = portAnchor(target, 'inputs', targetIndex, targetCount, direction);
+	const bend = Math.max(60, Math.abs(vertical ? end.y - start.y : end.x - start.x) * 0.42);
+	const direct = curveThrough(start, end, bend, null, direction);
 	if (!samplesHit(direct.points, obstacles)) return direct;
-	const roof = Math.min(start.y, end.y, ...obstacles.map((box) => box.y));
-	const over = curveThrough(start, end, 0, { start: roof - 64, end: roof - 64 });
-	if (!samplesHit(over.points, obstacles)) return over;
-	const crossed = obstacles.filter(
-		(box) => box.x + flowCard.width > Math.min(start.x, end.x) && box.x < Math.max(start.x, end.x)
+	const roof = Math.min(
+		vertical ? start.x : start.y,
+		vertical ? end.x : end.y,
+		...obstacles.map((box) => (vertical ? box.x : box.y))
 	);
-	const crossedRoof = Math.min(...crossed.map((box) => box.y), start.y, end.y);
+	const over = curveThrough(start, end, 0, { start: roof - 64, end: roof - 64 }, direction);
+	if (!samplesHit(over.points, obstacles)) return over;
+	const crossed = obstacles.filter((box) =>
+		vertical
+			? box.y + flowCard.height > Math.min(start.y, end.y) && box.y < Math.max(start.y, end.y)
+			: box.x + flowCard.width > Math.min(start.x, end.x) && box.x < Math.max(start.x, end.x)
+	);
+	const crossedRoof = Math.min(
+		...crossed.map((box) => (vertical ? box.x : box.y)),
+		vertical ? start.x : start.y,
+		vertical ? end.x : end.y
+	);
 	for (const extra of [72, 120, 180, 260, 420]) {
 		const clearance = crossedRoof - extra;
-		const tucked = curveThrough(start, end, 72, { start: clearance, end: clearance });
+		const tucked = curveThrough(start, end, 72, { start: clearance, end: clearance }, direction);
 		if (!samplesHit(tucked.points, obstacles)) return tucked;
 	}
-	return curveThrough(start, end, 0, { start: roof - 220, end: roof - 220 });
+	return curveThrough(start, end, 0, { start: roof - 220, end: roof - 220 }, direction);
 }
 
 export function routeEdges(
 	graph: ArchitectureGraph,
 	positions: Record<string, Point>,
-	mode: DiagramMode
+	mode: DiagramMode,
+	direction: FlowDirection = 'LR'
 ): EdgeRoute[] {
 	return graph.edges.flatMap((edge) => {
 		const source = positions[edge.source];
@@ -781,7 +820,8 @@ export function routeEdges(
 						Math.max(sourcePorts.length, 1),
 						targetIndex,
 						Math.max(targetPorts.length, 1),
-						obstacles
+						obstacles,
+						direction
 					)
 				: null;
 		const points = curved
