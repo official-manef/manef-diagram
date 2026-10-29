@@ -199,3 +199,29 @@ test('official stateless MCP server advertises read-only graph tools', async () 
 		edges: result.edges
 	});
 });
+
+test('MCP rejects portable graphs whose encoded URL is unusable rather than returning success', async () => {
+	const graph = {
+		schemaVersion: 1,
+		nodes: [{ id: 'unicode', label: '界'.repeat(3000), tags: [], inputs: [], outputs: [] }],
+		edges: []
+	};
+	const call = {
+		jsonrpc: '2.0',
+		id: 20,
+		method: 'tools/call',
+		params: { name: 'graph_create_portable_view', arguments: { graph } }
+	};
+	const request = new Request('https://app.example.com/api/mcp/server', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Accept: 'application/json, text/event-stream',
+			'MCP-Protocol-Version': '2025-11-25'
+		},
+		body: JSON.stringify(call)
+	});
+	const output = await (await statusMcpResponse(request, call)).json();
+	expect(output.result.isError).toBe(true);
+	expect(output.result.content[0].text).toContain('size limit');
+});

@@ -52,6 +52,7 @@
 		"check:core": "tsc --noEmit -p tests/fixtures/core/tsconfig.json"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "4.14.0",
 		"@convex-dev/eslint-plugin": "4.0.0",
 		"@eslint/js": "^10.0.1",
 		"@internationalized/date": "^3.12.0",

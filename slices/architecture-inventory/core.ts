@@ -38,6 +38,7 @@ export {
 	parseDiagramView,
 	DEFAULT_DIAGRAM_ORIGIN,
 	PORTABLE_GRAPH_MAX_CHARS,
+	PORTABLE_VIEW_MAX_REQUEST_BYTES,
 	tagGroup,
 	tagsMatchFacets
 } from './lib/share';
@@ -57,3 +58,5 @@ export {
 } from './lib/document';
 export { importN8nWorkflow, exportN8nWorkflow, n8nCompatibility, N8N_REFERENCE } from './lib/n8n';
 export { convertNodeView } from './lib/diagram-views';
+
+export { panForZoom, wheelGesture, type WheelInput } from './lib/camera';

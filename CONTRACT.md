@@ -134,3 +134,19 @@ Checks live in `package.json` and [CHECKLIST.md](CHECKLIST.md); evidence belongs
 actual revision and environment tested. Keep transient progress in the task/PRD, not
 as a second status ledger here. Use [agent-workflow.md](docs/agent-workflow.md) to resume
 from current files and preserve clear, compact handoffs.
+
+## Editor interaction boundary
+
+Camera operations support trackpad/wheel, keyboard, explicit hand tool and touch pinch
+without editing node positions. Scaled overview is a preview; accessible editing remains
+available through unscaled service/connection navigation and inspector controls. User
+reduced-motion preferences suppress layout/physics animation. The editor's full-document
+undo/redo is bounded tab-local history, not durable storage. Applying/importing is not
+saving; complete JSON/Markdown exports remain the persistence boundary. Departure
+warnings do not establish mobile process-kill recovery or private backend ownership.
+
+Portable URL generation uses the shared core's decoded graph and complete encoded
+request-target budgets. All graph/filter/seed/path fields contribute to the wire limit;
+oversize links fail before success or browser history mutation. URL multi-selection
+restores every valid seed; focus traces the selected set independently of hover and
+sharing retains that set. These rules apply equally to editor and read-only MCP output.

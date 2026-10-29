@@ -116,6 +116,8 @@ test('nested JSON import reports depth rejection and keeps the current diagram',
 	).toBeVisible();
 	await expect(page.getByText('JSON applied.', { exact: true })).toHaveCount(0);
 	await expect(page.locator('.toast')).toHaveCSS('pointer-events', 'none');
+	// Refresh deliberately replaces the rejected draft only after explicit discard.
+	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name: 'Refresh', exact: true }).click();
 	await expect(page.getByRole('textbox', { name: 'Architecture graph JSON' })).toHaveValue(
 		/Public directory/

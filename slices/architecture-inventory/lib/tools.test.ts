@@ -37,3 +37,25 @@ it('keeps all MCP view links on the configured deployment origin', () => {
 		expect(new URL(result.url ?? result.viewUrl!).origin).toBe('https://pilot.example');
 	}
 });
+
+it('portable MCP tools reject oversized wire URLs and retain requested seed arrays', () => {
+	const graph = {
+		schemaVersion: 1 as const,
+		nodes: ['a', 'b'].map((id) => ({ id, label: id, tags: [], inputs: [], outputs: [] })),
+		edges: []
+	};
+	const result = runGraphTool(graph, [], 'graph_create_portable_view', {
+		graph,
+		seeds: ['a', 'b'],
+		focus: true,
+		trace: 'direct'
+	}) as { url: string };
+	expect(new URL(result.url).searchParams.getAll('seed')).toEqual(['a', 'b']);
+	graph.nodes[0].label = '界'.repeat(3000);
+	expect(() => runGraphTool(graph, [], 'graph_create_portable_view', { graph })).toThrow(
+		/size limit/
+	);
+	expect(() => runGraphTool(graph, [], 'graph_build_view', { query: '界'.repeat(2000) })).toThrow(
+		/size limit/
+	);
+});

@@ -8,7 +8,7 @@ for (const width of [320, 390, 1440]) {
 		await page.goto('/app');
 		await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
 		await page
-			.locator(width < 1024 ? '.mobile-card' : '.node-select')
+			.locator(width < 1024 ? '.mobile-card' : '.service-navigator button')
 			.first()
 			.click();
 		const selectedLabel = await page.getByLabel('Label', { exact: true }).inputValue();
@@ -42,7 +42,7 @@ test('desktop filter backdrop closes to its trigger and stays outside the tab se
 	await page.setViewportSize({ width: 1440, height: 844 });
 	await page.goto('/app');
 	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
-	await page.locator('.node-select').first().click();
+	await page.locator('.service-navigator button').first().click();
 	const selectedLabel = await page.getByLabel('Label', { exact: true }).inputValue();
 	const filter = page.getByRole('button', { name: 'Filter', exact: true });
 	await filter.click();

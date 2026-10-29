@@ -61,20 +61,20 @@ test('320px phone retains graph controls, canvas navigation and inspector editin
 	await page.locator('.viewport').scrollIntoViewIfNeeded();
 	const before = await page.locator('.world').getAttribute('style');
 	const canvas = await page.locator('.viewport').boundingBox();
-	await page.mouse.move(canvas!.x + 10, canvas!.y + 110);
+	await page.mouse.move(canvas!.x + 10, canvas!.y + 180);
 	await page.mouse.down();
-	await page.mouse.move(canvas!.x + 45, canvas!.y + 145);
+	await page.mouse.move(canvas!.x + 45, canvas!.y + 215);
 	await page.mouse.up();
 	await expect(page.locator('.world')).not.toHaveAttribute('style', before!);
 	const touch = await page.context().newCDPSession(page);
 	const beforeTouch = await page.locator('.world').getAttribute('style');
 	await touch.send('Input.dispatchTouchEvent', {
 		type: 'touchStart',
-		touchPoints: [{ x: canvas!.x + 10, y: canvas!.y + 110 }]
+		touchPoints: [{ x: canvas!.x + 10, y: canvas!.y + 180 }]
 	});
 	await touch.send('Input.dispatchTouchEvent', {
 		type: 'touchMove',
-		touchPoints: [{ x: canvas!.x + 45, y: canvas!.y + 145 }]
+		touchPoints: [{ x: canvas!.x + 45, y: canvas!.y + 215 }]
 	});
 	await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 	await expect(page.locator('.world')).not.toHaveAttribute('style', beforeTouch!);

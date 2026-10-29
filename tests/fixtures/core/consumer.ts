@@ -1,6 +1,7 @@
 // This consumer intentionally has no Svelte/React ambient types or app aliases.
 import {
 	defaultGraph,
+	PORTABLE_VIEW_MAX_REQUEST_BYTES,
 	traceGraph,
 	createDocument,
 	documentAsJson,
@@ -19,3 +20,5 @@ export function consumer(graph: ArchitectureGraph = defaultGraph): DiagramDocume
 	return parseDiagramMarkdown(documentAsMarkdown(parseDiagramDocument(documentAsJson(document))));
 }
 export const n8nConsumer = (source: string) => n8nCompatibility(importN8nWorkflow(source));
+
+export const portableRequestBudget: number = PORTABLE_VIEW_MAX_REQUEST_BYTES;

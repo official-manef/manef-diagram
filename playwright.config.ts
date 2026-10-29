@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 const port = 4197;
 const baseURL = `http://127.0.0.1:${port}`;
+export const browserLaunchOptions = process.env.PLAYWRIGHT_CHROME_PATH
+	? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH }
+	: undefined;
 export const devServerCommand = `bun run dev -- --host 127.0.0.1 --port ${port} --strictPort`;
 
 export default defineConfig({
@@ -27,9 +30,7 @@ export default defineConfig({
 		baseURL,
 		trace: 'retain-on-failure',
 		screenshot: 'only-on-failure',
-		launchOptions: process.env.PLAYWRIGHT_CHROME_PATH
-			? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH }
-			: undefined
+		launchOptions: browserLaunchOptions
 	},
 	projects: [
 		{ name: 'narrow-mobile', use: { ...devices['iPhone SE'], browserName: 'chromium' } },
