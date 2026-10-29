@@ -10,5 +10,6 @@ export const GET: RequestHandler = async (event) => {
 	const { url, transaction } = await beginAuthorization(config);
 	await saveTransaction(event, config, transaction);
 	event.setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' });
-	redirect(303, url.href);
+	// The provider origin is external to this app; SvelteKit 3 requires an allowlist for that.
+	redirect(303, url.href, { external: [url.origin] });
 };
