@@ -6,7 +6,7 @@
 	height: 100dvh;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
-	grid-template-rows: 54px minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	overflow: hidden;
 	background: var(--background);
 	color: var(--foreground);
@@ -27,13 +27,14 @@
 	gap: 0.35rem;
 }
 .workspace .topbar {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
+	min-height: 54px;
 	gap: 0.5rem;
 	border-bottom: 1px solid var(--border);
 	background: var(--card);
-	padding: 0 0.75rem;
+	padding: 0.4rem 0.75rem;
 }
 .workspace .mode-center,
 .workspace .top-end {
@@ -43,10 +44,19 @@
 	min-width: 0;
 }
 .workspace .mode-center {
-	justify-self: center;
+	flex: 0 0 auto;
 }
 .workspace .top-end {
-	justify-self: end;
+	flex: 0 1 auto;
+	flex-wrap: wrap;
+	max-width: 100%;
+	margin-left: auto;
+}
+.workspace .top-end > .theme-select {
+	flex-shrink: 0;
+}
+.workspace .topbar .top-actions {
+	flex-wrap: wrap;
 }
 .workspace .mermaid-view {
 	position: absolute;

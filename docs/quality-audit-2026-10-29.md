@@ -156,3 +156,23 @@ Correction evidence: 318 unit and 333 browser cases (111 per project), including
 renders of all 24 previews on each project, four-direction curve/socket alignment,
 wire/document persistence, no-auto-zoom in Focus, popup axe checks and shortcut isolation.
 The three-scan axe cases have a finite 60-second test budget; no rules are excluded.
+
+## Hosted-CI header correction
+
+The first owner-control commit's hosted check failed, despite its local results:
+331 E2E cases passed and two desktop axe scans reported a partially obscured theme
+selector with only 22px usable width. Diagram type overlapped it because the header
+assigned equal outside columns regardless of its control groups' intrinsic widths.
+
+The fix removes that structural competition: flex groups wrap naturally and the
+editor allocates the header's actual height. A native hit-test regression covers four
+desktop widths and a wider-intrinsic-controls variant. Both regression cases failed
+against the old header at 1025px before the fix. The same 1280px axe case did not fail
+with the container's original fonts; this is why font-metric stress coverage was added
+rather than claiming an identical OS/font reproduction.
+
+Playwright's pinned Chromium 151.0.7922.34 (revision 1234) was installed and used without
+PLAYWRIGHT_CHROME_PATH for the final 339 E2E cases (113 per project), all passing.
+The 318 unit tests, notes 8, dev 2 and runtime gates also pass. No axe rules were
+excluded and no control was shrunk/hidden. These results supersede the earlier
+Chrome-156-only local evidence for the header; terminal hosted CI remains separate.

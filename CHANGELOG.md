@@ -5,6 +5,8 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Prevent desktop editor header controls overlapping under different platform/font metrics by wrapping intrinsic-width groups and sizing the header row automatically. Add native hit-testing across four widths and font-metric stress cases.
+
 - Make upper-right arrows control four-way Flow layout and direction-aware ports/curves; retain separate camera-pan controls and persist direction in documents/links/history.
 - Replace the Add view select with keyboard-driven temporary type previews that work without a selected node; only explicit attachment authors a view.
 - Make node selection camera-neutral, including overview, explorer and Focus mode; retain an explicit Zoom selection tool. Isolate chooser keyboard shortcuts from background edits.
