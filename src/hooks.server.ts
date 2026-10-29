@@ -51,10 +51,10 @@ export const handleError: HandleServerError = (caught) => {
 		method: event.request.method,
 		route: event.route.id
 	});
-	// Framework and app errors carry a reviewed message (for example "App not found"); only an
-	// unknown error may contain internals, so it keeps the generic text.
+	// An error thrown with error(404, 'App not found') carries a reviewed message that the page
+	// shows. Framework messages and unknown errors keep this app's own copy instead.
 	const message =
-		caught.kind === 'framework' || caught.kind === 'app'
+		caught.kind === 'app'
 			? caught.error.message
 			: status === 404
 				? 'Page not found.'
