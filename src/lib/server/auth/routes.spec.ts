@@ -3,6 +3,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { POST as token } from '../../../routes/auth/token/+server';
 import { POST as logout } from '../../../routes/auth/logout/+server';
 import { GET as callback } from '../../../routes/auth/callback/+server';
+import { GET as login } from '../../../routes/auth/login/+server';
 import { authConfiguration, establishSession } from './session';
 
 const { privateEnv, publicEnv } = vi.hoisted(() => ({
@@ -76,7 +77,7 @@ vi.mock('$app/env/public', () => ({
 	}
 }));
 
-function event<Route extends '/auth/token' | '/auth/logout' | '/auth/callback'>(
+function event<Route extends '/auth/token' | '/auth/logout' | '/auth/callback' | '/auth/login'>(
 	path: Route,
 	origin = publicEnv.PUBLIC_SITE_URL,
 	body: unknown = {},
@@ -142,6 +143,30 @@ test('token responses are uncached and release only an ID token to a same-origin
 	await expect(token(event('/auth/token', undefined, { unknown: true }))).rejects.toMatchObject({
 		status: 400
 	});
+});
+
+test('sign-in redirects to the provider origin SvelteKit 3 requires to be allowlisted', async () => {
+	Object.assign(privateEnv, {
+		AUTH_PROVIDER: 'workos',
+		WORKOS_CLIENT_ID: 'client_test',
+		WORKOS_API_KEY: 'sk_test'
+	});
+	const page = event('/auth/login');
+	await expect(login(page)).rejects.toMatchObject({
+		status: 303,
+		location: expect.stringMatching(/^https:\/\/api\.workos\.com\/user_management\/authorize\?/)
+	});
+	expect(page.cookies.get('__Host-manef-workos-transaction')).toBeTruthy();
+	delete privateEnv.AUTH_PROVIDER;
+	delete privateEnv.WORKOS_CLIENT_ID;
+	delete privateEnv.WORKOS_API_KEY;
+});
+
+test('sign-in refuses a request whose origin is not the configured application URL', async () => {
+	// The page URL, not just the Origin header, has to match the configured application origin.
+	const foreign = event('/auth/login');
+	Object.assign(foreign, { url: new URL('https://attacker.example/auth/login') });
+	await expect(login(foreign)).rejects.toMatchObject({ status: 400 });
 });
 
 test('disabled auth and callbacks without a login transaction fail closed', async () => {
