@@ -5,6 +5,8 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Bound complete encoded portable URLs, including multilingual graphs and filters, before UI or MCP success. Restore/share all valid URL seeds and keep multi-root focus independent of hover or the singular inspector selection. Reserve fitted canvas space for navigation controls.
+
 - Guard stale source Apply and dirty raw-draft replacement, including Refresh/import/history/component navigation and departure after exporting the current document. Isolate authored overlays from covered map focus, restore inventory/view-deletion focus, and keep traced interactive text fully opaque.
 
 - Add trackpad/wheel, keyboard, explicit hand tool, directional controls and anchored touch pinch for canvas navigation. Preserve selection mode and expose keyboard instructions.

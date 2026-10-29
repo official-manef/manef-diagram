@@ -46,8 +46,8 @@ coordinates rather than bypassing hit testing.
 ## Local evidence
 
 - Frozen Bun install and verify: type checks, standalone non-Svelte consumer, lint,
-  309 unit tests and Vercel build.
-- 288 E2E cases passed in complete project runs: 96 desktop, 96 mobile, 96 narrow mobile.
+  313 unit tests and Vercel build.
+- 303 E2E cases passed in complete project runs: 101 desktop, 101 mobile, 101 narrow mobile.
 - Within those cases, 18 axe WCAG A/AA scans covered light/dark themes, real-seed
   overview/selected inspector/graph states, and all three browser projects.
 - Eight synthetic private-note isolation cases and two development hydration cases passed.
@@ -107,6 +107,32 @@ other findings; the remaining paths now have explicit protection:
 
 Six new browser stories run in all three projects (18 cases). The existing rejected
 source Refresh story now explicitly accepts its discard confirmation; no confirmation
-or hit-testing is bypassed. The complete 288-case reruns passed, as did verify, notes,
+or hit-testing is bypassed. The complete 303-case final reruns passed, as did verify, notes,
 development and the runtime build checks. The earlier raw-buffer limitation is thus
 narrowed to durable crash recovery, not silent overwrite during ordinary editing.
+
+## Independent developer/agent follow-up
+
+The read-only DX/agent audit found two concrete contract defects on the baseline:
+Unicode graphs could pass a decoded-character limit while their encoded URL received
+HTTP 414, and URL/MCP requests carrying multiple seeds restored only the first seed
+in the renderer. Both are now covered across the pure core, MCP SDK and browser:
+
+- A shared 16,000-byte budget checks the complete encoded request target after all
+  graph/filter/seed/path serialization, with the existing 12,000 decoded graph-character
+  bound retained. Unicode graphs and query/tag-only expansion cannot bypass it. The
+  UI refuses before clipboard/history mutation; MCP returns an error, not an unusable URL.
+- The editor restores every valid seed in order, deduplicates IDs and ignores missing
+  IDs without dropping later valid ones. Focus uses the full selected trace, not the
+  singular inspector selection or transient hover trace. Share retains all selected IDs.
+- Browser consumer regressions build actual core/MCP URLs, open root and component
+  contexts, share/reload them and assert matching multi-selection. Missing/duplicate
+  IDs, hover emphasis and multilingual size denial have their own scenarios.
+- Fit now reserves actual navigation/toolbar space so the new camera controls do not
+  cover the fitted content. Hover acceptance uses desktop geometry; the small-screen
+  overview intentionally avoids precision editing targets.
+
+Five added browser stories run in all three projects (15 cases). Unit tests cover the
+exact byte boundary and Unicode/filter expansion; the MCP SDK test checks isError on
+an oversized graph. Final counts are 313 unit and 303 E2E cases. MCP descriptions
+advertise the encoded budget; its server imports the framework-neutral core.

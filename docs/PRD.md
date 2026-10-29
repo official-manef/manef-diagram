@@ -280,7 +280,7 @@ remains the complete-document persistence path. These are not durable autosave o
 production backend changes. Reduced-motion preferences prevent physics from restarting
 after a node drag. Keyboard field input remains native.
 
-Local acceptance: verify with 309 unit tests; 288 complete E2E cases (96 per configured
+Local acceptance: verify with 313 unit tests; 303 complete E2E cases (101 per configured
 project), including 18 actual-seed axe scans across light/dark overview, inspector
 and graph states; notes 8, dev 2, Node smoke and Workers dry-run. All passed on the
 runtime described in the quality audit. This is not physical assistive-device testing,
@@ -295,3 +295,12 @@ silent replacement of newer visual edits. A pending raw draft remains guarded af
 export of the current document; it is not included in document history or crash recovery.
 Authored overlays isolate the map on all screens and restore their opener. Full-suite
 acceptance now includes six additional recovery stories across all three projects.
+
+The developer/agent follow-up bounds the entire percent-encoded request target to
+16,000 bytes, in addition to the 12,000 decoded graph-character cap. Oversized graph
+or filter URLs fail before clipboard/history mutation and fail as MCP tool errors.
+All valid URL seeds are restored, traced for focus and shared as a set; inspector
+singularity and hover do not collapse agent-requested multi-root context. Missing and
+duplicate IDs are normalized without losing later valid seeds. Core/MCP-generated
+root/component URLs now have browser share/reload acceptance, with Unicode wire-size
+and stale-seed regressions. Final local acceptance includes 313 unit and 303 E2E cases.

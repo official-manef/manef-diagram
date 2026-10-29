@@ -109,10 +109,10 @@
 			diagramMode = view.mode;
 			traceMode = view.trace;
 			focusMode = view.focus;
-			if (view.seeds[0] && graph.nodes.some((node) => node.id === view.seeds[0])) {
-				selectedNodeId = view.seeds[0];
-				selectedNodeIds = [view.seeds[0]];
-			}
+			selectedNodeIds = [
+				...new Set(view.seeds.filter((id) => graph.nodes.some((node) => node.id === id)))
+			];
+			selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
 		} catch {
 			actionMessage = 'This shared graph link is invalid or too large. The default graph is shown.';
 		}
@@ -300,9 +300,11 @@
 			])
 		)
 	);
-	const traceSeed = $derived(hoveredNodeId ?? selectedNodeId);
+	const selectionTrace = $derived(traceGraph(graph, selectedNodeIds, traceMode));
+	const focusedNodeIds = $derived(new Set(selectionTrace.nodeIds));
+	const traceSeeds = $derived(hoveredNodeId ? [hoveredNodeId] : selectedNodeIds);
 	const trace = $derived(
-		traceSeed ? traceGraph(graph, [traceSeed], traceMode) : { nodeIds: [], edgeIds: [] }
+		hoveredNodeId ? traceGraph(graph, [hoveredNodeId], traceMode) : selectionTrace
 	);
 	const highlightedNodeIds = $derived(new Set(trace.nodeIds));
 	const highlightedEdgeIds = $derived(new Set(trace.edgeIds));
@@ -347,7 +349,7 @@
 			!needle ||
 			[node.label, node.subtitle ?? '', ...node.tags].join(' ').toLowerCase().includes(needle);
 		const tagMatch = tagsMatchFacets(node.tags, activeTags);
-		const focusMatch = !focusMode || !selectedNodeId || highlightedNodeIds.has(node.id);
+		const focusMatch = !focusMode || selectedNodeIds.length === 0 || focusedNodeIds.has(node.id);
 		return searchMatch && tagMatch && focusMatch;
 	}
 
@@ -362,7 +364,7 @@
 	const visibleNodes = $derived(graph.nodes.filter((node) => related.nodeIds.includes(node.id)));
 	const visibleEdges = $derived(related.edges);
 	const routes = $derived(routeEdges(graph, basePositions, diagramMode));
-	const emphasize = $derived(Boolean(traceSeed) && highlightedNodeIds.size > 1);
+	const emphasize = $derived(traceSeeds.length > 0 && highlightedNodeIds.size > 1);
 	const fitKey = $derived(
 		`${diagramPath.join('/')}:${graph.nodes.map((node) => `${node.id}@${node.level ?? 3}`).join('|')}:${visibleNodes
 			.map((node) => node.id)
@@ -430,17 +432,32 @@
 		const rect = viewport.getBoundingClientRect();
 		if (rect.width < 40 || rect.height < 40) return;
 		const pad = 28;
+		const navigation = viewport.querySelector<HTMLElement>('.canvas-navigation');
+		const toolbar = viewport.querySelector<HTMLElement>('.toolbar');
+		const topInset = Math.max(
+			pad,
+			navigation && navigation.getClientRects().length
+				? navigation.getBoundingClientRect().bottom - rect.top + 12
+				: 0
+		);
+		const bottomInset = Math.max(
+			pad,
+			toolbar && toolbar.getClientRects().length
+				? rect.bottom - toolbar.getBoundingClientRect().top + 12
+				: 0
+		);
+		const availableHeight = Math.max(24, rect.height - topInset - bottomInset);
 		const cap = includeRoutes ? 1.25 : 2.2;
 		const scale = Math.min(
 			cap,
 			Math.max(
 				0.08,
-				Math.min((rect.width - pad * 2) / (maxX - minX), (rect.height - pad * 2) / (maxY - minY))
+				Math.min((rect.width - pad * 2) / (maxX - minX), availableHeight / (maxY - minY))
 			)
 		);
 		const nextPan = {
 			x: (rect.width - (maxX - minX) * scale) / 2 - minX * scale,
-			y: (rect.height - (maxY - minY) * scale) / 2 - minY * scale
+			y: topInset + (availableHeight - (maxY - minY) * scale) / 2 - minY * scale
 		};
 		if (!animate || reducedMotion) {
 			zoom = scale;
@@ -1156,7 +1173,7 @@
 					graph: edited ? root : undefined,
 					query: search,
 					tags: activeTags,
-					seeds: selectedNodeId ? [selectedNodeId] : [],
+					seeds: selectedNodeIds,
 					open: diagramPath,
 					mode: diagramMode,
 					trace: traceMode,
@@ -2258,6 +2275,7 @@
 							<button
 								type="button"
 								class="mobile-card"
+								aria-pressed={selectedNodeIds.includes(node.id)}
 								class:selected={selectedNodeIds.includes(node.id)}
 								class:hot={highlightedNodeIds.has(node.id)}
 								onclick={() => selectNode(node.id)}

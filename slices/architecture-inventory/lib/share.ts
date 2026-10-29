@@ -4,6 +4,18 @@ import { isJsonValue } from './json';
 
 export const DEFAULT_DIAGRAM_ORIGIN = 'https://diagram.manef.dev';
 export const PORTABLE_GRAPH_MAX_CHARS = 12_000;
+// Count the complete percent-encoded request target, not decoded JSON characters.
+// Leave room below common 16 KiB request-line limits for the method/version overhead.
+export const PORTABLE_VIEW_MAX_REQUEST_BYTES = 16_000;
+
+function requireRequestBudget(target: string): void {
+	// URL.pathname/search and URLSearchParams serialization are ASCII here: one char = one byte.
+	if (target.length > PORTABLE_VIEW_MAX_REQUEST_BYTES) {
+		throw new Error(
+			`Portable view exceeds the shared-link size limit (${PORTABLE_VIEW_MAX_REQUEST_BYTES} encoded request-target bytes). Export JSON or Markdown instead.`
+		);
+	}
+}
 
 export type DiagramView = {
 	graph?: ArchitectureGraph;
@@ -59,11 +71,16 @@ export function buildDiagramViewUrl(
 		}
 		url.searchParams.set('graph', payload);
 	}
+	requireRequestBudget(url.pathname + url.search);
 	return url.toString();
 }
 
 export function parseDiagramView(search: string): DiagramView {
+	const raw = search && !search.startsWith('?') ? '?' + search : search;
+	requireRequestBudget('/app' + raw);
 	const params = new URLSearchParams(search);
+	const encoded = params.toString();
+	requireRequestBudget('/app' + (encoded ? '?' + encoded : ''));
 	const graphPayload = params.get('graph');
 	if (graphPayload && graphPayload.length > PORTABLE_GRAPH_MAX_CHARS) {
 		throw new Error('Portable graph exceeds the shared-link size limit.');

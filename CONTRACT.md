@@ -144,3 +144,9 @@ reduced-motion preferences suppress layout/physics animation. The editor's full-
 undo/redo is bounded tab-local history, not durable storage. Applying/importing is not
 saving; complete JSON/Markdown exports remain the persistence boundary. Departure
 warnings do not establish mobile process-kill recovery or private backend ownership.
+
+Portable URL generation uses the shared core's decoded graph and complete encoded
+request-target budgets. All graph/filter/seed/path fields contribute to the wire limit;
+oversize links fail before success or browser history mutation. URL multi-selection
+restores every valid seed; focus traces the selected set independently of hover and
+sharing retains that set. These rules apply equally to editor and read-only MCP output.

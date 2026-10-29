@@ -6,9 +6,10 @@ import {
 	defaultGraph,
 	defaultInventory,
 	GRAPH_TOOL_NAMES,
+	PORTABLE_VIEW_MAX_REQUEST_BYTES,
 	runGraphTool,
 	type GraphToolName
-} from '$features/architecture-inventory';
+} from '$features/architecture-inventory/core';
 
 const readOnly = {
 	readOnlyHint: true,
@@ -73,8 +74,7 @@ const toolInputs: Record<GraphToolName, { description: string; inputSchema: z.Zo
 			.strict()
 	},
 	graph_build_view: {
-		description:
-			'Build a navigable diagram.manef.dev URL for the bundled context graph with search, facet, seed, layout, trace and focus state. Read-only.',
+		description: `Build a navigable diagram.manef.dev URL with search, facets, all valid seeds, layout, trace and focus state. The complete encoded request target is limited to ${PORTABLE_VIEW_MAX_REQUEST_BYTES} bytes, including filters. Read-only.`,
 		inputSchema: z
 			.object({
 				query: z.string().max(200).default(''),
@@ -87,8 +87,7 @@ const toolInputs: Record<GraphToolName, { description: string; inputSchema: z.Zo
 			.strict()
 	},
 	graph_create_portable_view: {
-		description:
-			'Validate a bounded MANEF graph supplied by any agent/client and return a stateless navigable diagram.manef.dev URL. This does not persist or mutate server data.',
+		description: `Validate an agent-supplied MANEF graph and return a stateless navigable URL. All valid seeds are restored. The complete encoded request target, including filters, must fit ${PORTABLE_VIEW_MAX_REQUEST_BYTES} bytes; otherwise export JSON/Markdown. This does not persist or mutate server data.`,
 		inputSchema: z
 			.object({
 				graph: z.unknown(),

@@ -38,6 +38,7 @@ export {
 	parseDiagramView,
 	DEFAULT_DIAGRAM_ORIGIN,
 	PORTABLE_GRAPH_MAX_CHARS,
+	PORTABLE_VIEW_MAX_REQUEST_BYTES,
 	tagGroup,
 	tagsMatchFacets
 } from './lib/share';

@@ -93,3 +93,9 @@ replacing newer canvas edits; Refresh/import and component/history navigation as
 before replacing raw text. Exporting the current document does not save that raw draft.
 Authored view overlays isolate the covered map from keyboard focus and restore their
 opener when closed. Trace dimming preserves readable node text and focus indicators.
+
+Portable links restore and share every valid selected seed, including component views.
+The core validates the entire encoded request target (16,000 bytes) as well as decoded
+graph size (12,000 characters). Unicode and all filters consume that wire budget.
+Larger maps should use complete JSON/Markdown exports; no successful copy or MCP
+result is reported for a rejected oversized URL.
