@@ -87,3 +87,9 @@ For test environments with an existing Chromium binary, PLAYWRIGHT_CHROME_PATH i
 supported consistently by E2E, notes and dev suites. Automated accessibility coverage
 uses axe on the actual public seed in light/dark overview, inspector and graph states.
 See docs/quality-audit-2026-10-29.md for the adversarial findings, evidence and open gates.
+
+Unapplied source drafts have separate discard protection: stale Apply asks before
+replacing newer canvas edits; Refresh/import and component/history navigation ask
+before replacing raw text. Exporting the current document does not save that raw draft.
+Authored view overlays isolate the covered map from keyboard focus and restore their
+opener when closed. Trace dimming preserves readable node text and focus indicators.

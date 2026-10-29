@@ -161,6 +161,8 @@
 	let openView = $state<{ nodeId: string; viewId: string } | null>(null);
 	let viewHost = $state<HTMLDivElement | null>(null);
 	let viewError = $state('');
+	let viewPanel = $state<HTMLDivElement | null>(null);
+	let viewReturnFocus: HTMLElement | null = null;
 	let traceMode = $state<TraceMode>('direct');
 	let focusMode = $state(false);
 	let search = $state('');
@@ -190,13 +192,16 @@
 	let armedOutput = $state<{ nodeId: string; portId: string } | null>(null);
 	let jsonText = $state(JSON.stringify(defaultGraph, null, 2));
 	let jsonMessage = $state('');
+	let sourceDraftDirty = $state(false);
+	let contentRevision = $state(0);
+	let sourceRevision = $state(0);
 	let connectionMessage = $state('');
 	let actionMessage = $state('');
 	let undoStack = $state<string[]>([]);
 	let redoStack = $state<string[]>([]);
 	let hasUnsavedEdits = $state(false);
 	beforeNavigate((navigation) => {
-		if (!hasUnsavedEdits || navigation.type === 'leave') return;
+		if ((!hasUnsavedEdits && !sourceDraftDirty) || navigation.type === 'leave') return;
 		const from = navigation.from?.url;
 		const to = navigation.to?.url;
 		if (
@@ -533,6 +538,7 @@
 			undoStack = rememberSnapshot(undoStack, documentAsJson(documentSnapshot()));
 			redoStack = [];
 			hasUnsavedEdits = true;
+			contentRevision += 1;
 			return true;
 		} catch (error) {
 			actionMessage =
@@ -544,6 +550,7 @@
 	}
 
 	function travelHistory(direction: 'undo' | 'redo') {
+		if (!confirmDraftReplacement()) return;
 		const stack = direction === 'undo' ? undoStack : redoStack;
 		const previous = stack.at(-1);
 		if (!previous) return;
@@ -618,21 +625,22 @@
 	}
 
 	function showDiagram(depth: number) {
+		if (!confirmDraftReplacement()) return;
 		const nextPath = diagramPath.slice(0, depth);
 		layouts = { ...layouts, [JSON.stringify(diagramPath)]: overrides };
 		diagramPath = nextPath;
 		resetLevel();
-		syncJson();
+		syncJson(true);
 	}
 
 	function openDiagram(id: string) {
 		const visible = diagramAt(root, diagramPath) ?? root;
 		const node = visible.nodes.find((item) => item.id === id);
-		if (!node?.child) return;
+		if (!node?.child || !confirmDraftReplacement()) return;
 		layouts = { ...layouts, [JSON.stringify(diagramPath)]: overrides };
 		diagramPath = [...diagramPath, id];
 		resetLevel();
-		syncJson();
+		syncJson(true);
 	}
 
 	function addComponentDiagram(id: string) {
@@ -773,6 +781,7 @@
 				? 'Node removed with its diagrams and connections.'
 				: `${ids.length} nodes removed with their diagrams and connections.`;
 		jsonMessage = actionMessage;
+		focusAfterChange('canvas');
 	}
 
 	function connectTo(targetNodeId: string, targetPortId: string) {
@@ -798,6 +807,52 @@
 		const ids = selectedEdgeIds.includes(id) ? selectedEdgeIds : [id];
 		commitVisible({ ...graph, edges: graph.edges.filter((edge) => !ids.includes(edge.id)) });
 		rememberSelection(selectedNodeIds, []);
+		actionMessage = `${ids.length} connection${ids.length === 1 ? '' : 's'} removed. Undo can restore them.`;
+		focusAfterChange('canvas');
+	}
+
+	function focusAfterChange(kind: 'node' | 'canvas' | 'view-picker') {
+		const previous = document.activeElement;
+		void tick()
+			.then(() => {
+				if (kind === 'node') {
+					(document.getElementById('selected-node-label') ?? viewport)?.focus({
+						preventScroll: true
+					});
+				} else if (kind === 'view-picker') {
+					document.querySelector<HTMLSelectElement>('select[aria-label="Add view"]')?.focus();
+				} else if (!previous?.isConnected || document.activeElement === document.body) {
+					viewport?.focus();
+				}
+			})
+			.catch(() => undefined);
+	}
+
+	function openNodeView(nodeId: string, viewId: string, opener?: HTMLElement) {
+		stopSettle();
+		viewReturnFocus =
+			opener ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+		openView = { nodeId, viewId };
+		viewError = '';
+		void tick()
+			.then(() => {
+				if (openView?.nodeId === nodeId && openView.viewId === viewId)
+					viewPanel?.querySelector<HTMLButtonElement>('.view-bar button')?.focus();
+			})
+			.catch(() => undefined);
+	}
+
+	function closeNodeView() {
+		openView = null;
+		void tick()
+			.then(() => {
+				const target =
+					viewReturnFocus?.isConnected && viewReturnFocus.getClientRects().length
+						? viewReturnFocus
+						: viewport;
+				target?.focus();
+			})
+			.catch(() => undefined);
 	}
 
 	function materialize(id: string) {
@@ -811,20 +866,45 @@
 					node.inventoryRef.key === item.id)
 		);
 		if (existing) {
-			selectNode(existing.id);
+			rememberSelection([existing.id], []);
 			inspectorTab = 'details';
+			focusAfterChange('node');
 			return;
 		}
-		commitVisible(addInventoryItem(graph, item));
-		selectNode(item.id);
+		if (!commitVisible(addInventoryItem(graph, item))) return;
+		rememberSelection([item.id], []);
+		focusAfterChange('node');
 	}
 
-	function syncJson() {
+	function confirmDraftReplacement(): boolean {
+		if (!sourceDraftDirty) return true;
+		if (window.confirm('Replace the unapplied source draft? Copy it first to keep it.'))
+			return true;
+		jsonMessage = 'Cancelled. The unapplied source draft is unchanged.';
+		return false;
+	}
+
+	function confirmStaleSource(): boolean {
+		if (sourceRevision === contentRevision) return true;
+		if (
+			window.confirm(
+				'The canvas changed after this source was captured. Apply the older source and replace those edits? Undo remains available.'
+			)
+		)
+			return true;
+		jsonMessage = 'Apply cancelled. Newer canvas edits and the source are unchanged.';
+		return false;
+	}
+
+	function syncJson(force = false) {
+		if (!force && !confirmDraftReplacement()) return;
 		try {
 			jsonText =
 				inputFormat === 'md'
 					? documentAsMarkdown(documentSnapshot())
 					: documentAsJson(documentSnapshot());
+			sourceDraftDirty = false;
+			sourceRevision = contentRevision;
 			jsonMessage = 'The editor contains the complete document.';
 		} catch (error) {
 			jsonMessage = error instanceof Error ? error.message : 'Could not serialize document.';
@@ -925,6 +1005,9 @@
 		if (ui?.themePreset) applyEditorTheme(ui.themePreset);
 		documentRevision += 1;
 		jsonText = editorText;
+		contentRevision += 1;
+		sourceRevision = contentRevision;
+		sourceDraftDirty = false;
 		jsonMessage = 'Document applied.';
 	}
 
@@ -953,18 +1036,27 @@
 			if (jsonText.length > MAX_DOCUMENT_INPUT_CHARS)
 				throw new Error('Diagram document exceeds the 5,000,000 character limit.');
 			if (inputFormat === 'md') {
-				applyImported(parseInput(jsonText, true));
+				const next = parseInput(jsonText, true);
+				if (!confirmStaleSource()) return;
+				applyImported(next);
 				return;
 			}
 			const value: unknown = JSON.parse(jsonText);
 			if (validateGraph(value) && !('format' in value && value.format === 'manef-diagram')) {
 				// Legacy graph-only pastes replace the open component level.
 				parseDiagramDocument(jsonText);
+				if (!confirmStaleSource()) return;
 				if (!commitVisible(parseGraphJson(jsonText))) return;
 				rememberSelection([], []);
 				armedOutput = null;
+				sourceDraftDirty = false;
+				sourceRevision = contentRevision;
 				jsonMessage = 'JSON applied.';
-			} else applyImported(parseInput(jsonText));
+			} else {
+				const next = parseInput(jsonText);
+				if (!confirmStaleSource()) return;
+				applyImported(next);
+			}
 		} catch (error) {
 			jsonMessage = error instanceof Error ? error.message : 'Invalid document.';
 		}
@@ -983,6 +1075,7 @@
 					);
 				jsonText = JSON.stringify(value, null, 2);
 			}
+			sourceDraftDirty = true;
 			jsonMessage = 'Formatted.';
 		} catch (error) {
 			jsonMessage = error instanceof Error ? error.message : 'Format error.';
@@ -1001,7 +1094,12 @@
 				/\.md(?:own)?$/i.test(file.name) ||
 				file.type === 'text/markdown' ||
 				!source.trimStart().startsWith('{');
-			applyImported(parseInput(source, markdown));
+			const next = parseInput(source, markdown);
+			if (!confirmDraftReplacement()) {
+				actionMessage = 'Import cancelled. The unapplied source draft is unchanged.';
+				return;
+			}
+			applyImported(next);
 			actionMessage = `Imported ${file.name}.`;
 		} catch (error) {
 			actionMessage = error instanceof Error ? error.message : 'Import failed.';
@@ -1256,7 +1354,7 @@
 		);
 	}
 
-	function addDiagramView(kind: string) {
+	function addDiagramView(kind: string, opener?: HTMLElement) {
 		if (!isDiagramKind(kind)) return;
 		const node = selectedNode;
 		if (!node) {
@@ -1265,8 +1363,7 @@
 		}
 		const view = createNodeView(kind, node.label);
 		commitVisible(patchNode(graph, node.id, { views: [...(node.views ?? []), view] }));
-		openView = { nodeId: node.id, viewId: view.id };
-		viewError = '';
+		openNodeView(node.id, view.id, opener);
 	}
 
 	function setViewFormat(format: 'md' | 'json') {
@@ -1291,6 +1388,8 @@
 		);
 		openView = null;
 		viewError = '';
+		actionMessage = 'View removed. Undo can restore its source.';
+		focusAfterChange('view-picker');
 	}
 
 	$effect(() => {
@@ -1655,7 +1754,7 @@
 	onpointerup={stopNodeDrag}
 	onpointercancel={stopNodeDrag}
 	onbeforeunload={(event) => {
-		if (hasUnsavedEdits) {
+		if (hasUnsavedEdits || sourceDraftDirty) {
 			event.preventDefault();
 			event.returnValue = '';
 		}
@@ -1720,7 +1819,7 @@
 				onchange={(event) => {
 					const value = event.currentTarget.value;
 					event.currentTarget.value = '';
-					addDiagramView(value);
+					addDiagramView(value, event.currentTarget);
 				}}
 			>
 				<option value="">Add view</option>
@@ -1918,7 +2017,7 @@
 					>
 				</div>
 				<p class="help" aria-live="polite">
-					{hasUnsavedEdits
+					{hasUnsavedEdits || sourceDraftDirty
 						? 'Unsaved changes — export a document to keep them.'
 						: 'Local editor — export a document to keep your work.'}
 				</p>
@@ -2131,11 +2230,11 @@
 					</div>
 				{/if}
 				{#if activeView}
-					<div class="mermaid-view" data-interactive>
+					<div class="mermaid-view" bind:this={viewPanel} data-interactive>
 						<div class="view-bar">
 							<strong>{activeView.title}</strong>
 							<span>{activeView.format === 'md' ? 'Markdown' : 'JSON'}</span>
-							<Button size="sm" variant="outline" onclick={() => (openView = null)}>Map</Button>
+							<Button size="sm" variant="outline" onclick={closeNodeView}>Map</Button>
 						</div>
 						{#if viewError}<p class="help">{viewError}</p>{/if}
 						<div class="view-canvas" bind:this={viewHost}></div>
@@ -2153,7 +2252,7 @@
 						>
 					</div>
 				{/if}
-				<ol class="mobile-map">
+				<ol class="mobile-map" inert={Boolean(activeView)} aria-hidden={Boolean(activeView)}>
 					{#each [...visibleNodes].sort((a, b) => (a.level ?? 3) - (b.level ?? 3) || a.label.localeCompare(b.label)) as node (node.id)}
 						<li>
 							<button
@@ -2193,7 +2292,12 @@
 						</li>
 					{/each}
 				</ol>
-				<div class="world" style={worldStyle}>
+				<div
+					class="world"
+					inert={Boolean(activeView)}
+					aria-hidden={Boolean(activeView)}
+					style={worldStyle}
+				>
 					<svg
 						class="edges"
 						class:dots={diagramMode === 'graph'}
@@ -2555,7 +2659,8 @@
 								inventory,
 								'hostname'
 							)} · Convex {inventoryCount(inventory, 'convex')}. Private records are not in this
-							bundled inventory. Imported documents stay in this browser until you export them.
+							bundled inventory. Imported documents live only in this tab. Export JSON or Markdown
+							to keep them.
 						</p>
 						<select
 							class="theme-select"
@@ -2612,15 +2717,23 @@
 						<textarea
 							class="json"
 							bind:value={jsonText}
+							oninput={() => (sourceDraftDirty = true)}
 							spellcheck="false"
 							aria-label="Architecture graph JSON"></textarea>
 						<div class="json-actions">
-							<Button size="sm" variant="outline" onclick={syncJson}>Refresh</Button>
+							<Button size="sm" variant="outline" onclick={() => syncJson()}>Refresh</Button>
 							<Button size="sm" variant="outline" onclick={formatJson}>Format</Button>
 							<Button size="sm" onclick={importJson}
 								>{inputFormat === 'md' ? 'Apply Markdown' : 'Apply JSON'}</Button
 							>
 						</div>
+						{#if sourceRevision !== contentRevision}<p class="help">
+								Canvas edits are newer than this source. Refresh loads the current document; Apply
+								asks before replacing those edits.
+							</p>{/if}
+						{#if sourceDraftDirty}<p class="help">
+								Unapplied source draft. Apply it or copy it before leaving.
+							</p>{/if}
 						{#if jsonMessage}<p class="help" aria-live="polite">{jsonMessage}</p>{/if}
 					</div>
 				</Tabs.Content>
@@ -2684,7 +2797,8 @@
 											<button
 												type="button"
 												class:active={openView?.viewId === view.id}
-												onclick={() => (openView = { nodeId: selectedNode.id, viewId: view.id })}
+												onclick={(event) =>
+													openNodeView(selectedNode.id, view.id, event.currentTarget)}
 												>{view.title}</button
 											>
 										{/each}
@@ -2720,6 +2834,7 @@
 							<label>
 								<span>Label</span>
 								<Input
+									id="selected-node-label"
 									value={selectedNode.label}
 									oninput={(event) =>
 										updateNode(selectedNode.id, { label: event.currentTarget.value })}

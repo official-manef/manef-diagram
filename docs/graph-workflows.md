@@ -23,7 +23,7 @@ report; the stories above are acceptance targets, not evidence that every hosted
 integration has passed.
 
 Import errors remain visible as status messages while recovery controls stay clickable.
-The status toast contains no actions and does not intercept pointers. Refresh must
+The status toast contains no actions and does not intercept pointers. Refresh, after explicit discard of an unapplied text draft, must
 restore the current graph JSON after a rejected import, including on narrow phones.
 Browser coverage checks this policy and uses a normal click without bypassing hit testing.
 
@@ -46,5 +46,4 @@ Undo/Redo keeps full canonical snapshots, including metadata and layout, within 
 40-entry/eight-million-character budget per stack. It is tab-local, per change and
 not a backend save. Applying/importing is not a durable save. Reload and in-app route
 changes warn while document changes are unsaved; an explicit discard leaves the editor.
-JSON/Markdown export is necessary to retain documents. This does not promise recovery
-of unapplied source-buffer drafts or recovery from a browser/mobile process kill.
+JSON/Markdown export is necessary to retain documents. Unapplied source drafts have explicit discard protection for Refresh/import/history/navigation; stale Apply asks before replacing newer visual edits. Exporting the graph does not save an unapplied draft. Durable raw-draft recovery after a browser/mobile process kill is not promised.

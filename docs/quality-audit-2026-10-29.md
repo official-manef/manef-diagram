@@ -47,7 +47,7 @@ coordinates rather than bypassing hit testing.
 
 - Frozen Bun install and verify: type checks, standalone non-Svelte consumer, lint,
   309 unit tests and Vercel build.
-- 270 E2E cases passed in complete project runs: 90 desktop, 90 mobile, 90 narrow mobile.
+- 288 E2E cases passed in complete project runs: 96 desktop, 96 mobile, 96 narrow mobile.
 - Within those cases, 18 axe WCAG A/AA scans covered light/dark themes, real-seed
   overview/selected inspector/graph states, and all three browser projects.
 - Eight synthetic private-note isolation cases and two development hydration cases passed.
@@ -71,10 +71,11 @@ to this audit.
 3. History is tab-local, bounded and per change rather than coalesced typing transactions.
    It is neither durable autosave nor cross-device recovery. Browser beforeunload is
    not guaranteed during mobile process termination. Export remains necessary.
-4. Unapplied source-buffer drafts need a separate recovery policy: current document
-   history is not a claim that every transient textarea draft is retained. In particular,
-   Refresh is a deliberate replacement of the source buffer; its draft-recovery UX
-   remains a follow-up rather than an autosave claim.
+4. Unapplied source-buffer drafts are guarded, not durably persisted. Refresh/import,
+   history restoration and component navigation require explicit discard when replacing
+   a dirty draft. Stale Apply asks before overwriting newer canvas edits. Exporting the
+   current document does not clear a pending raw draft warning. Apply or copy raw drafts
+   to keep them; browser/process-crash draft recovery is not claimed.
 5. Current production authentication/two-account CRUD, destination n8n execution,
    licensed LiveChat/Airin, private inventory authorization and distributed rate limiting
    remain the external acceptance work already recorded in the PRD.
@@ -83,3 +84,29 @@ to this audit.
 
 Prioritize those gates explicitly; do not substitute a higher test count or a visual
 redesign for evidence from real users and real operating environments.
+
+## Independent accessibility follow-up
+
+A baseline source audit identified stale source replacement, dirty Refresh, covered
+map focus, focus loss after inventory/deletion, and nearly transparent interactive
+node text. The already-completed history/navigation/motion/SVG work addressed the
+other findings; the remaining paths now have explicit protection:
+
+- Source and canvas revisions distinguish an old serialized snapshot from newer
+  visual edits. Apply asks before replacing those edits. Rejected Apply leaves both
+  unchanged. An accepted replacement remains undoable.
+- Dirty raw drafts survive cancelled Refresh/import; departure protection also applies
+  when a document export has completed but a raw draft remains unapplied. Internal
+  diagram navigation and history restoration do not silently replace that draft.
+- Authored view overlays make the covered world inert and invisible on every screen,
+  focus their Map control and restore the actual opener on close.
+- Inventory Add/Open focuses the mounted node label, view deletion focuses the stable
+  view picker, and removed selection controls have a canvas fallback.
+- Trace dimming now affects decoration rather than the opacity of entire interactive
+  node text and focus indicators. Node/dot wrappers remain at opacity one.
+
+Six new browser stories run in all three projects (18 cases). The existing rejected
+source Refresh story now explicitly accepts its discard confirmation; no confirmation
+or hit-testing is bypassed. The complete 288-case reruns passed, as did verify, notes,
+development and the runtime build checks. The earlier raw-buffer limitation is thus
+narrowed to durable crash recovery, not silent overwrite during ordinary editing.

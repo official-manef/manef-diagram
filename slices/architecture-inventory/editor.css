@@ -330,7 +330,8 @@
 	outline-offset: 2px;
 }
 .workspace .node.dim {
-	opacity: 0.1;
+	opacity: 1;
+	border-style: dashed;
 }
 .workspace .node.context {
 	border-style: dashed;
@@ -550,7 +551,10 @@
 	overflow: visible;
 }
 .workspace .dot.dim {
-	opacity: 0.16;
+	opacity: 1;
+}
+.workspace .dot.dim .dot-mark {
+	opacity: 0.45;
 }
 .workspace .dot-hit {
 	position: absolute;
@@ -1310,4 +1314,14 @@
 	.workspace:not(.phone-canvas) .service-navigator {
 		display: none;
 	}
+}
+
+/* Authored views cover the map on every viewport, not only on phones. */
+.workspace .viewport.has-view .world,
+.workspace .viewport.has-view .mobile-map,
+.workspace .viewport.has-view .toolbar,
+.workspace .viewport.has-view .canvas-navigation,
+.workspace .viewport.has-view .forces {
+	visibility: hidden;
+	pointer-events: none;
 }

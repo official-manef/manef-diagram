@@ -280,10 +280,18 @@ remains the complete-document persistence path. These are not durable autosave o
 production backend changes. Reduced-motion preferences prevent physics from restarting
 after a node drag. Keyboard field input remains native.
 
-Local acceptance: verify with 309 unit tests; 270 complete E2E cases (90 per configured
+Local acceptance: verify with 309 unit tests; 288 complete E2E cases (96 per configured
 project), including 18 actual-seed axe scans across light/dark overview, inspector
 and graph states; notes 8, dev 2, Node smoke and Workers dry-run. All passed on the
 runtime described in the quality audit. This is not physical assistive-device testing,
 WCAG certification, production identity acceptance or a performance SLA. See
 quality-audit-2026-10-29.md for the adversarial verdict, regressions caught in review,
-transient source-buffer limitation and remaining device/performance/provider gates.
+guarded but non-durable source-buffer policy and remaining device/performance/provider gates.
+
+The independent accessibility follow-up also closes stale source Apply, dirty Refresh
+and import replacement, covered-map keyboard focus, focus loss after inventory/view
+removal, and text/focus opacity during trace dimming. Source/canvas revisions prevent
+silent replacement of newer visual edits. A pending raw draft remains guarded after
+export of the current document; it is not included in document history or crash recovery.
+Authored overlays isolate the map on all screens and restore their opener. Full-suite
+acceptance now includes six additional recovery stories across all three projects.
