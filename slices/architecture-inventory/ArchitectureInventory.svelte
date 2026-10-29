@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { Tabs } from 'bits-ui';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { asset, resolve } from '$app/paths';
+	import { beforeNavigate } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import {
@@ -33,7 +35,7 @@
 		tagsMatchFacets,
 		writeDiagram,
 		MAX_DIAGRAM_DEPTH
-	} from './index';
+	} from './core';
 	import type {
 		ArchitectureEdge,
 		ArchitectureGraph,
@@ -54,7 +56,8 @@
 		withoutNodes
 	} from './lib/edit';
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
-	import { panForZoom } from './lib/camera';
+	import { panForZoom, wheelGesture } from './lib/camera';
+	import { rememberSnapshot } from './lib/history';
 	import {
 		createNodeView,
 		isDiagramKind,
@@ -115,6 +118,43 @@
 		}
 		jsonText = JSON.stringify(diagramAt(root, diagramPath) ?? root, null, 2);
 		hydrated = true;
+		const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+		const updateMotion = () => {
+			reducedMotion = motion.matches;
+			if (reducedMotion) {
+				stopSettle();
+				forces = { ...forces, animate: false };
+			}
+		};
+		updateMotion();
+		motion.addEventListener('change', updateMotion);
+		let lastSize = !window.matchMedia('(max-width: 64rem)').matches
+			? viewport?.getBoundingClientRect()
+			: undefined;
+		const resize = new ResizeObserver(() => {
+			const nextSize = viewport?.getBoundingClientRect();
+			const desktop = !window.matchMedia('(max-width: 64rem)').matches;
+			if (
+				lastSize &&
+				nextSize &&
+				lastSize.width > 40 &&
+				lastSize.height > 40 &&
+				nextSize.width > 40 &&
+				nextSize.height > 40 &&
+				desktop &&
+				!activeView
+			) {
+				const dx = (nextSize.width - lastSize.width) / 2;
+				const dy = (nextSize.height - lastSize.height) / 2;
+				if (dx || dy) panBy(dx, dy);
+			}
+			lastSize = desktop ? nextSize : undefined;
+		});
+		if (viewport) resize.observe(viewport);
+		return () => {
+			motion.removeEventListener('change', updateMotion);
+			resize.disconnect();
+		};
 	});
 
 	let diagramMode = $state<DiagramMode>('flow');
@@ -130,6 +170,14 @@
 	let filterTrigger = $state<HTMLButtonElement | null>(null);
 	let filterMenu = $state<HTMLDivElement | null>(null);
 	let mobileCanvas = $state(false);
+	let canvasTool = $state<'select' | 'pan'>('select');
+	let explorerCollapsed = $state(false);
+	let inspectorCollapsed = $state(false);
+	let spaceHeld = $state(false);
+	let reducedMotion = $state(false);
+	let suppressCanvasClick = false;
+	const touchPoints = new SvelteMap<number, Point>();
+	let touchPinch: { distance: number; center: Point; pan: Point; zoom: number } | null = null;
 	let mobileForces = $state(false);
 	let inventorySearch = $state('');
 	let inventoryKind = $state<'all' | InventoryKind>('all');
@@ -144,7 +192,30 @@
 	let jsonMessage = $state('');
 	let connectionMessage = $state('');
 	let actionMessage = $state('');
+	let undoStack = $state<string[]>([]);
+	let redoStack = $state<string[]>([]);
+	let hasUnsavedEdits = $state(false);
+	beforeNavigate((navigation) => {
+		if (!hasUnsavedEdits || navigation.type === 'leave') return;
+		const from = navigation.from?.url;
+		const to = navigation.to?.url;
+		if (
+			from &&
+			to &&
+			from.origin === to.origin &&
+			from.pathname === to.pathname &&
+			from.search === to.search
+		)
+			return;
+		if (
+			!window.confirm(
+				'Leave this editor? Unsaved changes and local undo history will be lost. Export a document to keep your work.'
+			)
+		)
+			navigation.cancel();
+	});
 	let zoom = $state(0.72);
+	const overview = $derived(zoom < 0.75);
 	let pan = $state({ x: 32, y: 28 });
 	let overrides = $state<Record<string, Point>>({});
 	const editorTheme = $derived(
@@ -168,13 +239,13 @@
 		armed: boolean;
 	} | null>(null);
 	let pointerMoved = false;
-	let holdTimer = 0;
 	let panStart = $state<{
 		pointerId: number;
 		x: number;
 		y: number;
 		panX: number;
 		panY: number;
+		nodeId?: string;
 	} | null>(null);
 	let viewport = $state<HTMLDivElement | null>(null);
 	let fileInput = $state<HTMLInputElement | null>(null);
@@ -205,7 +276,6 @@
 	}
 
 	onDestroy(() => {
-		clearTimeout(holdTimer);
 		stopSettle();
 	});
 
@@ -262,7 +332,9 @@
 			inventoryKind === 'all' ? undefined : inventoryKind
 		)
 	);
-	const worldStyle = $derived(`transform: translate(${pan.x}px, ${pan.y}px) scale(${zoom});`);
+	const worldStyle = $derived(
+		`transform: translate(${pan.x}px, ${pan.y}px) scale(${zoom}); --camera-scale: ${zoom};`
+	);
 
 	function nodeMatches(node: ArchitectureNode) {
 		const needle = search.trim().toLowerCase();
@@ -365,7 +437,7 @@
 			x: (rect.width - (maxX - minX) * scale) / 2 - minX * scale,
 			y: (rect.height - (maxY - minY) * scale) / 2 - minY * scale
 		};
-		if (!animate) {
+		if (!animate || reducedMotion) {
 			zoom = scale;
 			pan = nextPan;
 			return;
@@ -400,6 +472,13 @@
 		}
 		diagramMode = 'flow';
 		const to = layoutGraph(graph, 'flow');
+		if (reducedMotion) {
+			overrides = {};
+			void tick()
+				.then(() => fitView())
+				.catch(() => undefined);
+			return;
+		}
 		const started = performance.now();
 		const step = (now: number) => {
 			const t = Math.min(1, (now - started) / 680);
@@ -449,6 +528,45 @@
 			.catch(() => undefined);
 	});
 
+	function recordHistory(): boolean {
+		try {
+			undoStack = rememberSnapshot(undoStack, documentAsJson(documentSnapshot()));
+			redoStack = [];
+			hasUnsavedEdits = true;
+			return true;
+		} catch (error) {
+			actionMessage =
+				error instanceof Error
+					? error.message
+					: 'Could not preserve the previous document. The edit was not applied.';
+			return false;
+		}
+	}
+
+	function travelHistory(direction: 'undo' | 'redo') {
+		const stack = direction === 'undo' ? undoStack : redoStack;
+		const previous = stack.at(-1);
+		if (!previous) return;
+		try {
+			const current = documentAsJson(documentSnapshot());
+			applyImported(parseDiagramDocument(previous), false);
+			if (direction === 'undo') {
+				undoStack = stack.slice(0, -1);
+				redoStack = rememberSnapshot(redoStack, current);
+			} else {
+				redoStack = stack.slice(0, -1);
+				undoStack = rememberSnapshot(undoStack, current);
+			}
+			hasUnsavedEdits = true;
+			actionMessage = direction === 'undo' ? 'Change undone.' : 'Change redone.';
+		} catch (error) {
+			actionMessage =
+				error instanceof Error
+					? error.message
+					: 'Could not restore history. The current document is unchanged.';
+		}
+	}
+
 	function commitVisible(next: ArchitectureGraph): boolean {
 		const updated = writeDiagram(root, diagramPath, next);
 		if (updated === root) {
@@ -456,6 +574,7 @@
 			actionMessage = jsonMessage;
 			return false;
 		}
+		if (!recordHistory()) return false;
 		root = updated;
 		selectedNodeIds = selectedNodeIds.filter((id) => next.nodes.some((node) => node.id === id));
 		selectedEdgeIds = selectedEdgeIds.filter((id) => next.edges.some((edge) => edge.id === id));
@@ -538,7 +657,10 @@
 			openView = null;
 			viewError = '';
 		}
-		if (nodeIds.length === 1 || edgeIds.length === 1) inspectorTab = 'details';
+		if (nodeIds.length === 1 || edgeIds.length === 1) {
+			inspectorTab = 'details';
+			inspectorCollapsed = false;
+		}
 	}
 
 	function selectNode(id: string, fromPointer = false, additive = false) {
@@ -754,6 +876,7 @@
 				: `manef-architecture.${markdown ? 'md' : 'json'}`;
 			link.click();
 			URL.revokeObjectURL(href);
+			if (!exportFormat.startsWith('n8n')) hasUnsavedEdits = false;
 			actionMessage = exportFormat.startsWith('n8n')
 				? 'Downloaded the preserved n8n workflow. Review parameters and credential references before importing it.'
 				: 'Downloaded the complete document, including nested diagrams, view sources, metadata and layout.';
@@ -763,7 +886,7 @@
 		jsonMessage = actionMessage;
 	}
 
-	function applyImported(next: DiagramDocument) {
+	function applyImported(next: DiagramDocument, remember = true) {
 		// Validation and cloning finish before any current editor state changes.
 		const validated = parseDiagramDocument(documentAsJson(next));
 		const editorText =
@@ -775,6 +898,11 @@
 		if (seeds.some((seed) => !importedGraph.nodes.some((node) => node.id === seed))) {
 			throw new Error('The document selects a node outside its open diagram.');
 		}
+		if (remember && !recordHistory())
+			throw new Error(
+				'Import was not applied because the previous document could not be preserved.'
+			);
+		// Applying or importing replaces volatile state; it is not a durable save.
 		cameraGeneration += 1;
 		skipImportedFit = Boolean(validated.ui?.pan || validated.ui?.zoom);
 		importedDocument = validated;
@@ -954,6 +1082,8 @@
 	}
 
 	function startNodeDrag(event: PointerEvent, nodeId: string) {
+		pointerMoved = false;
+		if (overview || event.pointerType === 'touch') return;
 		const start = basePositions[nodeId] ?? { x: 0, y: 0 };
 		pointerMoved = false;
 		nodeDrag = {
@@ -965,45 +1095,62 @@
 			originY: start.y,
 			armed: false
 		};
-		clearTimeout(holdTimer);
-		holdTimer = window.setTimeout(() => {
-			if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
-			const point = basePositions[nodeId] ?? { x: nodeDrag.originX, y: nodeDrag.originY };
-			nodeDrag = {
-				...nodeDrag,
-				armed: true,
-				x: nodeDrag.x,
-				y: nodeDrag.y,
-				originX: point.x,
-				originY: point.y
-			};
-			if (diagramMode === 'graph') reheat(0.4);
-		}, 160);
 		event.stopPropagation();
 	}
 
 	function moveNodeDrag(event: PointerEvent) {
 		if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
-		if (!nodeDrag.armed) {
-			nodeDrag = { ...nodeDrag, x: event.clientX, y: event.clientY };
+		if (!(event.buttons & 1)) {
+			nodeDrag = null;
 			return;
 		}
 		const dx = event.clientX - nodeDrag.x;
 		const dy = event.clientY - nodeDrag.y;
-		if (Math.abs(dx) + Math.abs(dy) > 3) pointerMoved = true;
+		if (!nodeDrag.armed) {
+			if (Math.abs(dx) + Math.abs(dy) < 4) return;
+			if (!recordHistory()) {
+				nodeDrag = null;
+				return;
+			}
+			try {
+				viewport?.setPointerCapture(event.pointerId);
+			} catch {
+				nodeDrag = null;
+				return;
+			}
+			nodeDrag = { ...nodeDrag, armed: true };
+			if (diagramMode === 'graph' && !reducedMotion) reheat(0.4);
+		}
+		pointerMoved = true;
+		suppressCanvasClick = true;
 		overrides = {
 			...overrides,
-			[nodeDrag.nodeId]: {
-				x: nodeDrag.originX + dx / zoom,
-				y: nodeDrag.originY + dy / zoom
-			}
+			[nodeDrag.nodeId]: { x: nodeDrag.originX + dx / zoom, y: nodeDrag.originY + dy / zoom }
 		};
 	}
 
 	function stopNodeDrag(event: PointerEvent) {
-		if (nodeDrag?.pointerId !== event.pointerId) return;
-		clearTimeout(holdTimer);
-		nodeDrag = null;
+		if (nodeDrag?.pointerId === event.pointerId) nodeDrag = null;
+	}
+
+	function positionNode(axis: 'x' | 'y', control: HTMLInputElement) {
+		if (!selectedNode) return;
+		const previous = basePositions[selectedNode.id] ?? { x: 0, y: 0 };
+		const value = Number(control.value);
+		if (
+			!control.value.trim() ||
+			!Number.isFinite(value) ||
+			Object.is(value, -0) ||
+			Math.abs(value) > 100_000
+		) {
+			control.value = String(previous[axis]);
+			actionMessage = 'Position must be a number between −100000 and 100000.';
+			return;
+		}
+		if (value === previous[axis]) return;
+		if (!recordHistory()) return;
+		stopSettle();
+		overrides = { ...overrides, [selectedNode.id]: { ...previous, [axis]: value } };
 	}
 
 	const zoomMin = 0.08;
@@ -1063,7 +1210,7 @@
 	}
 
 	function ensureSim() {
-		if (settleHandle || diagramMode !== 'graph') return;
+		if (reducedMotion || settleHandle || diagramMode !== 'graph') return;
 		const step = () => {
 			if (diagramMode !== 'graph') {
 				settleHandle = 0;
@@ -1199,6 +1346,13 @@
 		}
 		stopSettle();
 		diagramMode = 'graph';
+		if (reducedMotion) {
+			overrides = layoutGraph(graph, 'graph');
+			void tick()
+				.then(() => fitView())
+				.catch(() => undefined);
+			return;
+		}
 		overrides = seed;
 		settleVelocity = {};
 		simAlpha = 1;
@@ -1207,7 +1361,7 @@
 	}
 
 	function setForces(patch: Partial<typeof forces>) {
-		forces = { ...forces, ...patch };
+		forces = { ...forces, ...patch, ...(reducedMotion ? { animate: false } : {}) };
 		if (diagramMode === 'graph') reheat(patch.layout ? 1 : 0.7);
 	}
 
@@ -1217,8 +1371,23 @@
 			closeFilters();
 			return;
 		}
-		const tag = (event.target as HTMLElement | null)?.tagName;
-		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+		const target = event.target;
+		if (event.isComposing || !(target instanceof Element) || !target.closest('.workspace')) return;
+		if (
+			target.closest(
+				'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
+			)
+		)
+			return;
+		if (
+			(event.ctrlKey || event.metaKey) &&
+			!event.altKey &&
+			(event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')
+		) {
+			event.preventDefault();
+			travelHistory(event.shiftKey || event.key.toLowerCase() === 'y' ? 'redo' : 'undo');
+			return;
+		}
 		if (event.key === 'Escape') {
 			if (armedOutput) {
 				armedOutput = null;
@@ -1237,25 +1406,120 @@
 		}
 	}
 
+	function panBy(x: number, y: number) {
+		stopMotion();
+		cameraGeneration += 1;
+		pan = { x: pan.x + x, y: pan.y + y };
+	}
+
+	function releaseCanvasGesture() {
+		touchPoints.clear();
+		touchPinch = null;
+		nodeDrag = null;
+		spaceHeld = false;
+		panStart = null;
+		marqueeDrag = null;
+		marquee = null;
+	}
+
+	function canvasKeydown(event: KeyboardEvent) {
+		if (
+			event.target !== viewport ||
+			activeView ||
+			event.isComposing ||
+			event.ctrlKey ||
+			event.metaKey ||
+			event.altKey
+		)
+			return;
+		const step = event.shiftKey ? 160 : 40;
+		const movement: Record<string, Point> = {
+			ArrowLeft: { x: step, y: 0 },
+			ArrowRight: { x: -step, y: 0 },
+			ArrowUp: { x: 0, y: step },
+			ArrowDown: { x: 0, y: -step }
+		};
+		const direction = movement[event.key];
+		if (direction) {
+			event.preventDefault();
+			panBy(direction.x, direction.y);
+		} else if (event.key === ' ') {
+			event.preventDefault();
+			spaceHeld = true;
+		} else if (event.key === '+' || event.key === '=') {
+			event.preventDefault();
+			zoomBy(1.1);
+		} else if (event.key === '-') {
+			event.preventDefault();
+			zoomBy(1 / 1.1);
+		} else if (event.key === '0' || event.key.toLowerCase() === 'f') {
+			event.preventDefault();
+			fitView();
+		} else if (event.key === '1') {
+			event.preventDefault();
+			zoomActual();
+		}
+	}
+
 	function startPan(event: PointerEvent) {
 		const narrow = window.matchMedia('(max-width: 64rem)').matches;
-		if (narrow && (!mobileCanvas || activeView)) return;
-		if (event.target instanceof Element && event.target.closest('[data-interactive]')) return;
-		if (event.button === 1 || (narrow && event.button === 0)) {
+		if (activeView || (narrow && !mobileCanvas)) return;
+		const target = event.target;
+		if (
+			!(target instanceof Element) ||
+			target.closest('.toolbar, .canvas-navigation, .forces, .mermaid-view, .empty-map')
+		)
+			return;
+		suppressCanvasClick = false;
+		const hand = canvasTool === 'pan' || spaceHeld;
+		const interactive = target.closest('[data-interactive], .dot-hit');
+		if (event.pointerType === 'touch') {
+			if (event.isPrimary) touchPoints.clear();
+			touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+			if (touchPoints.size === 2 && viewport) {
+				const [a, b] = [...touchPoints.values()];
+				const rect = viewport.getBoundingClientRect();
+				touchPinch = {
+					distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+					center: { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top },
+					pan: { ...pan },
+					zoom
+				};
+				for (const id of touchPoints.keys()) viewport.setPointerCapture(id);
+				panStart = null;
+				nodeDrag = null;
+				suppressCanvasClick = true;
+				stopMotion();
+				cameraGeneration += 1;
+				event.preventDefault();
+				event.stopPropagation();
+				return;
+			}
+		}
+		if (!hand && interactive && event.button !== 1) return;
+		if (
+			event.button === 1 ||
+			(event.button === 0 && (hand || narrow || event.pointerType === 'touch'))
+		) {
 			event.preventDefault();
+			event.stopPropagation();
+			stopMotion();
+			cameraGeneration += 1;
+			viewport?.focus({ preventScroll: true });
 			viewport?.setPointerCapture(event.pointerId);
+			suppressCanvasClick = hand;
 			panStart = {
 				pointerId: event.pointerId,
 				x: event.clientX,
 				y: event.clientY,
 				panX: pan.x,
-				panY: pan.y
+				panY: pan.y,
+				nodeId: target.closest('[data-node-id]')?.getAttribute('data-node-id') ?? undefined
 			};
 			return;
 		}
-		if (event.button !== 0) return;
-		const target = event.target as HTMLElement;
-		if (target.closest('[data-interactive], .node, .dot, .edge-hit')) return;
+		if (event.button !== 0 || target.closest('.node, .dot, .edge-hit')) return;
+		viewport?.focus({ preventScroll: true });
 		viewport?.setPointerCapture(event.pointerId);
 		marqueeDrag = {
 			pointerId: event.pointerId,
@@ -1263,6 +1527,37 @@
 			y: event.clientY,
 			shift: event.shiftKey
 		};
+	}
+
+	function moveTouch(event: PointerEvent): boolean {
+		if (event.pointerType !== 'touch' || !touchPoints.has(event.pointerId)) return false;
+		touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+		if (!touchPinch || touchPoints.size !== 2 || !viewport) return false;
+		const [a, b] = [...touchPoints.values()];
+		const rect = viewport.getBoundingClientRect();
+		const center = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+		const nextZoom = Math.max(
+			zoomMin,
+			Math.min(zoomMax, (touchPinch.zoom * Math.hypot(b.x - a.x, b.y - a.y)) / touchPinch.distance)
+		);
+		const anchored = panForZoom(touchPinch.pan, touchPinch.center, touchPinch.zoom, nextZoom);
+		pan = {
+			x: anchored.x + center.x - touchPinch.center.x,
+			y: anchored.y + center.y - touchPinch.center.y
+		};
+		zoom = nextZoom;
+		return true;
+	}
+
+	function finishTouch(event: PointerEvent) {
+		if (!touchPoints.delete(event.pointerId)) return;
+		if (!touchPinch) return;
+		touchPinch = null;
+		const remaining = [...touchPoints.entries()][0];
+		if (remaining) {
+			const [pointerId, point] = remaining;
+			panStart = { pointerId, x: point.x, y: point.y, panX: pan.x, panY: pan.y };
+		}
 	}
 
 	function moveMarquee(event: PointerEvent) {
@@ -1330,6 +1625,8 @@
 
 	function movePan(event: PointerEvent) {
 		if (!panStart || panStart.pointerId !== event.pointerId) return;
+		if (Math.abs(event.clientX - panStart.x) + Math.abs(event.clientY - panStart.y) > 3)
+			suppressCanvasClick = true;
 		pan = {
 			x: panStart.panX + event.clientX - panStart.x,
 			y: panStart.panY + event.clientY - panStart.y
@@ -1342,12 +1639,33 @@
 
 	function handleWheel(event: WheelEvent) {
 		if (window.matchMedia('(max-width: 64rem)').matches && (!mobileCanvas || activeView)) return;
+		if (
+			event.target instanceof Element &&
+			event.target.closest('.toolbar, .canvas-navigation, .forces, .mermaid-view')
+		)
+			return;
 		event.preventDefault();
-		zoomAt(event.clientX, event.clientY, zoom * (event.deltaY < 0 ? 1.08 : 0.92));
+		const gesture = wheelGesture(event, viewport?.clientHeight ?? 800);
+		if (gesture.kind === 'zoom') zoomAt(event.clientX, event.clientY, zoom * gesture.factor);
+		else panBy(gesture.delta.x, gesture.delta.y);
 	}
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window
+	onpointerup={stopNodeDrag}
+	onpointercancel={stopNodeDrag}
+	onbeforeunload={(event) => {
+		if (hasUnsavedEdits) {
+			event.preventDefault();
+			event.returnValue = '';
+		}
+	}}
+	onkeydown={onKeydown}
+	onkeyup={(event) => {
+		if (event.key === ' ') spaceHeld = false;
+	}}
+	onblur={releaseCanvasGesture}
+/>
 
 <svelte:head>
 	<title>MANEF Architecture</title>
@@ -1357,10 +1675,16 @@
 	/>
 </svelte:head>
 
-<main class="workspace" class:phone-canvas={mobileCanvas} data-theme={appliedTheme}>
+<main
+	class="workspace"
+	class:explorer-collapsed={explorerCollapsed}
+	class:inspector-collapsed={inspectorCollapsed}
+	class:phone-canvas={mobileCanvas}
+	data-theme={appliedTheme}
+>
 	<header class="topbar">
 		<div class="brand">
-			<div class="logo" aria-hidden="true">M</div>
+			<a class="logo" href={resolve('/')} aria-label="Manef Diagram home">M</a>
 			<div>
 				<h1>MANEF Architecture</h1>
 				<small
@@ -1465,7 +1789,7 @@
 	{#if actionMessage}<p class="toast" role="status">{actionMessage}</p>{/if}
 
 	<div class="layout">
-		<aside class="sidebar">
+		<aside class="sidebar" id="diagram-explorer">
 			<section class="search-section">
 				<h2>Explore canvas</h2>
 				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
@@ -1579,6 +1903,25 @@
 			</section>
 			<section>
 				<h2>This map</h2>
+				<div class="history-controls" role="group" aria-label="Document history">
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!undoStack.length}
+						onclick={() => travelHistory('undo')}>Undo</Button
+					>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!redoStack.length}
+						onclick={() => travelHistory('redo')}>Redo</Button
+					>
+				</div>
+				<p class="help" aria-live="polite">
+					{hasUnsavedEdits
+						? 'Unsaved changes — export a document to keep them.'
+						: 'Local editor — export a document to keep your work.'}
+				</p>
 				<div class="metric">
 					<span>Services</span>
 					<span>
@@ -1596,10 +1939,37 @@
 					</span>
 				</div>
 				<p class="help">
-					Click a node to select it. Hold a node to drag it. On desktop, drag empty space to
-					box-select: left to right encloses, right to left crosses. Scroll zooms toward the
-					pointer.
+					Select a service to inspect it. Use Pan to drag with a trackpad or any pointer. Two-finger
+					scroll pans; Ctrl/⌘ + scroll or pinch zooms. Select mode keeps box selection.
 				</p>
+				<details class="canvas-guide">
+					<summary>Keyboard and canvas controls</summary>
+					<p id="canvas-instructions">
+						Tab to the canvas. Arrow keys pan; Shift moves farther. + / − zoom, F or 0 fits, 1 shows
+						actual size. Hold Space and drag to pan. Tab leaves the canvas. Escape cancels a
+						connection or clears selection.
+					</p>
+				</details>
+				<details class="service-navigator" open={overview}>
+					<summary>Find a service ({visibleNodes.length})</summary>
+					<ul>
+						{#each visibleNodes as node (node.id)}
+							<li>
+								<button
+									type="button"
+									aria-pressed={selectedNodeIds.includes(node.id)}
+									aria-label={[node.label, node.subtitle].filter(Boolean).join(' ')}
+									onclick={() => {
+										selectNode(node.id);
+										fitPoints(basePositions, [node.id], false, false);
+										viewport?.focus({ preventScroll: true });
+									}}>{node.label}</button
+								>
+							</li>
+						{/each}
+					</ul>
+				</details>
+				<p class="help">Edits are in this tab only. Export a document to keep your work.</p>
 			</section>
 		</aside>
 
@@ -1639,25 +2009,64 @@
 				Tap a service or connection, then Inspect to edit. In Canvas, drag to move around and use +
 				/ − to zoom. Scroll outside the canvas to move down the page.
 			</p>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (This application surface implements keyboard pan and zoom; native child controls retain their own keyboard behavior.) -->
 			<div
 				class="viewport"
 				class:has-view={Boolean(activeView)}
+				class:overview
+				class:hand-tool={canvasTool === 'pan' || spaceHeld}
+				class:panning={Boolean(panStart)}
 				role="application"
+				tabindex="0"
 				aria-label="MANEF architecture graph canvas"
+				aria-describedby="canvas-instructions"
+				onkeydown={canvasKeydown}
+				onclickcapture={(event) => {
+					if (suppressCanvasClick) {
+						event.preventDefault();
+						event.stopPropagation();
+						suppressCanvasClick = false;
+					}
+				}}
 				bind:this={viewport}
-				onpointerdown={startPan}
+				onpointerdowncapture={startPan}
 				onauxclick={(event) => event.preventDefault()}
 				onpointermove={(event) => {
+					if (moveTouch(event)) return;
 					moveNodeDrag(event);
 					movePan(event);
 					moveMarquee(event);
 				}}
 				onpointerup={(event) => {
+					if (
+						overview &&
+						!suppressCanvasClick &&
+						!nodeDrag?.armed &&
+						canvasTool === 'select' &&
+						event.target instanceof Element
+					) {
+						const id =
+							panStart?.nodeId ??
+							event.target.closest('[data-node-id]')?.getAttribute('data-node-id');
+						if (id) {
+							selectNode(id);
+							fitPoints(basePositions, [id], false, false);
+						}
+					}
+					finishTouch(event);
 					stopNodeDrag(event);
 					stopPan(event);
 					finishMarquee(event);
 				}}
 				onpointercancel={(event) => {
+					touchPoints.clear();
+					touchPinch = null;
+					stopNodeDrag(event);
+					stopPan(event);
+					marqueeDrag = null;
+					marquee = null;
+				}}
+				onlostpointercapture={(event) => {
 					stopNodeDrag(event);
 					stopPan(event);
 					marqueeDrag = null;
@@ -1665,6 +2074,62 @@
 				}}
 				onwheel={handleWheel}
 			>
+				{#if !activeView}
+					<div class="canvas-navigation" data-interactive aria-label="Canvas navigation">
+						<div role="group" aria-label="Canvas tool">
+							<Button
+								size="sm"
+								variant={canvasTool === 'select' ? 'default' : 'outline'}
+								aria-pressed={canvasTool === 'select'}
+								onclick={() => (canvasTool = 'select')}>Select</Button
+							>
+							<Button
+								size="sm"
+								variant={canvasTool === 'pan' ? 'default' : 'outline'}
+								aria-pressed={canvasTool === 'pan'}
+								onclick={() => (canvasTool = 'pan')}>Pan</Button
+							>
+						</div>
+						<div class="panel-toggles" role="group" aria-label="Side panels">
+							<Button
+								size="sm"
+								variant="outline"
+								aria-label={explorerCollapsed ? 'Show explorer' : 'Hide explorer'}
+								aria-expanded={!explorerCollapsed}
+								aria-controls="diagram-explorer"
+								onclick={() => (explorerCollapsed = !explorerCollapsed)}>Explorer</Button
+							>
+							<Button
+								size="sm"
+								variant="outline"
+								aria-label={inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+								aria-expanded={!inspectorCollapsed}
+								aria-controls="diagram-inspector"
+								onclick={() => (inspectorCollapsed = !inspectorCollapsed)}>Inspector</Button
+							>
+						</div>
+						<div role="group" aria-label="Pan without dragging">
+							<Button size="sm" variant="outline" aria-label="Pan left" onclick={() => panBy(80, 0)}
+								>←</Button
+							>
+							<Button size="sm" variant="outline" aria-label="Pan up" onclick={() => panBy(0, 80)}
+								>↑</Button
+							>
+							<Button
+								size="sm"
+								variant="outline"
+								aria-label="Pan down"
+								onclick={() => panBy(0, -80)}>↓</Button
+							>
+							<Button
+								size="sm"
+								variant="outline"
+								aria-label="Pan right"
+								onclick={() => panBy(-80, 0)}>→</Button
+							>
+						</div>
+					</div>
+				{/if}
 				{#if activeView}
 					<div class="mermaid-view" data-interactive>
 						<div class="view-bar">
@@ -1763,7 +2228,7 @@
 									d={route.d}
 									class="edge-hit"
 									role="button"
-									tabindex="0"
+									tabindex="-1"
 									aria-label={route.label}
 									onclick={(event) => selectEdge(edge.id, event.shiftKey)}
 									onkeydown={(event) => {
@@ -1784,6 +2249,7 @@
 						{#if diagramMode === 'graph'}
 							<article
 								class="dot"
+								data-node-id={node.id}
 								class:hot={highlightedNodeIds.has(node.id)}
 								class:selected={selectedNodeIds.includes(node.id)}
 								class:dragging={nodeDrag?.armed === true && nodeDrag.nodeId === node.id}
@@ -1793,6 +2259,9 @@
 								<button
 									type="button"
 									class="dot-hit"
+									disabled={overview}
+									aria-hidden={overview}
+									aria-pressed={selectedNodeIds.includes(node.id)}
 									title={node.subtitle || node.label}
 									onpointerenter={() => (hoveredNodeId = node.id)}
 									onpointerleave={() => {
@@ -1802,7 +2271,7 @@
 										if (event.button !== 0) return;
 										startNodeDrag(event, node.id);
 									}}
-									onclick={(event) => selectNode(node.id, true, event.shiftKey)}
+									onclick={(event) => selectNode(node.id, event.detail !== 0, event.shiftKey)}
 								>
 									<span class="dot-mark" aria-hidden="true"></span>
 									<span class="dot-label">{node.label}</span>
@@ -1811,6 +2280,7 @@
 						{:else}
 							<article
 								class="node"
+								data-node-id={node.id}
 								class:hot={highlightedNodeIds.has(node.id)}
 								class:selected={selectedNodeIds.includes(node.id)}
 								class:dragging={nodeDrag?.armed === true && nodeDrag.nodeId === node.id}
@@ -1821,8 +2291,7 @@
 								style={`left: ${basePositions[node.id]?.x ?? 0}px; top: ${basePositions[node.id]?.y ?? 0}px; width: ${flowCard.width}px; height: ${flowCard.height}px;`}
 								onpointerdown={(event) => {
 									if (event.button !== 0) return;
-									if (event.target instanceof Element && event.target.closest('[data-interactive]'))
-										return;
+									if (event.target instanceof Element && event.target.closest('.port')) return;
 									startNodeDrag(event, node.id);
 								}}
 							>
@@ -1830,8 +2299,11 @@
 									<Button
 										data-interactive
 										class="node-select"
+										disabled={overview}
+										aria-hidden={overview}
+										aria-pressed={selectedNodeIds.includes(node.id)}
 										variant="ghost"
-										onclick={(event) => selectNode(node.id, false, event.shiftKey)}
+										onclick={(event) => selectNode(node.id, event.detail !== 0, event.shiftKey)}
 									>
 										<span>
 											<strong>{node.label}</strong>
@@ -1850,6 +2322,9 @@
 										<button
 											type="button"
 											class="port in"
+											disabled={overview || node.inputs.length > 3}
+											aria-hidden={overview || node.inputs.length > 3}
+											aria-label={`${node.label}: input ${port.label}`}
 											data-interactive
 											onclick={() => connectTo(node.id, port.id)}
 										>
@@ -1862,6 +2337,9 @@
 										<button
 											type="button"
 											class="port out"
+											disabled={overview || node.outputs.length > 3}
+											aria-hidden={overview || node.outputs.length > 3}
+											aria-label={`${node.label}: output ${port.label}`}
 											class:active={armedOutput?.nodeId === node.id &&
 												armedOutput?.portId === port.id}
 											data-interactive
@@ -1965,10 +2443,21 @@
 							<button
 								type="button"
 								aria-pressed={forces.animate}
+								disabled={reducedMotion}
+								title={reducedMotion
+									? 'Animation is disabled by your reduced-motion preference.'
+									: undefined}
 								onclick={() => setForces({ animate: !forces.animate })}
 								>{forces.animate ? 'Pause' : 'Animate'}</button
 							>
-							<button type="button" onclick={() => reheat(1)}>Reheat</button>
+							<button
+								type="button"
+								disabled={reducedMotion}
+								title={reducedMotion
+									? 'Physics is paused by your reduced-motion preference.'
+									: undefined}
+								onclick={() => reheat(1)}>Reheat</button
+							>
 						</div>
 					</div>
 				{/if}
@@ -2002,7 +2491,9 @@
 					{/if}
 				</div>
 				<div class="status">
-					{diagramMode === 'flow' ? 'Flow' : 'Graph'} · {selectedNodeIds.length > 1
+					{overview ? 'Overview · choose a service to zoom · ' : ''}{diagramMode === 'flow'
+						? 'Flow'
+						: 'Graph'} · {selectedNodeIds.length > 1
 						? `${selectedNodeIds.length} selected`
 						: selectedNode
 							? selectedNode.label
@@ -2015,12 +2506,13 @@
 										: 'no selection'}
 				</div>
 			</div>
-			{#if visibleEdges.length && diagramMode === 'flow'}
+			{#if visibleEdges.length}
 				<div class="edge-strip" aria-label="Connections">
 					{#each visibleEdges as edge (edge.id)}
 						<Button
 							size="sm"
 							variant={selectedEdgeId === edge.id ? 'default' : 'outline'}
+							aria-pressed={selectedEdgeId === edge.id}
 							onclick={() => selectEdge(edge.id)}
 						>
 							{graph.nodes.find((node) => node.id === edge.source)?.label} · {edge.label ??
@@ -2147,6 +2639,29 @@
 					{:else if selectedNode}
 						<div class="panel">
 							<h2>Node details</h2>
+							<fieldset class="node-position">
+								<legend>Position without dragging</legend>
+								<label
+									>X <Input
+										type="number"
+										aria-label="Node X position"
+										min="-100000"
+										max="100000"
+										value={basePositions[selectedNode.id]?.x ?? 0}
+										onchange={(event) => positionNode('x', event.currentTarget)}
+									/></label
+								>
+								<label
+									>Y <Input
+										type="number"
+										aria-label="Node Y position"
+										min="-100000"
+										max="100000"
+										value={basePositions[selectedNode.id]?.y ?? 0}
+										onchange={(event) => positionNode('y', event.currentTarget)}
+									/></label
+								>
+							</fieldset>
 							{#if selectedNode.child}
 								<Button size="sm" onclick={() => openDiagram(selectedNode.id)}
 									>Open component diagram</Button

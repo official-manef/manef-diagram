@@ -57,3 +57,5 @@ export {
 } from './lib/document';
 export { importN8nWorkflow, exportN8nWorkflow, n8nCompatibility, N8N_REFERENCE } from './lib/n8n';
 export { convertNodeView } from './lib/diagram-views';
+
+export { panForZoom, wheelGesture, type WheelInput } from './lib/camera';

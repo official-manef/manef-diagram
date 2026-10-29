@@ -69,3 +69,21 @@ The diagram supports portable navigable views and namespaced facets for project,
 ### Cakupan pemeriksaan
 
 `bun run test` menjalankan unit test saja; `test:e2e` dan `test:dev` adalah perintah terpisah. `bun run check` mencakup pemeriksaan tipe, versi, dan aset; `bun run lint` memeriksa format, ESLint, dan aturan Svelte 5. `bun run verify` menggabungkan `check`, `lint`, `test`, dan `build`, tetapi tidak menjalankan pengujian Playwright. Daftar perintah tersebut menjelaskan cakupan skrip, bukan bukti bahwa pemeriksaan telah dijalankan atau lulus.
+
+## Canvas controls and recovery
+
+- Two-finger scroll or an ordinary wheel pans; Ctrl/Meta + scroll or a pinch zooms.
+- Choose Pan for left-button/trackpad dragging, or focus the canvas and hold Space.
+  Select keeps desktop box selection. Directional buttons pan without dragging.
+- Tab to the canvas: arrows pan, Shift moves farther, +/− zoom, F/0 fits and 1 shows actual size.
+- Overview is a preview, not a cluster of tiny editing buttons. Choose a service in the
+  full-size explorer or click its preview to zoom in. Inspector ports and X/Y position
+  fields do not require dragging. Desktop Explorer/Inspector panels can collapse.
+- Undo/Redo restores tab-local document edits and layout; it is bounded history, not
+  durable autosave. Export JSON/Markdown to keep your work. Leaving changed documents
+  warns; mobile process termination can still discard a tab without a warning.
+
+For test environments with an existing Chromium binary, PLAYWRIGHT_CHROME_PATH is
+supported consistently by E2E, notes and dev suites. Automated accessibility coverage
+uses axe on the actual public seed in light/dark overview, inspector and graph states.
+See docs/quality-audit-2026-10-29.md for the adversarial findings, evidence and open gates.

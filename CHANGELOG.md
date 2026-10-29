@@ -5,6 +5,11 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Add trackpad/wheel, keyboard, explicit hand tool, directional controls and anchored touch pinch for canvas navigation. Preserve selection mode and expose keyboard instructions.
+- Add bounded tab-local document undo/redo, node position inputs, unsaved document departure warnings and a product-home exit.
+- Replace undersized overview editing targets with full-size service navigation and preview-to-edit zoom. Expose connection alternatives in Graph and Flow, respect reduced motion during dragging, and support desktop side-panel collapse.
+- Add actual-seed axe regressions without rule exclusions; share the local Chromium executable override with the notes suite.
+
 - Complete interaction recovery: keep the filter trigger clickable above its backdrop, restore rejected connection controls with inline feedback, and retain invalid demo form drafts.
 - Expose a framework-neutral core entry point with standalone TypeScript consumer validation. Reject ambiguous document envelopes and keep accepted documents exportable within the JSON/Markdown transport budget. Regenerate the offline n8n converter from that same core.
 

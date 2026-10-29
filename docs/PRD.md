@@ -263,3 +263,27 @@ was made by this recovery task. Merge/release requires review and CI for the exa
 remote revision; do not infer deployment from a successful local build or dry-run.
 
 Review follow-up: explicitly tagged canonical documents retain root nodes/edges extension metadata. Only untagged hybrid envelopes are ambiguous. A dedicated JSON/Markdown/clone regression covers both metadata values and graph-shaped root extensions.
+
+## High-bar interaction audit — 2026-10-29
+
+The owner's middle-mouse-only pan complaint is accepted as a product defect. The
+new local recovery provides two-axis wheel/trackpad pan, Ctrl/Meta wheel zoom,
+Space/hand-tool drag, anchored two-finger touch pinch, keyboard camera controls and
+single-click pan alternatives. Desktop selection remains a distinct tool. Scaled
+overview editing controls give way to full-size service navigation and preview-to-edit
+zoom; inspector ports and position fields avoid precision dragging. Side panels can
+collapse on desktop without treating mobile list height as camera geometry.
+
+Document edit history now has bounded tab-local Undo/Redo, with reload and in-app
+navigation warnings. Apply/import does not count as saving. JSON/Markdown export
+remains the complete-document persistence path. These are not durable autosave or
+production backend changes. Reduced-motion preferences prevent physics from restarting
+after a node drag. Keyboard field input remains native.
+
+Local acceptance: verify with 309 unit tests; 270 complete E2E cases (90 per configured
+project), including 18 actual-seed axe scans across light/dark overview, inspector
+and graph states; notes 8, dev 2, Node smoke and Workers dry-run. All passed on the
+runtime described in the quality audit. This is not physical assistive-device testing,
+WCAG certification, production identity acceptance or a performance SLA. See
+quality-audit-2026-10-29.md for the adversarial verdict, regressions caught in review,
+transient source-buffer limitation and remaining device/performance/provider gates.

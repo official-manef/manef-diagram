@@ -26,3 +26,25 @@ Import errors remain visible as status messages while recovery controls stay cli
 The status toast contains no actions and does not intercept pointers. Refresh must
 restore the current graph JSON after a rejected import, including on narrow phones.
 Browser coverage checks this policy and uses a normal click without bypassing hit testing.
+
+## Input-independent camera and recovery
+
+The canvas is a keyboard application with a visible focus outline and native Tab exit.
+Ordinary wheel/two-finger scroll pans both axes; Ctrl/Meta wheel and touch pinch zoom
+around the gesture anchor. Select and Pan are explicit tools. Pan permits left-button
+trackpad dragging; Space temporarily enables the hand tool while the canvas is focused.
+Directional buttons are the no-drag alternative. Arrows pan (Shift increases distance),
++/− zoom, F/0 fits, and 1 shows actual scale. Native field keys are not hijacked.
+
+At overview scales, use the unscaled service explorer or click a preview to zoom in.
+Tiny node/port editing buttons are disabled rather than offered as inaccessible targets.
+The inspector exposes connections and numeric node positions on every screen size.
+Graph and Flow both provide unscaled connection buttons. Reduced motion suppresses
+layout transitions and physics, including physics otherwise reheated by a node drag.
+
+Undo/Redo keeps full canonical snapshots, including metadata and layout, within a
+40-entry/eight-million-character budget per stack. It is tab-local, per change and
+not a backend save. Applying/importing is not a durable save. Reload and in-app route
+changes warn while document changes are unsaved; an explicit discard leaves the editor.
+JSON/Markdown export is necessary to retain documents. This does not promise recovery
+of unapplied source-buffer drafts or recovery from a browser/mobile process kill.
