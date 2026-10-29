@@ -219,6 +219,8 @@ test('reduced motion draws stable layouts and keyboard focus is visible', async 
 
 for (const theme of ['composio-light', 'composio-dark']) {
 	test(`editor passes automated WCAG A/AA checks in ${theme}`, async ({ page }) => {
+		// This case performs three complete axe scans, not one interaction.
+		test.setTimeout(60_000);
 		await page.goto('/app');
 		await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
 		if (page.viewportSize()!.width <= 1024)
@@ -387,7 +389,7 @@ test('releasing an unarmed drag outside the canvas cannot move a node later', as
 	expect(errors).toEqual([]);
 });
 
-test('clicking a tiny overview preview opens a readable editable service', async ({ page }) => {
+test('one node click only selects; Zoom selection is an explicit tool', async ({ page }) => {
 	await page.goto('/app');
 	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
 	if (page.viewportSize()!.width <= 1024)
@@ -397,6 +399,8 @@ test('clicking a tiny overview preview opens a readable editable service', async
 	const card = (await page.locator('.node').first().boundingBox())!;
 	await page.mouse.click(card.x + card.width / 2, card.y + card.height / 2);
 	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('MANEF');
+	await expect(page.locator('.viewport')).toHaveClass(/overview/);
+	await page.getByRole('button', { name: 'Zoom selection', exact: true }).click();
 	await expect(page.locator('.viewport')).not.toHaveClass(/overview/);
 	await expect(page.locator('.node-select').first()).toBeEnabled();
 });

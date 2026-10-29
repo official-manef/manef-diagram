@@ -36,7 +36,7 @@ trackpad dragging; Space temporarily enables the hand tool while the canvas is f
 Directional buttons are the no-drag alternative. Arrows pan (Shift increases distance),
 +/− zoom, F/0 fits, and 1 shows actual scale. Native field keys are not hijacked.
 
-At overview scales, use the unscaled service explorer or click a preview to zoom in.
+At overview scales, use the unscaled service explorer or click a preview to select only. Zoom selection is a separate explicit toolbar action.
 Tiny node/port editing buttons are disabled rather than offered as inaccessible targets.
 The inspector exposes connections and numeric node positions on every screen size.
 Graph and Flow both provide unscaled connection buttons. Reduced motion suppresses
@@ -47,3 +47,16 @@ Undo/Redo keeps full canonical snapshots, including metadata and layout, within 
 not a backend save. Applying/importing is not a durable save. Reload and in-app route
 changes warn while document changes are unsaved; an explicit discard leaves the editor.
 JSON/Markdown export is necessary to retain documents. Unapplied source drafts have explicit discard protection for Refresh/import/history/navigation; stale Apply asks before replacing newer visual edits. Exporting the graph does not save an unapplied draft. Durable raw-draft recovery after a browser/mobile process kill is not promised.
+
+## Direction and type comparison
+
+Upper-right arrows are Flow layout controls, not camera movement. LR/RL/TB/BT change
+card arrangement, socket sides and curve tangents while keeping labels upright.
+Camera pan alternatives remain in the explorer; Graph mode disables Flow-only arrows.
+A direction change is undoable and survives document/portable-link restoration.
+
+Diagram type is a keyboard listbox. Up/Down previews immediately without Enter or a
+selected node; browsing does not mutate saved views. Enter/Escape closes the chooser,
+Tab exits to the next field, and background delete/undo shortcuts are suppressed while
+it is active. Add to selected node explicitly persists exactly the current preview.
+Single node selection never performs selection zoom, including in focused views.

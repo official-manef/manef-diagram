@@ -1,4 +1,11 @@
-import type { ArchitectureGraph, DiagramMode, InventoryItem, Point, TraceMode } from '../types';
+import type {
+	ArchitectureGraph,
+	DiagramMode,
+	InventoryItem,
+	Point,
+	TraceMode,
+	FlowDirection
+} from '../types';
 import { mermaidSource } from './diagram-views';
 import { cloneGraph, validateGraph } from './graph';
 import { cloneJson, isJsonValue } from './json';
@@ -12,6 +19,7 @@ export const DOCUMENT_MARKDOWN_LANGUAGE = 'manef-diagram-json';
 export type DiagramDocumentUi = {
 	themePreset?: 'system' | 'composio-light' | 'composio-dark';
 	diagramMode?: DiagramMode;
+	flowDirection?: FlowDirection;
 	traceMode?: TraceMode;
 	focusMode?: boolean;
 	query?: string;
@@ -75,6 +83,11 @@ function isUi(value: unknown): value is DiagramDocumentUi {
 		value.traceMode !== undefined &&
 		value.traceMode !== 'direct' &&
 		value.traceMode !== 'component'
+	)
+		return false;
+	if (
+		value.flowDirection !== undefined &&
+		!['LR', 'RL', 'TB', 'BT'].includes(value.flowDirection as string)
 	)
 		return false;
 	if (value.focusMode !== undefined && typeof value.focusMode !== 'boolean') return false;

@@ -51,7 +51,12 @@ const toolInputs: Record<GraphToolName, { description: string; inputSchema: z.Zo
 	graph_layout: {
 		description:
 			'Compute node positions for the MANEF architecture graph in "flow" or "graph" layout mode. Read-only.',
-		inputSchema: z.object({ mode: z.enum(['flow', 'graph']).default('flow') }).strict()
+		inputSchema: z
+			.object({
+				mode: z.enum(['flow', 'graph']).default('flow'),
+				direction: z.enum(['LR', 'RL', 'TB', 'BT']).default('LR')
+			})
+			.strict()
 	},
 	graph_search_inventory: {
 		description:
@@ -81,6 +86,7 @@ const toolInputs: Record<GraphToolName, { description: string; inputSchema: z.Zo
 				tags: z.array(z.string().max(100)).max(30).default([]),
 				seeds: z.array(z.string().max(200)).max(30).default([]),
 				mode: z.enum(['flow', 'graph']).default('graph'),
+				direction: z.enum(['LR', 'RL', 'TB', 'BT']).default('LR'),
 				trace: z.enum(['direct', 'component']).default('component'),
 				focus: z.boolean().default(false)
 			})
@@ -95,6 +101,7 @@ const toolInputs: Record<GraphToolName, { description: string; inputSchema: z.Zo
 				tags: z.array(z.string().max(100)).max(30).default([]),
 				seeds: z.array(z.string().max(200)).max(30).default([]),
 				mode: z.enum(['flow', 'graph']).default('graph'),
+				direction: z.enum(['LR', 'RL', 'TB', 'BT']).default('LR'),
 				trace: z.enum(['direct', 'component']).default('component'),
 				focus: z.boolean().default(false)
 			})

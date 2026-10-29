@@ -76,8 +76,8 @@ The diagram supports portable navigable views and namespaced facets for project,
 - Choose Pan for left-button/trackpad dragging, or focus the canvas and hold Space.
   Select keeps desktop box selection. Directional buttons pan without dragging.
 - Tab to the canvas: arrows pan, Shift moves farther, +/− zoom, F/0 fits and 1 shows actual size.
-- Overview is a preview, not a cluster of tiny editing buttons. Choose a service in the
-  full-size explorer or click its preview to zoom in. Inspector ports and X/Y position
+- Overview is a preview, not a cluster of tiny editing buttons. Click a service in the
+  full-size explorer or its preview to select only; use Zoom selection to zoom explicitly. Inspector ports and X/Y position
   fields do not require dragging. Desktop Explorer/Inspector panels can collapse.
 - Undo/Redo restores tab-local document edits and layout; it is bounded history, not
   durable autosave. Export JSON/Markdown to keep your work. Leaving changed documents
@@ -99,3 +99,19 @@ The core validates the entire encoded request target (16,000 bytes) as well as d
 graph size (12,000 characters). Unicode and all filters consume that wire budget.
 Larger maps should use complete JSON/Markdown exports; no successful copy or MCP
 result is reported for a rejected oversized URL.
+
+### Flow direction and keyboard diagram previews
+
+The four arrows at the canvas upper right choose Flow direction: left-to-right (LR),
+right-to-left (RL), top-to-bottom (TB) and bottom-to-top (BT). They do not pan the
+camera; non-drag camera pan buttons live in the explorer. Direction is retained in
+JSON/Markdown, portable links and undo/redo. Legacy documents default to LR.
+
+Diagram type opens a focused listbox instead of a native select. Up/Down immediately
+changes its temporary preview; Home/End jumps, Enter/Escape closes, and Tab moves to
+the next field. No node selection is required for previewing all 24 types. Only Add
+to selected node creates an authored view; browsing options never appends view records.
+
+A single canvas/overview/explorer click only selects a node, even when Focus is enabled.
+Zoom selection is a separate toolbar action. The previous preview-click auto-zoom
+policy is superseded by this explicit owner preference.

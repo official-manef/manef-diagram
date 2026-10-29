@@ -36,7 +36,7 @@ child diagrams, authored views and JSON-safe extension fields. Node `child` valu
 use the same graph contract. `MAX_DIAGRAM_DEPTH` is 3, with the root at depth 0.
 The same graph can be displayed in flow and graph layouts.
 
-`ui` is optional. It can retain theme, layout mode, trace/focus mode, search/filter
+`ui` is optional. Its optional flowDirection is LR, RL, TB or BT (LR by default). Older documents without this field retain that absence until a non-default direction is authored. It can retain theme, layout mode, trace/focus mode, search/filter
 state, open child path, camera pan/zoom and node positions. `ui.positions` contains
 the current diagram's `{x,y}` coordinates by node ID. `ui.layouts` retains layouts
 by `JSON.stringify(path)`; the root key is `"[]"`. Optional `inventory` retains the
@@ -194,3 +194,7 @@ instance has compatible packages, credentials, subworkflows or runtime settings.
 Importing and manually exercising the inactive converter on a destination n8n
 instance remains a separate acceptance gate. No production activation, provider
 access or live workflow execution is required for local conversion tests.
+
+Diagram-type browsing is transient preview state and is not serialized into the document.
+Only the explicit Add to selected node action appends one authored view. Flow direction
+is document UI state; changing it rearranges the current Flow layout and can be undone.

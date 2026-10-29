@@ -1,4 +1,4 @@
-import type { ArchitectureGraph, DiagramMode, TraceMode } from '../types';
+import type { ArchitectureGraph, DiagramMode, TraceMode, FlowDirection } from '../types';
 import { cloneGraph, parseGraphJson, validateGraph } from './graph';
 import { isJsonValue } from './json';
 
@@ -24,6 +24,7 @@ export type DiagramView = {
 	seeds: string[];
 	open: string[];
 	mode: DiagramMode;
+	flowDirection: FlowDirection;
 	trace: TraceMode;
 	focus: boolean;
 };
@@ -52,6 +53,8 @@ export function buildDiagramViewUrl(
 	for (const tag of view.tags ?? []) url.searchParams.append('tag', tag);
 	for (const seed of view.seeds ?? []) url.searchParams.append('seed', seed);
 	if (view.mode) url.searchParams.set('mode', view.mode);
+	if (view.flowDirection && view.flowDirection !== 'LR')
+		url.searchParams.set('direction', view.flowDirection);
 	if (view.trace) url.searchParams.set('trace', view.trace);
 	if (view.focus) url.searchParams.set('focus', '1');
 	for (const id of view.open ?? []) url.searchParams.append('open', id);
@@ -87,6 +90,7 @@ export function parseDiagramView(search: string): DiagramView {
 	}
 	const mode = params.get('mode');
 	const trace = params.get('trace');
+	const direction = params.get('direction');
 	return {
 		graph: graphPayload ? cloneGraph(parseGraphJson(graphPayload)) : undefined,
 		query: params.get('q') ?? '',
@@ -94,6 +98,8 @@ export function parseDiagramView(search: string): DiagramView {
 		seeds: params.getAll('seed'),
 		open: params.getAll('open'),
 		mode: mode === 'graph' ? 'graph' : 'flow',
+		flowDirection:
+			direction === 'RL' || direction === 'TB' || direction === 'BT' ? direction : 'LR',
 		trace: trace === 'component' ? 'component' : 'direct',
 		focus: params.get('focus') === '1'
 	};

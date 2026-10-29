@@ -1,4 +1,10 @@
-import type { ArchitectureGraph, DiagramMode, InventoryItem, TraceMode } from '../types';
+import type {
+	ArchitectureGraph,
+	DiagramMode,
+	FlowDirection,
+	InventoryItem,
+	TraceMode
+} from '../types';
 import { adjacency, layoutGraph, traceGraph, validateGraph } from './graph';
 import { searchInventory } from './inventory';
 import { buildDiagramViewUrl, tagsMatchFacets } from './share';
@@ -30,6 +36,10 @@ function stringList(value: unknown) {
 
 function modeOf(value: unknown): DiagramMode {
 	return value === 'flow' ? 'flow' : 'graph';
+}
+
+function directionOf(value: unknown): FlowDirection {
+	return value === 'RL' || value === 'TB' || value === 'BT' ? value : 'LR';
 }
 
 function traceOf(value: unknown): TraceMode {
@@ -75,7 +85,12 @@ export function runGraphTool(
 		if (!seeds.length) throw new Error('seeds must be an array of strings.');
 		return traceGraph(graph, seeds, traceOf(args.mode));
 	}
-	if (tool === 'graph_layout') return layoutGraph(graph, args.mode === 'graph' ? 'graph' : 'flow');
+	if (tool === 'graph_layout')
+		return layoutGraph(
+			graph,
+			args.mode === 'graph' ? 'graph' : 'flow',
+			directionOf(args.direction)
+		);
 	if (tool === 'graph_search_inventory') return searchInventory(inventory, text(args.query));
 	if (tool === 'graph_adjacency') {
 		return Object.fromEntries([...adjacency(graph)].map(([id, set]) => [id, [...set]]));
@@ -121,6 +136,7 @@ export function runGraphTool(
 					tags: stringList(args.tags),
 					seeds: stringList(args.seeds),
 					mode: modeOf(args.mode),
+					flowDirection: directionOf(args.direction),
 					trace: traceOf(args.trace),
 					focus: args.focus === true
 				},
@@ -138,6 +154,7 @@ export function runGraphTool(
 				tags: stringList(args.tags),
 				seeds: stringList(args.seeds),
 				mode: modeOf(args.mode),
+				flowDirection: directionOf(args.direction),
 				trace: traceOf(args.trace),
 				focus: args.focus === true
 			},

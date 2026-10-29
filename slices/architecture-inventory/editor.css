@@ -6,7 +6,7 @@
 	height: 100dvh;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
-	grid-template-rows: 54px minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	overflow: hidden;
 	background: var(--background);
 	color: var(--foreground);
@@ -27,13 +27,14 @@
 	gap: 0.35rem;
 }
 .workspace .topbar {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
+	min-height: 54px;
 	gap: 0.5rem;
 	border-bottom: 1px solid var(--border);
 	background: var(--card);
-	padding: 0 0.75rem;
+	padding: 0.4rem 0.75rem;
 }
 .workspace .mode-center,
 .workspace .top-end {
@@ -43,10 +44,19 @@
 	min-width: 0;
 }
 .workspace .mode-center {
-	justify-self: center;
+	flex: 0 0 auto;
 }
 .workspace .top-end {
-	justify-self: end;
+	flex: 0 1 auto;
+	flex-wrap: wrap;
+	max-width: 100%;
+	margin-left: auto;
+}
+.workspace .top-end > .theme-select {
+	flex-shrink: 0;
+}
+.workspace .topbar .top-actions {
+	flex-wrap: wrap;
 }
 .workspace .mermaid-view {
 	position: absolute;
@@ -1324,4 +1334,139 @@
 .workspace .viewport.has-view .forces {
 	visibility: hidden;
 	pointer-events: none;
+}
+
+/* A focused listbox previews types immediately; authoring remains an explicit action. */
+.workspace .diagram-picker {
+	position: relative;
+	min-width: 0;
+}
+.workspace .diagram-kind-list {
+	position: absolute;
+	z-index: 30;
+	top: calc(100% + 6px);
+	right: 0;
+	width: min(280px, calc(100vw - 24px));
+	max-height: min(24rem, 50dvh);
+	overflow: auto;
+	display: grid;
+	padding: 6px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	background: var(--card);
+	box-shadow: 0 12px 32px var(--shadow-color);
+}
+.workspace .diagram-kind-list:focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+.workspace .diagram-kind-list [role='option'] {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	min-height: 44px;
+	width: 100%;
+	padding: 8px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--foreground);
+	text-align: left;
+	cursor: pointer;
+}
+.workspace .diagram-kind-list [aria-selected='true'] {
+	background: var(--accent);
+	border-color: var(--primary);
+}
+.workspace .diagram-kind-list small {
+	color: var(--muted-foreground);
+	font-size: 11px;
+}
+.workspace .camera-pan-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.workspace .camera-pan-buttons button {
+	min-width: 36px;
+	min-height: 36px;
+}
+
+/* Match sockets to direction-aware routing anchors while keeping cards upright. */
+.workspace .node .port-side.inputs,
+.workspace .node .port-side.outputs {
+	inset: 0;
+	display: block;
+	transform: none;
+	pointer-events: none;
+}
+.workspace .node .port {
+	position: absolute;
+	top: var(--port-position);
+	pointer-events: auto;
+}
+.workspace .node .port.in {
+	left: 0;
+	right: auto;
+	transform: translate(-6px, -50%);
+}
+.workspace .node .port.out {
+	left: auto;
+	right: 0;
+	transform: translate(6px, -50%);
+}
+.workspace[data-flow-direction='RL'] .node .port.in {
+	left: auto;
+	right: 0;
+	transform: translate(6px, -50%);
+	flex-direction: row-reverse;
+}
+.workspace[data-flow-direction='RL'] .node .port.out {
+	left: 0;
+	right: auto;
+	transform: translate(-6px, -50%);
+	flex-direction: row;
+}
+.workspace[data-flow-direction='TB'] .node .port,
+.workspace[data-flow-direction='BT'] .node .port {
+	left: var(--port-position);
+	right: auto;
+	max-width: 64px;
+	align-items: center;
+}
+.workspace[data-flow-direction='TB'] .node .port.in,
+.workspace[data-flow-direction='BT'] .node .port.out {
+	top: 0;
+	bottom: auto;
+	transform: translate(-50%, -6px);
+	flex-direction: column;
+}
+.workspace[data-flow-direction='TB'] .node .port.out,
+.workspace[data-flow-direction='BT'] .node .port.in {
+	top: auto;
+	bottom: 0;
+	transform: translate(-50%, 6px);
+	flex-direction: column-reverse;
+}
+.workspace[data-flow-direction='TB'] .node-head,
+.workspace[data-flow-direction='BT'] .node-head {
+	padding-top: 22px;
+}
+.workspace .node .port:disabled {
+	pointer-events: none;
+}
+@media (max-width: 64rem) {
+	.workspace .camera-pan-buttons button {
+		min-width: 44px;
+		min-height: 44px;
+	}
+}
+
+.workspace .diagram-kind-group {
+	padding: 8px;
+	color: var(--muted-foreground);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
 }

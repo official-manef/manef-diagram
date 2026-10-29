@@ -43,7 +43,7 @@ new controls occupying an old synthetic touch coordinate. The tests now assert
 received native deltas, a sub-pixel zoom-anchor tolerance and genuine empty-space
 coordinates rather than bypassing hit testing.
 
-## Local evidence
+## Audit-recovery evidence before the owner control correction
 
 - Frozen Bun install and verify: type checks, standalone non-Svelte consumer, lint,
   313 unit tests and Vercel build.
@@ -136,3 +136,43 @@ Five added browser stories run in all three projects (15 cases). Unit tests cove
 exact byte boundary and Unicode/filter expansion; the MCP SDK test checks isError on
 an oversized graph. Final counts are 313 unit and 303 E2E cases. MCP descriptions
 advertise the encoded budget; its server imports the framework-neutral core.
+
+## Owner control correction after the audit
+
+The subsequent owner request supersedes the earlier preview-to-edit auto-zoom choice:
+clicking an overview, node or explorer item now selects only, and Zoom selection is an
+explicit tool. Upper-right arrows choose Flow direction rather than panning. Non-drag
+camera pan buttons remain in the explorer. Four-direction layout, sockets and routes
+remain upright, persisted and undoable.
+
+The native Add view select is replaced with an accessible, keyboard-active type listbox.
+Up/Down immediately previews; no node selection or repeated Enter is needed. Browsing
+all 24 types changes no authored views. Explicit Add to selected node creates only one
+view. Review caught background Delete/Undo leaking from the chooser; a global chooser
+shortcut guard and regression now prevent it. Covered controls are inert until the
+chooser closes, and Tab moves on rather than trapping focus.
+
+Correction evidence: 318 unit and 333 browser cases (111 per project), including real
+renders of all 24 previews on each project, four-direction curve/socket alignment,
+wire/document persistence, no-auto-zoom in Focus, popup axe checks and shortcut isolation.
+The three-scan axe cases have a finite 60-second test budget; no rules are excluded.
+
+## Hosted-CI header correction
+
+The first owner-control commit's hosted check failed, despite its local results:
+331 E2E cases passed and two desktop axe scans reported a partially obscured theme
+selector with only 22px usable width. Diagram type overlapped it because the header
+assigned equal outside columns regardless of its control groups' intrinsic widths.
+
+The fix removes that structural competition: flex groups wrap naturally and the
+editor allocates the header's actual height. A native hit-test regression covers four
+desktop widths and a wider-intrinsic-controls variant. Both regression cases failed
+against the old header at 1025px before the fix. The same 1280px axe case did not fail
+with the container's original fonts; this is why font-metric stress coverage was added
+rather than claiming an identical OS/font reproduction.
+
+Playwright's pinned Chromium 151.0.7922.34 (revision 1234) was installed and used without
+PLAYWRIGHT_CHROME_PATH for the final 339 E2E cases (113 per project), all passing.
+The 318 unit tests, notes 8, dev 2 and runtime gates also pass. No axe rules were
+excluded and no control was shrunk/hidden. These results supersede the earlier
+Chrome-156-only local evidence for the header; terminal hosted CI remains separate.

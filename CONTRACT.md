@@ -150,3 +150,8 @@ request-target budgets. All graph/filter/seed/path fields contribute to the wire
 oversize links fail before success or browser history mutation. URL multi-selection
 restores every valid seed; focus traces the selected set independently of hover and
 sharing retains that set. These rules apply equally to editor and read-only MCP output.
+
+Owner-corrected controls keep node selection camera-neutral and selection zoom explicit.
+Flow supports LR/RL/TB/BT in the pure layout/routing contract, optional document UI state
+and portable view state; default LR preserves older callers. Diagram-type listbox browsing
+is temporary preview, not authoring: only explicit attachment creates a node view.

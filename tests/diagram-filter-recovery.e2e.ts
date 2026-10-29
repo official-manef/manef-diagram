@@ -1,3 +1,4 @@
+import { addDiagramView } from './helpers/diagram-picker';
 import { expect, test } from '@playwright/test';
 
 for (const width of [320, 390, 1440]) {
@@ -64,7 +65,7 @@ for (const width of [320, 390]) {
 		await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
 		await page.locator('.mobile-card').first().click();
 		await page.getByRole('button', { name: 'Canvas', exact: true }).click();
-		await page.getByLabel('Add view', { exact: true }).selectOption({ label: 'Flowchart' });
+		await addDiagramView(page, 'Flowchart');
 		await expect(page.locator('.view-canvas svg')).toBeVisible();
 		const source = await page
 			.getByRole('textbox', { name: 'Diagram source', exact: true })
