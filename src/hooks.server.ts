@@ -34,8 +34,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 // SvelteKit 3 passes a discriminated CaughtError: framework, app and validation errors carry
 // a status, unknown errors are always 500. The status used to arrive as a top-level argument.
+// A thrown App.Error object also carries the status at runtime, which its type does not declare.
 function caughtStatus(caught: Parameters<HandleServerError>[0]): number {
-	return caught.kind === 'unknown' ? 500 : caught.error.status;
+	if (caught.kind === 'unknown') return 500;
+	return (caught.error as { status: number }).status;
 }
 
 export const handleError: HandleServerError = (caught) => {
@@ -49,8 +51,13 @@ export const handleError: HandleServerError = (caught) => {
 		method: event.request.method,
 		route: event.route.id
 	});
-	return {
-		message: status === 404 ? 'Page not found.' : 'Something went wrong. Please try again.',
-		id
-	};
+	// Framework and app errors carry a reviewed message (for example "App not found"); only an
+	// unknown error may contain internals, so it keeps the generic text.
+	const message =
+		caught.kind === 'framework' || caught.kind === 'app'
+			? caught.error.message
+			: status === 404
+				? 'Page not found.'
+				: 'Something went wrong. Please try again.';
+	return { message, id };
 };

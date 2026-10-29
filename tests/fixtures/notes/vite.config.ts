@@ -15,14 +15,17 @@ export default defineConfig({
 		})
 	],
 	resolve: {
-		alias: {
-			$features: local('../../../slices'),
-			$lib: local('../../../src/lib'),
-			'$app/state': local('./page.svelte.ts'),
-			'$app/env': local('./environment.ts'),
-			'$app/env/public': local('./environment.ts'),
-			'convex/browser': local('./client.svelte.ts')
-		},
+		alias: [
+			// Order matters: the exact modules win over the `$app/env` prefix below.
+			{ find: '$app/env/public', replacement: local('./environment.ts') },
+			{ find: '$app/env/private', replacement: local('./environment.ts') },
+			{ find: '$app/env', replacement: local('./environment.ts') },
+			{ find: '$features', replacement: local('../../../slices') },
+			{ find: '$lib', replacement: local('../../../src/lib') },
+			{ find: '#lib', replacement: local('../../../src/lib') },
+			{ find: '$app/state', replacement: local('./page.svelte.ts') },
+			{ find: 'convex/browser', replacement: local('./client.svelte.ts') }
+		],
 		dedupe: ['svelte']
 	},
 	server: { host: '127.0.0.1', port: 4198, strictPort: true, fs: { allow: [local('../../../')] } }
