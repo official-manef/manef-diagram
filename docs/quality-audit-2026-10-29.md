@@ -176,3 +176,30 @@ PLAYWRIGHT_CHROME_PATH for the final 339 E2E cases (113 per project), all passin
 The 318 unit tests, notes 8, dev 2 and runtime gates also pass. No axe rules were
 excluded and no control was shrunk/hidden. These results supersede the earlier
 Chrome-156-only local evidence for the header; terminal hosted CI remains separate.
+
+## Natural flow-curve rendering after the owner screenshot
+
+The owner's production screenshot showed flow mode reading as unnatural: nearly
+every connection arced hundreds of pixels above the diagram and its label sat on
+the arc apex, so dense maps grew a pile of rainbows and overlapping labels at the
+top. The cause was routing policy, not styling: any direct curve that grazed a
+card was escalated first to a control line above every card in the map
+(`roof - 64`) and finally to `roof - 220`, so in a dense grid almost every edge
+took the over-the-roof path.
+
+The recovery keeps the inventory-HTML cubic language but bounds the detour: the
+direct curve is tried first with a shallower bend (0.32 of the span, floor 48),
+then local lanes just past the cards the direct curve actually crosses
+(18/40/72/112/160 px above the nearest crossed card), and the final fallback is
+the direct curve itself — cards already paint above the edge layer, so a path
+that slips behind them stays readable. Edge labels now try the curve midpoint,
+its neighbouring samples and only then the local apex, so labels follow their
+curves instead of stacking at the diagram top.
+
+A unit regression re-encodes the invariant: labels never overlap cards, and no
+flow curve may arc past the map's perpendicular extent (the old test asserted
+curves never touch other cards, which is exactly the constraint that forced the
+rainbows). Visual before/after screenshots of a dense 22-node, 24-connection
+fixture across all four flow directions are saved with the PR. Locally: check,
+lint, 320 unit tests, build, 339 E2E cases across three projects (pinned
+Chromium 151.0.7922.34, no PLAYWRIGHT_CHROME_PATH), notes 8 and dev 2 all pass.

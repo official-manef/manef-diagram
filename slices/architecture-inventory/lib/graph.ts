@@ -743,7 +743,7 @@ function curveThrough(
 	};
 }
 
-/** Flow curves match the inventory HTML: a cubic bend from the output side to the input side. */
+/** Flow curves match the inventory HTML: a shallow cubic from the output side to the input side. */
 function flowCurve(
 	source: Point,
 	target: Point,
@@ -757,32 +757,27 @@ function flowCurve(
 	const vertical = direction === 'TB' || direction === 'BT';
 	const start = portAnchor(source, 'outputs', sourceIndex, sourceCount, direction);
 	const end = portAnchor(target, 'inputs', targetIndex, targetCount, direction);
-	const bend = Math.max(60, Math.abs(vertical ? end.y - start.y : end.x - start.x) * 0.42);
+	const bend = Math.max(48, Math.abs(vertical ? end.y - start.y : end.x - start.x) * 0.32);
 	const direct = curveThrough(start, end, bend, null, direction);
 	if (!samplesHit(direct.points, obstacles)) return direct;
-	const roof = Math.min(
-		vertical ? start.x : start.y,
-		vertical ? end.x : end.y,
-		...obstacles.map((box) => (vertical ? box.x : box.y))
-	);
-	const over = curveThrough(start, end, 0, { start: roof - 64, end: roof - 64 }, direction);
-	if (!samplesHit(over.points, obstacles)) return over;
 	const crossed = obstacles.filter((box) =>
 		vertical
 			? box.y + flowCard.height > Math.min(start.y, end.y) && box.y < Math.max(start.y, end.y)
 			: box.x + flowCard.width > Math.min(start.x, end.x) && box.x < Math.max(start.x, end.x)
 	);
-	const crossedRoof = Math.min(
+	const lane = Math.min(
 		...crossed.map((box) => (vertical ? box.x : box.y)),
 		vertical ? start.x : start.y,
 		vertical ? end.x : end.y
 	);
-	for (const extra of [72, 120, 180, 260, 420]) {
-		const clearance = crossedRoof - extra;
-		const tucked = curveThrough(start, end, 72, { start: clearance, end: clearance }, direction);
+	for (const extra of [18, 40, 72, 112, 160]) {
+		const clearance = lane - extra;
+		const tucked = curveThrough(start, end, bend, { start: clearance, end: clearance }, direction);
 		if (!samplesHit(tucked.points, obstacles)) return tucked;
 	}
-	return curveThrough(start, end, 0, { start: roof - 220, end: roof - 220 }, direction);
+	// Cards render above the edge layer, so a curve that slips behind them still
+	// reads naturally; never send the curve arcing over the whole diagram.
+	return direct;
 }
 
 export function routeEdges(
@@ -862,9 +857,18 @@ export function routeEdges(
 			};
 			return cards.some((card) => labelHitsNode(box, card, mode));
 		};
-		const labelPoint = [midpoint, ...[...points].sort((a, b) => a.y - b.y)].find(
-			(point) => !labelHits(point)
-		) ?? { x: (points[0].x + end.x) / 2, y: Math.min(...points.map((point) => point.y)) - 16 };
+		const mid = Math.floor(points.length / 2);
+		const labelPoint = [
+			midpoint,
+			points[mid - 3],
+			points[mid + 3],
+			...[...points].sort((a, b) => a.y - b.y)
+		]
+			.filter((point): point is Point => Boolean(point))
+			.find((point) => !labelHits(point)) ?? {
+			x: (points[0].x + end.x) / 2,
+			y: Math.min(...points.map((point) => point.y)) - 8
+		};
 		const labelX = labelPoint.x;
 		const labelY = labelPoint.y;
 		return [
