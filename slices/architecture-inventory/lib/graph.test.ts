@@ -210,7 +210,7 @@ describe('architecture graph core', () => {
 		expect(Math.min(1360 / width, 760 / height)).toBeGreaterThan(0.35);
 	});
 
-	it('labels every public connection and keeps those lines out of other cards', () => {
+	it('labels every public connection, keeps labels off cards and curves near the map', () => {
 		for (const mode of ['flow', 'graph'] as const) {
 			const points = layoutGraph(defaultGraph, mode);
 			const routes = routeEdges(defaultGraph, points, mode);
@@ -257,15 +257,26 @@ describe('architecture graph core', () => {
 						for (const node of defaultGraph.nodes) {
 							if (node.id === edge.source || node.id === edge.target) continue;
 							const box = points[node.id];
-							const inside =
-								mode === 'graph'
-									? (point.x - box.x) ** 2 + (point.y - box.y) ** 2 < (graphDot.radius + 2) ** 2
-									: point.x > box.x + 6 &&
-										point.x < box.x + flowCard.width - 6 &&
-										point.y > box.y + 6 &&
-										point.y < box.y + flowCard.height - 6;
-							expect(inside).toBe(false);
+							if (mode === 'graph') {
+								const inside =
+									(point.x - box.x) ** 2 + (point.y - box.y) ** 2 < (graphDot.radius + 2) ** 2;
+								expect(inside).toBe(false);
+							}
 						}
+					}
+				}
+			}
+			// Flow curves may slip behind cards (cards paint above the edge layer),
+			// but they must never arc far past the perpendicular extent of the map:
+			// over-the-roof detours read as unnatural rainbows above the diagram.
+			if (mode === 'flow') {
+				const boxes = Object.values(points);
+				const lo = Math.min(...boxes.map((box) => box.y)) - flowCard.height - 8;
+				const hi = Math.max(...boxes.map((box) => box.y + flowCard.height)) + flowCard.height + 8;
+				for (const route of routes) {
+					for (const point of route.points) {
+						expect(point.y, `${mode} ${route.label} arcs past the map`).toBeGreaterThanOrEqual(lo);
+						expect(point.y, `${mode} ${route.label} arcs past the map`).toBeLessThanOrEqual(hi);
 					}
 				}
 			}

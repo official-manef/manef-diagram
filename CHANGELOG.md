@@ -5,6 +5,8 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Route flow curves as shallow cubics that slip locally between rows or behind cards instead of arcing over the whole diagram; edge labels now prefer their curve midpoints so dense maps stop piling labels at the top. Cards already paint above the edge layer, so behind-card paths stay readable.
+
 - Upgrade the toolchain to SvelteKit 3, Vite 8.3.5, eslint 10.13, Convex 1.48 and zod 4.6.7. Kit 3 removed the `$lib` alias and the `$env/dynamic/*` shims, so imports use `#lib` and `$app/env/public|private`, the layout reads declared public values, cross-origin workspace redirects are allowlisted and `handleError` uses the discriminated `CaughtError`. The notes fixture declares the same env names.
 - Declare every environment variable the code reads and add `env:check`; the design guide records the measured palette, type scale and dial line.
 
