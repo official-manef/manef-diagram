@@ -99,11 +99,13 @@
 		"@modelcontextprotocol/sdk": "1.32.2",
 		"ai": "7.0.157",
 		"bits-ui": "2.20.2",
+		"clsx": "^2.1.1",
 		"convex": "1.48.0",
 		"convex-svelte": "0.15.1",
 		"jose": "6.2.14",
 		"mermaid": "^12.2.0",
 		"openid-client": "6.8.8",
+		"tailwind-merge": "^3.7.0",
 		"zod": "4.6.7"
 	},
 	"imports": {
