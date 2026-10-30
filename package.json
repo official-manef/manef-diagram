@@ -98,7 +98,7 @@
 		"@lucide/svelte": "1.65.0",
 		"@modelcontextprotocol/sdk": "1.32.2",
 		"ai": "7.0.157",
-		"bits-ui": "2.19.0",
+		"bits-ui": "2.20.2",
 		"convex": "1.48.0",
 		"convex-svelte": "0.15.1",
 		"jose": "6.2.14",
