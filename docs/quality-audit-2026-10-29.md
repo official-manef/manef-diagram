@@ -203,3 +203,16 @@ rainbows). Visual before/after screenshots of a dense 22-node, 24-connection
 fixture across all four flow directions are saved with the PR. Locally: check,
 lint, 320 unit tests, build, 339 E2E cases across three projects (pinned
 Chromium 151.0.7922.34, no PLAYWRIGHT_CHROME_PATH), notes 8 and dev 2 all pass.
+
+## Compiled diagram views after the owner demo request
+
+The owner's demo request exposed that the Diagram type picker was cosmetic: choosing
+a kind inserted a fixed template unrelated to the graph, so no demo could show what
+the tool actually models. Every kind now has a deterministic compiler
+(`lib/diagram-compile.ts`) that restructures the document — nodes, edges, levels,
+ports, statuses — into that kind's Mermaid source, with per-kind escaping, node/edge
+caps and the 20,000-character source bound. The picker previews the compiled result
+of the current graph, so the bundled demo graph demonstrates all 24 kinds; a browser
+regression compiles and renders every kind from it. Mermaid quirks found and fixed
+against real renders: quadrant charts reject `1.00`-style values (clamped) and
+treemaps require quoted string tokens for labels with dots or hyphens.
