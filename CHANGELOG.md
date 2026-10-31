@@ -5,6 +5,8 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Centre the editor's mode cluster (Flow/Graph/Diagram type) between equal side zones on desktop, and render the diagram-type listbox at the editor's control type scale — 12.5px Inter at weight 500 on 36px rows with 10px uppercase group labels — instead of the 16px default that read as foreign to the rest of the chrome. Internal wrapping in each header zone keeps the no-overlap guarantee from the header correction.
+
 - Route flow curves as shallow cubics that slip locally between rows or behind cards instead of arcing over the whole diagram; edge labels now prefer their curve midpoints so dense maps stop piling labels at the top. Cards already paint above the edge layer, so behind-card paths stay readable.
 - Refresh every dependency that has a newer release: `ai` 7.0.157 with matching `@ai-sdk` providers, `@modelcontextprotocol/sdk` 1.32.2, `convex-svelte` 0.15.1, `@sveltejs/kit` 3.1.1, adapter-vercel 7.0.2, adapter-node 6.0.1, adapter-cloudflare 8.0.2, `@playwright/test` 1.64.1, `convex-test` 0.0.66, `shadcn-svelte` 1.7.2, `wrangler` 4.156.0, `bits-ui` 2.20.2, `jose` 6.2.14, `@lucide/svelte` 1.65.0. `@convex-dev/eslint-plugin` moves to 5.0.1 with the same five project rules enabled, `vitest` to 5.0.5 and `tailwind-variants` to 4.0.0, whose breaking changes do not reach the button and badge call sites. TypeScript stays at 6.0.3 because `svelte-check` and `typescript-eslint` cap it below 6.1, and `@types/node` stays on 22 to match the pinned runtime.
 
