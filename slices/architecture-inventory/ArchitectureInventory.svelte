@@ -60,7 +60,8 @@
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
 	import { panForZoom, wheelGesture } from './lib/camera';
 	import { rememberSnapshot } from './lib/history';
-	import { createNodeView, kindGroups, mermaidSource, convertNodeView } from './lib/diagram-views';
+	import { kindGroups, mermaidSource, convertNodeView } from './lib/diagram-views';
+	import { compileNodeView } from './lib/diagram-compile';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import {
 		createDocument,
@@ -1408,7 +1409,7 @@
 		const kind = pickerKinds[pickerIndex];
 		stopSettle();
 		openView = null;
-		diagramPreview = createNodeView(kind.id, selectedNode?.label ?? importedDocument.title);
+		diagramPreview = compileNodeView(graph, kind.id, selectedNode?.label ?? importedDocument.title);
 		viewError = '';
 		void tick()
 			.then(() =>

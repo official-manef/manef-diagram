@@ -5,6 +5,7 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Give every diagram kind a deterministic compiler that restructures the actual graph — labels, levels, ports, statuses and edges — into that kind's Mermaid source, replacing the canned templates the Diagram type picker used to insert. The picker now previews the compiled result of the current graph, so one demo graph demonstrates all 24 kinds; hierarchy kinds build trees from level-decreasing edges and chart kinds derive values from connection counts. Escaping and node/edge caps keep compiled sources inside the conversion limits.
 - Centre the editor's mode cluster (Flow/Graph/Diagram type) between equal side zones on desktop, and render the diagram-type listbox at the editor's control type scale — 12.5px Inter at weight 500 on 36px rows with 10px uppercase group labels — instead of the 16px default that read as foreign to the rest of the chrome. Internal wrapping in each header zone keeps the no-overlap guarantee from the header correction.
 
 - Route flow curves as shallow cubics that slip locally between rows or behind cards instead of arcing over the whole diagram; edge labels now prefer their curve midpoints so dense maps stop piling labels at the top. Cards already paint above the edge layer, so behind-card paths stay readable.

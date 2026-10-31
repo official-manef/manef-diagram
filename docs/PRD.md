@@ -338,3 +338,28 @@ notes 8, dev 2 and the existing runtime gates. Browser is now Playwright-pinned
 Chromium 151.0.7922.34 revision 1234 with no executable override. Container fonts/OS
 are not claimed to be identical to the hosted runner; exact-head GitHub CI remains
 its own required result.
+
+## Compiled diagram views — 2026-10-31
+
+The owner asked for diagram types to be usable, not just selectable: every kind
+needs a compiler that restructures the actual graph into that kind's source, rather
+than inserting a canned template with many variables. One demo graph must therefore
+demonstrate all 24 bundled kinds.
+
+`slices/architecture-inventory/lib/diagram-compile.ts` provides one deterministic
+compiler per kind. Each restructures the document's real data — node labels,
+subtitles, levels, ports, statuses and edges — into that kind's Mermaid source:
+hierarchy kinds (mindmap, tree, treemap, Ishikawa) build parent/child trees from
+level-decreasing edges; narrative kinds (flowchart, sequence, state, class, ER, C4,
+block, architecture, packet, sankey) project nodes and edges directly; planning and
+chart kinds (gantt, timeline, journey, kanban, pie, quadrant, xy, radar, git,
+requirement) derive their sections, tasks and values from levels, statuses and
+connection counts. Nothing invents entities, output is deterministic per document,
+labels are escaped per kind, and oversized graphs cap at 80 nodes / 240 edges /
+20,000 characters. Templates remain only for an empty graph. The compiler is
+exported through the framework-neutral core entry for standalone consumers.
+
+The Diagram type picker previews the compiled view for the current graph, so the
+demo compiles and renders every kind live. Local acceptance: unit tests per kind
+(keyword prefix, determinism, escaping, bounds) and a browser case that compiles and
+renders all 24 kinds from the bundled demo graph without error.
