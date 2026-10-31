@@ -293,3 +293,23 @@ test('selection during a Flow transition cancels its pending automatic camera fi
 		.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).a);
 	expect(zoom).toBe(1);
 });
+
+test('every diagram kind compiles from the demo graph and renders a preview', async ({ page }) => {
+	await page.goto('/app');
+	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	const list = page.getByRole('listbox', { name: 'Diagram types' });
+	const options = list.getByRole('option');
+	const count = await options.count();
+	expect(count).toBeGreaterThanOrEqual(24);
+	for (let index = 0; index < count; index += 1) {
+		const label = await options.nth(index).textContent();
+		await options.nth(index).click();
+		await expect(page.locator('.view-canvas svg').first()).toBeVisible({ timeout: 20_000 });
+		await expect(page.locator('.mermaid-view .help')).toHaveCount(0);
+		await expect(page.locator('.view-bar strong')).not.toHaveText('');
+		// Returning to the list keeps the picker open for the next kind.
+		await list.focus();
+		expect(label, `${label} preview rendered`).toBeTruthy();
+	}
+});
