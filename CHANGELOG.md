@@ -5,9 +5,6 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
-- Render diagram views with Pele 1.13.0 (pinned exactly): synchronous Mermaid rendering with no dependencies, themed through CSS variables mapped to the editor tokens, so dark/light switches no longer re-render. mermaid.js stays as the compatibility fallback for sources Pele cannot draw; the view canvas reports the active engine via data-renderer, and the 24-kind browser matrix plus a node-side render matrix require Pele parity.
-
-- Add a frameable `/embed/diagram` route that restores portable graph links inside the editor and allowlists the owner product origins (batonly.site, review.batonly.site) for that route only; the editor itself stays same-origin and the workspace embed allowlist is unchanged.
 - Give every diagram kind a deterministic compiler that restructures the actual graph — labels, levels, ports, statuses and edges — into that kind's Mermaid source, replacing the canned templates the Diagram type picker used to insert. The picker now previews the compiled result of the current graph, so one demo graph demonstrates all 24 kinds; hierarchy kinds build trees from level-decreasing edges and chart kinds derive values from connection counts. Escaping and node/edge caps keep compiled sources inside the conversion limits.
 - Centre the editor's mode cluster (Flow/Graph/Diagram type) between equal side zones on desktop, and render the diagram-type listbox at the editor's control type scale — 12.5px Inter at weight 500 on 36px rows with 10px uppercase group labels — instead of the 16px default that read as foreign to the rest of the chrome. Internal wrapping in each header zone keeps the no-overlap guarantee from the header correction.
 

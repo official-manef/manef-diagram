@@ -216,34 +216,3 @@ of the current graph, so the bundled demo graph demonstrates all 24 kinds; a bro
 regression compiles and renders every kind from it. Mermaid quirks found and fixed
 against real renders: quadrant charts reject `1.00`-style values (clamped) and
 treemaps require quoted string tokens for labels with dots or hyphens.
-
-## Diagram embed for the owner product site — 2026-11-04
-
-The batonly.site landing needed real diagrams. Three Baton product graphs (project
-flow, provider tunnel, AI boundary) were created through the real MCP protocol
-(`graph_create_portable_view`) and are embedded live on the site inside iframes,
-each with an explicit open-in-new-tab link; portable URLs stay stateless. The new
-`/embed/diagram` route renders the editor for a portable link with a frame-ancestors
-policy that admits the owner product origins for that route only — `X-Frame-Options`
-and the workspace allowlist are unchanged. Header and embedding unit tests plus
-browser tests cover the restore and the policy split. The claim-after-login flow
-(saving a portable graph into a signed-in account) remains a separate server feature
-pending production auth acceptance.
-
-
-## Pele renderer adoption — 2026-11-04
-
-The comparison with Pele (obsidianmd/pele, by kepano) identified the rendering path
-as the one place Manef genuinely pays mermaid.js costs: ~1.6 MB, asynchronous,
-6–82 ms per diagram, theme switches re-render. Adoption follows the report's
-safeguards: pele is pinned to exactly 1.13.0; `lib/diagram-render.ts` tries Pele
-first (responsive, no links/images — matching mermaid's strict security level) and
-keeps mermaid.js as the fallback for any source Pele cannot draw; the view canvas
-reports the active engine through `data-renderer`; Pele's CSS-variable theme maps
-to the editor tokens, so dark/light switches stop re-rendering.
-
-Parity evidence: a node-side render matrix renders all 24 compiled kinds of the
-bundled demo graph with Pele and asserts it (20 flowchart renders must finish under
-200 ms), and the browser 24-kind picker matrix now requires `data-renderer="pele"`
-on every kind. mermaid.js remains in the bundle until these matrices have held
-across a release; removing it is a follow-up once parity is proven.
