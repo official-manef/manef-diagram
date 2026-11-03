@@ -2,13 +2,25 @@ import { siteLinks } from '#lib/config/navigation.js';
 
 const localHosts = new Set(['localhost', '127.0.0.1']);
 const ownerOrigins = [siteLinks.ecosystemOrigin, 'https://staging.manef.dev'];
+// The owner's own product sites may frame the diagram editor embed route.
+const diagramEmbedOrigins = ['https://batonly.site', 'https://review.batonly.site'];
 
-export function workspaceFrameAncestors(development: boolean) {
+function frameAncestorList(development: boolean, extraOrigins: string[] = []) {
 	return [
 		"'self'",
 		...ownerOrigins,
+		...extraOrigins,
 		...(development ? ['http://localhost:*', 'http://127.0.0.1:*'] : [])
 	].join(' ');
+}
+
+export function workspaceFrameAncestors(development: boolean) {
+	return frameAncestorList(development);
+}
+
+/** The diagram embed accepts the owner's product origins on top of the MANEF ones. */
+export function diagramFrameAncestors(development: boolean) {
+	return frameAncestorList(development, diagramEmbedOrigins);
 }
 
 function isLocal(url: URL) {

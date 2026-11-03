@@ -1,5 +1,10 @@
 import { expect, it } from 'vitest';
-import { workspaceFrameAncestors, workspaceHostOrigin, workspaceParentOrigin } from './embedding';
+import {
+	diagramFrameAncestors,
+	workspaceFrameAncestors,
+	workspaceHostOrigin,
+	workspaceParentOrigin
+} from './embedding';
 
 it('keeps navigation messages on approved MANEF owners', () => {
 	expect(workspaceParentOrigin('https://manef.dev/workspace', 'https://diagram.manef.dev')).toBe(
@@ -61,4 +66,13 @@ it('accepts host announcements only from the actual approved parent window', () 
 			'https://diagram.manef.dev'
 		)
 	).toBe('https://staging.manef.dev');
+});
+
+it('keeps the diagram embed allowlist to the owner product sites', () => {
+	expect(workspaceFrameAncestors(false)).not.toContain('batonly.site');
+	const policy = diagramFrameAncestors(false);
+	expect(policy).toContain('https://batonly.site');
+	expect(policy).toContain('https://review.batonly.site');
+	expect(policy).toContain("'self'");
+	expect(diagramFrameAncestors(true)).toContain('http://localhost:*');
 });
