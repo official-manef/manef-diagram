@@ -1,7 +1,7 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { appConfig } from '#lib/config/app.js';
 import { dev } from '$app/env';
-import { workspaceFrameAncestors } from '$features/workspace';
+import { workspaceFrameAncestors, diagramFrameAncestors } from '$features/workspace';
 
 if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(appConfig.locale)) {
 	throw new Error('Set a valid language tag in appConfig.locale.');
@@ -13,15 +13,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 		transformPageChunk: ({ html }) => html.replace('%app.locale%', appConfig.locale)
 	});
 	response.headers.set('X-Content-Type-Options', 'nosniff');
-	const embedded = event.route.id === '/embed/workspace/[[surface]]';
-	// The public demo may be framed by MANEF; private pages keep the existing policy.
-	if (!embedded) response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+	const routeId = event.route.id;
+	const embedded = routeId === '/embed/workspace/[[surface]]';
+	const diagramEmbed = routeId === '/embed/diagram';
+	// The public demo may be framed by MANEF, and the diagram embed also accepts the
+	// owner's product sites; private pages keep the existing policy.
+	if (!embedded && !diagramEmbed) response.headers.set('X-Frame-Options', 'SAMEORIGIN');
 	if (!response.headers.has('Content-Security-Policy'))
 		response.headers.set(
 			'Content-Security-Policy',
 			embedded
 				? `frame-ancestors ${workspaceFrameAncestors(dev)}`
-				: "frame-ancestors 'self' https://*.manef.dev https://mso.rahmanef.com"
+				: diagramEmbed
+					? `frame-ancestors ${diagramFrameAncestors(dev)}`
+					: "frame-ancestors 'self' https://*.manef.dev https://mso.rahmanef.com"
 		);
 	if (!response.headers.has('Referrer-Policy'))
 		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

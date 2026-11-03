@@ -63,3 +63,25 @@ test('missing routes report not found without leaking the request', async () => 
 	expect(result).toEqual({ message: 'Page not found.', id: 'missing-route' });
 	expect(JSON.stringify(log.mock.calls)).not.toMatch(/private-code/);
 });
+
+test('the diagram embed allows the owner product sites to frame it while other pages stay same-origin', async () => {
+	const embedded = { ...event(), route: { id: '/embed/diagram' } } as RequestEvent;
+	const response = await handle({
+		event: embedded,
+		resolve: async () => new Response(null, { status: 200 })
+	});
+	expect(response.headers.get('x-frame-options')).toBeNull();
+	const policy = response.headers.get('content-security-policy') ?? '';
+	expect(policy).toContain('https://batonly.site');
+	expect(policy).toContain('https://review.batonly.site');
+	expect(policy).toContain('https://manef.dev');
+	expect(policy).toContain('https://staging.manef.dev');
+
+	const app = { ...event(), route: { id: '/app' } } as RequestEvent;
+	const appResponse = await handle({
+		event: app,
+		resolve: async () => new Response(null, { status: 200 })
+	});
+	expect(appResponse.headers.get('x-frame-options')).toBe('SAMEORIGIN');
+	expect(appResponse.headers.get('content-security-policy') ?? '').not.toContain('batonly.site');
+});
