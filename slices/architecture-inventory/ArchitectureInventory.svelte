@@ -60,7 +60,8 @@
 	import { dotColor, facetChips, filterTagGroups, tagLabel } from './lib/present';
 	import { panForZoom, wheelGesture } from './lib/camera';
 	import { rememberSnapshot } from './lib/history';
-	import { kindGroups, mermaidSource, convertNodeView } from './lib/diagram-views';
+	import { kindGroups, convertNodeView } from './lib/diagram-views';
+	import { renderDiagram } from './lib/diagram-render';
 	import { compileNodeView } from './lib/diagram-compile';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import {
@@ -1511,34 +1512,17 @@
 		const host = viewHost;
 		const theme = appliedTheme;
 		if (!view || !host) return;
-		let source = '';
-		try {
-			source = mermaidSource(view);
-		} catch (error) {
-			viewError = error instanceof Error ? error.message : 'Could not read this view.';
-			host.innerHTML = '';
-			return;
-		}
 		let cancel = false;
-		const renderId = `mmd-${crypto.randomUUID()}`;
 		host.dataset.viewKind = '';
+		host.removeAttribute('data-renderer');
 		host.setAttribute('aria-busy', 'true');
 		host.innerHTML = '';
-		void import('mermaid')
-			.then(async (mod) => {
+		void renderDiagram(view, theme === 'composio-dark' ? 'dark' : 'neutral')
+			.then(({ svg, renderer }) => {
 				if (cancel) return;
-				const mermaid = mod.default;
-				mermaid.initialize({
-					startOnLoad: false,
-					suppressErrorRendering: true,
-					securityLevel: 'strict',
-					theme: theme === 'composio-dark' ? 'dark' : 'neutral',
-					fontFamily: 'inherit'
-				});
-				const drawn = await mermaid.render(renderId, source);
-				if (cancel) return;
-				host.innerHTML = drawn.svg;
+				host.innerHTML = svg;
 				host.dataset.viewKind = view.kind;
+				host.dataset.renderer = renderer;
 				host.setAttribute('aria-busy', 'false');
 				viewError = '';
 			})
