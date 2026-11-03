@@ -229,3 +229,28 @@ and the workspace allowlist are unchanged. Header and embedding unit tests plus
 browser tests cover the restore and the policy split. The claim-after-login flow
 (saving a portable graph into a signed-in account) remains a separate server feature
 pending production auth acceptance.
+
+## Claiming a portable diagram — 2026-11-04
+
+The owner asked for the claim flow behind the batonly.site embed: a visitor opens a
+shared/embedded portable link, signs in, and claims the graph into their account.
+The Convex `architectureSnapshots` API already existed with owner isolation, limits
+(40 snapshots/account, 250 nodes, 1000 edges) and graph validation, unit-tested for
+two-account isolation — the claim feature wires the editor UI to it:
+
+- A Claim bar appears in the header only while a portable link restored the current
+  graph and auth plus Convex are configured. Signed in, it saves the current graph
+  (name derived from the document title or the graph, bounded to the snapshot
+  limit). Signed out, it links to sign-in using the app's existing login entry.
+- A Claimed diagrams panel in the explorer lists snapshots through the same API,
+  reopens them through the editor's existing document-apply path (history preserved,
+  undo works), and removes them with confirmation.
+- Errors surface inline (limit reached, not authorized, connection); claim controls
+  hide entirely without auth or Convex so the editor is unchanged in the default
+  test environment.
+
+Evidence: helper unit tests (claim rules and name derivation), the existing
+Convex-API two-account isolation spec, and a browser regression asserting claim
+controls stay hidden on the embed route without auth/Convex. The signed-in flow
+itself runs against production auth, which remains an open acceptance gate like
+all account features.

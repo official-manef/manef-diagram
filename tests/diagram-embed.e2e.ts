@@ -65,3 +65,11 @@ test('embed responses frame-allow the owner product sites while the editor stays
 	expect(app.headers()['x-frame-options']).toBe('SAMEORIGIN');
 	expect(app.headers()['content-security-policy'] ?? '').not.toContain('batonly.site');
 });
+
+test('claim controls stay hidden without auth or a Convex backend', async ({ page }) => {
+	await page.goto(embedUrl());
+	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
+	await expect(page.getByRole('button', { name: 'Claim this diagram' })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: 'Sign in to claim this diagram' })).toHaveCount(0);
+	await expect(page.locator('.claim-panel')).toHaveCount(0);
+});

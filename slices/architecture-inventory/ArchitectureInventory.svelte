@@ -62,6 +62,11 @@
 	import { rememberSnapshot } from './lib/history';
 	import { kindGroups, convertNodeView } from './lib/diagram-views';
 	import { renderDiagram } from './lib/diagram-render';
+	import { canClaim } from './lib/claim';
+	import ClaimBar from './ClaimBar.svelte';
+	import ClaimedDiagrams from './ClaimedDiagrams.svelte';
+	import { page } from '$app/state';
+	import { PUBLIC_CONVEX_URL } from '$app/env/public';
 	import { compileNodeView } from './lib/diagram-compile';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import {
@@ -94,10 +99,14 @@
 	let diagramPath = $state<string[]>([]);
 	const graph = $derived(diagramAt(root, diagramPath) ?? root);
 	let hydrated = $state(false);
+	let sharedLink = $state(false);
 	onMount(() => {
 		try {
 			const view = parseDiagramView(window.location.search);
-			if (view.graph) root = view.graph;
+			if (view.graph) {
+				root = view.graph;
+				sharedLink = true;
+			}
 			const opened = diagramAt(root, view.open);
 			if (view.open.length > 0 && opened) diagramPath = [...view.open];
 			else if (view.open.length > 0) {
@@ -1010,6 +1019,35 @@
 				: 'Downloaded the complete document, including nested diagrams, view sources, metadata and layout.';
 		} catch (error) {
 			actionMessage = error instanceof Error ? error.message : 'Export failed.';
+		}
+		jsonMessage = actionMessage;
+	}
+
+	const claimReady = $derived(
+		canClaim({
+			sharedLink,
+			authEnabled: page.data.auth?.enabled === true,
+			convexConfigured: Boolean(PUBLIC_CONVEX_URL)
+		})
+	);
+	const claimedPanelReady = $derived(
+		page.data.auth?.enabled === true && Boolean(PUBLIC_CONVEX_URL)
+	);
+
+	function onClaimed() {
+		sharedLink = false;
+		actionMessage = 'Diagram claimed. Find it any time under Claimed diagrams.';
+		jsonMessage = actionMessage;
+	}
+
+	function openClaimed(nextGraph: ArchitectureGraph, name: string) {
+		try {
+			applyImported({ ...createDocument(nextGraph), title: name });
+			sharedLink = false;
+			actionMessage = 'Opened a claimed diagram.';
+		} catch (error) {
+			actionMessage =
+				error instanceof Error ? error.message : 'The claimed diagram could not open.';
 		}
 		jsonMessage = actionMessage;
 	}
@@ -2053,6 +2091,11 @@
 					onchange={importFile}
 				/>
 				<Button data-interactive variant="outline" size="sm" onclick={shareView}>Share view</Button>
+				{#if claimReady}
+					<div class="claim-slot" inert={pickerOpen}>
+						<ClaimBar {graph} title={importedDocument.title} {onClaimed} />
+					</div>
+				{/if}
 			</div>
 		</div>
 	</header>
@@ -2237,6 +2280,11 @@
 						connection or clears selection.
 					</p>
 				</details>
+				{#if claimedPanelReady}
+					<div class="claim-panel-slot" inert={pickerOpen}>
+						<ClaimedDiagrams onOpen={openClaimed} />
+					</div>
+				{/if}
 				<details class="service-navigator" open={overview}>
 					<summary>Find a service ({visibleNodes.length})</summary>
 					<ul>
