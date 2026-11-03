@@ -104,6 +104,19 @@
 	flex: 1;
 	place-items: center;
 	min-height: 240px;
+	/* Pele themes diagrams through CSS variables: map them to the editor tokens
+	   so dark/light theme switches never need a re-render. */
+	--pele-bg: transparent;
+	--pele-fg: var(--foreground);
+	--pele-muted: var(--muted-foreground);
+	--pele-line: var(--border);
+	--pele-border: var(--border);
+	--pele-surface: var(--card);
+	--pele-surface-alt: var(--secondary);
+	--pele-accent: var(--primary);
+	--pele-font: inherit;
+	--pele-font-mono: var(--font-mono);
+	--pele-radius: 6px;
 }
 .workspace .view-canvas svg {
 	max-width: 100%;

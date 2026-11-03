@@ -306,6 +306,7 @@ test('every diagram kind compiles from the demo graph and renders a preview', as
 		const label = await options.nth(index).textContent();
 		await options.nth(index).click();
 		await expect(page.locator('.view-canvas svg').first()).toBeVisible({ timeout: 20_000 });
+		await expect(page.locator('.view-canvas')).toHaveAttribute('data-renderer', 'pele');
 		await expect(page.locator('.mermaid-view .help')).toHaveCount(0);
 		await expect(page.locator('.view-bar strong')).not.toHaveText('');
 		// Returning to the list keeps the picker open for the next kind.
