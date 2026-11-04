@@ -33,7 +33,7 @@ function jsonEnvelope(
 
 describe('diagram formats', () => {
 	it('keeps legacy display helpers available for all bundled diagrams', () => {
-		expect(DIAGRAM_KINDS).toHaveLength(24);
+		expect(DIAGRAM_KINDS).toHaveLength(33);
 		for (const kind of DIAGRAM_KINDS) {
 			const view = createNodeView(kind.id, 'Map');
 			expect(view.format).toBe('md');

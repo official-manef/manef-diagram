@@ -486,6 +486,156 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 			}
 		}
 		return lines.join('\n');
+	},
+	swimlane: (context) => {
+		const lines: string[] = ['swimlane-beta TD'];
+		for (const { stage, nodes } of levelStages(context)) {
+			lines.push(`  subgraph ${stage}`);
+			for (const node of nodes) {
+				lines.push(`    ${context.ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+			}
+			lines.push('  end');
+		}
+		for (const edge of context.edges) {
+			lines.push(`  ${context.ids.get(edge.source)} --> ${context.ids.get(edge.target)}`);
+		}
+		return lines.join('\n');
+	},
+	eventmodeling: (context) => {
+		// Commands drive work (they have outgoing edges); events are outcomes (leaves).
+		// Each item becomes a numbered time frame chained to the next one. Names are
+		// identifier-like because the grammar does not accept free text labels.
+		const identifier = (node: Node): string => {
+			const raw = (plain(node.label) || node.id).replace(/[^A-Za-z0-9_.]/g, '');
+			return /^[0-9]/.test(raw) ? `n${raw}` : raw || context.ids.get(node.id)!;
+		};
+		const commands = context.nodes.filter((node) =>
+			context.edges.some((edge) => edge.source === node.id)
+		);
+		const events = context.nodes.filter(
+			(node) => !context.edges.some((edge) => edge.source === node.id)
+		);
+		const lines: string[] = [];
+		let frame = 1;
+		for (const node of commands) {
+			const next = frame + 1;
+			lines.push(`tf 0${frame} command ${identifier(node)} ->> 0${next}`);
+			frame = next;
+		}
+		for (const node of events.slice(0, 6)) {
+			const name = identifier(node);
+			// The aggregate bracket accepts identifier tokens without dots.
+			lines.push(`tf 0${frame} event ${name} [[${context.ids.get(node.id)}]]`);
+			frame += 1;
+		}
+		return ['eventmodeling', ...lines.slice(0, 16)].join('\n');
+	},
+	agentflow: ({ nodes, edges, ids }) => {
+		const lines = ['agentflow-beta LR'];
+		for (const node of nodes) {
+			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+		}
+		for (const edge of edges) {
+			const label = plain(edge.label ?? '');
+			lines.push(
+				label
+					? `  ${ids.get(edge.source)} --> |"${label}"| ${ids.get(edge.target)}`
+					: `  ${ids.get(edge.source)} --> ${ids.get(edge.target)}`
+			);
+		}
+		return lines.join('\n');
+	},
+	usecase: ({ nodes, edges, ids }) => {
+		const lines = ['usecase-beta'];
+		const actors = nodes.filter((node) => level(node) === 0).slice(0, 4);
+		const cases = nodes.filter((node) => !actors.includes(node));
+		for (const actor of actors) {
+			lines.push(`  actor ${ids.get(actor.id)}`);
+		}
+		for (const node of cases.slice(0, 24)) {
+			lines.push(`  ${ids.get(node.id)}(${plain(node.label) || node.id})`);
+		}
+		for (const edge of edges) {
+			lines.push(`  ${ids.get(edge.source)} --> ${ids.get(edge.target)}`);
+		}
+		return lines.join('\n');
+	},
+	railroad: ({ nodes, edges, ids }) => {
+		const lines = ['railroad-beta'];
+		for (const node of nodes.slice(0, 20)) {
+			const children = edges
+				.filter((edge) => edge.source === node.id)
+				.map((edge) => nodes.find((item) => item.id === edge.target))
+				.filter((child): child is Node => Boolean(child));
+			if (children.length === 0) continue;
+			const terms = children.map((child) => `terminal("${plain(child.label) || child.id}")`);
+			lines.push(
+				`  ${ids.get(node.id)} = ${terms.length === 1 ? terms[0] : `sequence(${terms.join(', ')})`} ;`
+			);
+		}
+		return lines.join('\n');
+	},
+	info: (context) => {
+		const first = context.nodes[0];
+		const title = plain(context.title) || (first ? plain(first.label) : '') || 'Diagram';
+		const detail = first ? plain(first.subtitle ?? '') || plain(first.label) : '';
+		return ['info', 'showInfo', `title ${title}${detail ? ` — ${detail}` : ''}`].join('\n');
+	},
+	venn: (context) => {
+		const sets = context.nodes.slice(0, 3);
+		const lines: string[] = ['venn-beta', `title ${plain(context.title) || 'Shared context'}`];
+		for (const node of sets) {
+			lines.push(`set ${context.ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+		}
+		for (const edge of context.edges) {
+			const source = context.ids.get(edge.source)!;
+			const target = context.ids.get(edge.target)!;
+			if (
+				sets.some((node) => node.id === edge.source) &&
+				sets.some((node) => node.id === edge.target)
+			) {
+				lines.push(`union ${source},${target}["${plain(edge.label ?? '') || 'shared'}"]`);
+			}
+		}
+		return lines.join('\n');
+	},
+	wardley: (context) => {
+		const maxLevel = Math.max(0, ...context.nodes.map(level));
+		const lines: string[] = ['wardley-beta', `title ${plain(context.title) || 'Map'}`];
+		for (const node of context.nodes.slice(0, 30)) {
+			const x = Math.min(0.95, 0.2 + level(node) * 0.25);
+			const y = Math.min(0.95, maxLevel === 0 ? 0.5 : 1 - level(node) / (maxLevel + 1));
+			lines.push(`component "${plain(node.label) || node.id}" [${x.toFixed(2)}, ${y.toFixed(2)}]`);
+		}
+		for (const edge of context.edges.slice(0, 60)) {
+			const source = context.nodes.find((node) => node.id === edge.source);
+			const target = context.nodes.find((node) => node.id === edge.target);
+			if (source && target)
+				lines.push(
+					`"${plain(source.label) || source.id}" -> "${plain(target.label) || target.id}"`
+				);
+		}
+		return lines.join('\n');
+	},
+	cynefin: (context) => {
+		const domainNames: Record<number, string> = {
+			0: 'clear',
+			1: 'complicated',
+			2: 'complex',
+			3: 'chaotic'
+		};
+		const lines: string[] = ['cynefin-beta', `title ${plain(context.title) || 'Decision domains'}`];
+		const buckets = new Map<number, string[]>();
+		for (const node of context.nodes) {
+			const domain = level(node) <= 2 ? level(node) : 3;
+			if (!buckets.has(domain)) buckets.set(domain, []);
+			buckets.get(domain)!.push(`"${plain(node.label) || node.id}"`);
+		}
+		for (const [key, items] of [...buckets.entries()].sort(([a], [b]) => a - b)) {
+			lines.push(domainNames[key]);
+			for (const item of items) lines.push(item);
+		}
+		return lines.join('\n');
 	}
 };
 
