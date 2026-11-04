@@ -28,7 +28,16 @@ export const DIAGRAM_KINDS = [
 	{ id: 'radar', label: 'Radar', group: 'Charts', keyword: 'radar-beta' },
 	{ id: 'sankey', label: 'Sankey', group: 'Charts', keyword: 'sankey-beta' },
 	{ id: 'treemap', label: 'Treemap', group: 'Charts', keyword: 'treemap-beta' },
-	{ id: 'ishikawa', label: 'Ishikawa', group: 'Process', keyword: 'ishikawa-beta' }
+	{ id: 'ishikawa', label: 'Ishikawa', group: 'Process', keyword: 'ishikawa-beta' },
+	{ id: 'swimlane', label: 'Swimlane', group: 'Process', keyword: 'swimlane-beta' },
+	{ id: 'eventmodeling', label: 'Event modeling', group: 'Process', keyword: 'eventmodeling' },
+	{ id: 'agentflow', label: 'Agent flow', group: 'Process', keyword: 'agentflow-beta' },
+	{ id: 'usecase', label: 'Use case', group: 'Structure', keyword: 'usecase-beta' },
+	{ id: 'railroad', label: 'Railroad', group: 'Structure', keyword: 'railroad-beta' },
+	{ id: 'info', label: 'Info card', group: 'Structure', keyword: 'info' },
+	{ id: 'venn', label: 'Venn', group: 'Charts', keyword: 'venn-beta' },
+	{ id: 'wardley', label: 'Wardley map', group: 'Strategy', keyword: 'wardley-beta' },
+	{ id: 'cynefin', label: 'Cynefin', group: 'Strategy', keyword: 'cynefin-beta' }
 ] as const;
 
 const TEMPLATES: Record<DiagramKind, string> = {
@@ -162,7 +171,58 @@ Source,Graph,5`,
     Code
       Missing cache
     Process
-      No budget`
+      No budget`,
+	swimlane: `swimlane-beta TD
+  subgraph Build
+    a["Scope"] --> b["Branch"]
+  end
+  subgraph Review
+    c["QA"]
+  end
+  b --> c`,
+	eventmodeling: `eventmodeling
+tf 01 command Submit brief ->> 02
+tf 02 event Brief accepted [[Brief]]
+rf 03 Read model
+tf 03 command Start build ->> 04
+tf 04 event Project started [[Project]]`,
+	agentflow: `agentflow-beta LR
+  brief["Brief"] --> plan{"Plan?"} -- approved --> build[["tool"]]
+  plan -- changes --> brief`,
+	usecase: `usecase-beta
+actor Client
+actor Developer
+Client --> (Review preview)
+Developer --> (Connect repository)
+(Review preview) ..> : include (Leave feedback)`,
+	railroad: `railroad-beta
+brief = sequence(terminal("scope"), choice(terminal("approve"), nonterminal("revise"))) ;
+revise = zeroOrMore(terminal("change")) ;`,
+	info: `info
+title A Baton project keeps scope, access and evidence together
+showInfo`,
+	venn: `venn-beta
+title Shared project context
+set Team["Team"]:6
+set Client["Client"]:3
+union Team,Client["Project"]:2`,
+	wardley: `wardley-beta
+title Project delivery
+component Client [0.9, 0.6]
+component Repository [0.5, 0.8]
+component Delivery record [0.3, 0.9]
+Client -> Delivery record
+Repository -> Delivery record`,
+	cynefin: `cynefin-beta
+title Where a decision sits
+clear
+"Connect accounts"
+complicated
+"Bind resources"
+complex
+"Delivery handoff"
+chaotic
+"Production incident"`
 };
 
 export function diagramKind(id: string): (typeof DIAGRAM_KINDS)[number] | undefined {

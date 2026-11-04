@@ -225,7 +225,7 @@ test('all bundled diagram types can be compared with arrows without creating sav
 	const kinds = await list
 		.getByRole('option')
 		.evaluateAll((options) => options.map((option) => option.id.replace('diagram-kind-', '')));
-	expect(kinds).toHaveLength(24);
+	expect(kinds).toHaveLength(33);
 	for (let index = 0; index < kinds.length; index++) {
 		if (index) await list.press('ArrowDown');
 		await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', kinds[index]);
