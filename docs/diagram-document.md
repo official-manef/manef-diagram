@@ -1,7 +1,7 @@
 # Diagram document and converters
 
 MANEF Diagram uses one versioned document for its architecture graph, nested diagrams,
-all 24 bundled Mermaid view kinds, editor state and provider-specific payloads. JSON
+all 33 bundled diagram view kinds, editor state and provider-specific payloads. JSON
 and Markdown serialize that document. The n8n adapter keeps an imported workflow in
 the same document and provides a graph projection for inspection.
 
@@ -74,12 +74,13 @@ information to restore ports, nested diagrams, metadata, UI state or n8n payload
 Every bundled view kind stays in `node.views` with its ID, kind, title, authored
 format and complete source:
 
-| Group     | Kinds                                                                                   |
-| --------- | --------------------------------------------------------------------------------------- |
-| Process   | Flowchart, sequence, state, user journey, Ishikawa                                      |
-| Structure | Class, entity relationship, C4, block, architecture, packet, mindmap, tree, requirement |
-| Planning  | Gantt, timeline, Git graph, Kanban                                                      |
-| Charts    | Pie, quadrant, XY, radar, Sankey, treemap                                               |
+| Group     | Kinds                                                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------- |
+| Process   | Flowchart, sequence, state, user journey, Ishikawa, swimlane, event modeling, agent flow                          |
+| Structure | Class, entity relationship, C4, block, architecture, packet, mindmap, tree, requirement, use case, railroad, info |
+| Planning  | Gantt, timeline, Git graph, Kanban                                                                                |
+| Charts    | Pie, quadrant, XY, radar, Sankey, treemap, Venn                                                                   |
+| Strategy  | Wardley map, Cynefin                                                                                              |
 
 Individual view conversions use `convertNodeView(view, 'md' | 'json')`. Their
 `manef-node-view` envelope and `manef-node-view-json` Markdown block retain the

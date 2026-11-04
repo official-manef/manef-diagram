@@ -254,3 +254,14 @@ Convex-API two-account isolation spec, and a browser regression asserting claim
 controls stay hidden on the embed route without auth/Convex. The signed-in flow
 itself runs against production auth, which remains an open acceptance gate like
 all account features.
+
+## Diagram kinds expansion to the Pele catalog — 2026-11-04
+
+Nine Pele-only kinds join the Diagram type catalog (33 total, new Strategy group:
+Wardley map and Cynefin). Compilers follow the same deterministic graph-to-source
+contract as the first 24; grammar quirks were learned from failed renders and fixed
+(event-modeling identifiers and aggregate brackets, info statement order). The
+render matrices now cover 33 kinds in node and in the browser; the n8n converter
+workflow regenerated from the expanded catalog. Pele-only kinds have no mermaid.js
+fallback — a Pele failure surfaces as the usual inline view error, which is
+acceptable because Pele is pinned and its parity is CI-enforced.

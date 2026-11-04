@@ -363,3 +363,22 @@ The Diagram type picker previews the compiled view for the current graph, so the
 demo compiles and renders every kind live. Local acceptance: unit tests per kind
 (keyword prefix, determinism, escaping, bounds) and a browser case that compiles and
 renders all 24 kinds from the bundled demo graph without error.
+
+## Pele kinds expansion — 2026-11-04
+
+The catalog grows from 24 to 33 kinds by adopting the nine Pele-only diagram types
+(Wardley map, Cynefin, swimlane, use case, event modeling, railroad, agent flow,
+info card, Venn). Each has a deterministic compiler from the actual graph: swimlane
+lanes come from levels, event-modeling time frames chain commands (nodes with
+outgoing edges) into events (leaves), railroad rules derive from each node's
+fan-out, Wardley maps place components by level (evolution) and depth (visibility),
+Cynefin groups nodes into domains by level, Venn sets come from the first nodes
+with unions from edges, and the info card projects the document title. Grammar
+constraints learned from real renders: event-modeling names are identifier-like
+(CamelCase from labels, aggregate brackets without dots) and info requires
+showInfo before title.
+
+These kinds render only through Pele; mermaid.js cannot draw them. Every kind is
+covered by the node-side render matrix, the browser picker matrix (now 33 kinds)
+and the regenerated n8n converter workflow. The bundled demo graph demonstrates
+all of them.
