@@ -5,6 +5,10 @@ During 0.x, minor releases may change template structure; patch releases are com
 
 ## [Unreleased]
 
+- Add a production deploy checklist (docs/PRODUCTION-CHECKLIST.md) covering local pre-flight, Convex backend, environment variables, Vercel deploy, post-deploy verification for the embed/Pele/claim features and rollback.
+
+- Expand the Diagram type catalog from 24 to 33 kinds with nine Pele-only diagram types compiled from the actual graph: swimlane (lanes from levels), event modeling (commands drive, events land), agent flow, use case, railroad (rules from each node's fan-out), info card, Venn (sets from the first nodes, unions from edges), Wardley map (levels map to evolution and visibility) and Cynefin (levels map to domains). These kinds render only through Pele; mermaid.js cannot draw them.
+
 - Let signed-in visitors claim a shared portable diagram into their account: a Claim button saves the restored graph through the owner-isolated Convex architecture-snapshot API, a Claimed diagrams panel lists, reopens and removes claimed snapshots, and signed-out visitors get a sign-in CTA. Claim controls stay hidden without auth or a Convex backend.
 
 - Add a frameable `/embed/diagram` route that restores portable graph links inside the editor and allowlists the owner product origins (batonly.site, review.batonly.site) for that route only; the editor itself stays same-origin and the workspace embed allowlist is unchanged.
