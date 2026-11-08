@@ -66,7 +66,7 @@
 	import ClaimedDiagrams from './ClaimedDiagrams.svelte';
 	import { page } from '$app/state';
 	import { PUBLIC_CONVEX_URL } from '$app/env/public';
-	import { compileNodeView } from './lib/diagram-compile';
+	import { compileNodeView, MAX_COMPILED_NODES, MAX_COMPILED_EDGES } from './lib/diagram-compile';
 	import { hitByMarquee, marqueeMode, worldRect, type MarqueeMode } from './lib/select';
 	import {
 		createDocument,
@@ -2527,6 +2527,12 @@
 							<span>{activeView.format === 'md' ? 'Markdown' : 'JSON'}</span>
 							<Button size="sm" variant="outline" onclick={closeNodeView}>Map</Button>
 						</div>
+						{#if diagramPreview && (graph.nodes.length > MAX_COMPILED_NODES || graph.edges.length > MAX_COMPILED_EDGES)}
+							<p class="help" role="status">
+								Large diagram preview is limited to the first {MAX_COMPILED_NODES} nodes and up to {MAX_COMPILED_EDGES}
+								connections. The original graph is unchanged.
+							</p>
+						{/if}
 						{#if viewError}
 							<p class="help" role="alert">{viewError}</p>
 							<Button size="sm" variant="outline" onclick={() => (renderRetry += 1)}

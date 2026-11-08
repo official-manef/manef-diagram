@@ -12,8 +12,8 @@ import type { DiagramKind } from './diagram-views';
  * kind. Templates remain only for an empty graph.
  */
 
-const MAX_COMPILED_NODES = 80;
-const MAX_COMPILED_EDGES = 240;
+export const MAX_COMPILED_NODES = 80;
+export const MAX_COMPILED_EDGES = 240;
 const MAX_SOURCE_CHARS = 20_000;
 const STATUS_SCORE: Record<string, number> = { active: 5, proposed: 3, private: 2 };
 const STATUS_RISK: Record<string, string> = { active: 'low', proposed: 'medium', private: 'high' };

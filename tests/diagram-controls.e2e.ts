@@ -463,3 +463,33 @@ test('diagram type list supports first-letter keyboard navigation', async ({ pag
 	await expect(list).toHaveAttribute('aria-activedescendant', 'diagram-kind-state');
 	await expect(list).toBeFocused();
 });
+
+test('large graph preview warns when compiled diagram may omit items', async ({ page }) => {
+	await page.goto('/app');
+	const graph = {
+		schemaVersion: 1,
+		nodes: Array.from({ length: 81 }, (_, i) => ({
+			id: `n${i}`,
+			label: `Node ${i}`,
+			tags: [],
+			inputs: [],
+			outputs: []
+		})),
+		edges: []
+	};
+	await page
+		.locator('input[type="file"]')
+		.setInputFiles({
+			name: 'large.json',
+			mimeType: 'application/json',
+			buffer: Buffer.from(
+				JSON.stringify({ format: 'manef-diagram', schemaVersion: 1, title: 'Large', graph })
+			)
+		});
+	await expect(page.getByRole('status')).toHaveText('Imported large.json.');
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await expect(
+		page.getByText(/Large diagram preview is limited to the first 80 nodes/)
+	).toBeVisible();
+	await expect(page.getByText(/The original graph is unchanged/)).toBeVisible();
+});
