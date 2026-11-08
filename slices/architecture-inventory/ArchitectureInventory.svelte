@@ -61,7 +61,6 @@
 	import { panForZoom, wheelGesture } from './lib/camera';
 	import { rememberSnapshot } from './lib/history';
 	import { kindGroups, convertNodeView } from './lib/diagram-views';
-	import { renderDiagram } from './lib/diagram-render';
 	import { canClaim } from './lib/claim';
 	import ClaimBar from './ClaimBar.svelte';
 	import ClaimedDiagrams from './ClaimedDiagrams.svelte';
@@ -177,6 +176,7 @@
 	let openView = $state<{ nodeId: string; viewId: string } | null>(null);
 	let viewHost = $state<HTMLDivElement | null>(null);
 	let viewError = $state('');
+	let viewLoading = $state(false);
 	let viewPanel = $state<HTMLDivElement | null>(null);
 	let viewReturnFocus: HTMLElement | null = null;
 	let traceMode = $state<TraceMode>('direct');
@@ -1482,7 +1482,7 @@
 			void tick()
 				.then(() => {
 					if (event.shiftKey) pickerTrigger?.focus();
-					else document.querySelector<HTMLSelectElement>('.top-end select')?.focus();
+					else document.querySelector<HTMLInputElement>('.search-section input')?.focus();
 				})
 				.catch(() => undefined);
 			return;
@@ -1554,10 +1554,16 @@
 		host.dataset.viewKind = '';
 		host.removeAttribute('data-renderer');
 		host.setAttribute('aria-busy', 'true');
+		viewLoading = true;
 		host.innerHTML = '';
-		void renderDiagram(view, theme === 'composio-dark' ? 'dark' : 'neutral')
-			.then(({ svg, renderer }) => {
-				if (cancel) return;
+		void import('./lib/diagram-render')
+			.then(({ renderDiagram }) =>
+				cancel ? null : renderDiagram(view, theme === 'composio-dark' ? 'dark' : 'neutral')
+			)
+			.then((result) => {
+				if (cancel || !result) return;
+				const { svg, renderer } = result;
+				viewLoading = false;
 				host.innerHTML = svg;
 				host.dataset.viewKind = view.kind;
 				host.dataset.renderer = renderer;
@@ -1568,6 +1574,7 @@
 				if (cancel) return;
 				host.innerHTML = '';
 				host.setAttribute('aria-busy', 'false');
+				viewLoading = false;
 				viewError = error instanceof Error ? error.message : 'This diagram could not be drawn.';
 			});
 		return () => {
@@ -1974,72 +1981,6 @@
 					onclick={startSettle}>Graph</Button
 				>
 			</div>
-			<div
-				class="diagram-picker"
-				bind:this={pickerWrapper}
-				onfocusout={(event) => {
-					if (
-						!(event.relatedTarget instanceof Node) ||
-						!pickerWrapper?.contains(event.relatedTarget)
-					)
-						pickerOpen = false;
-				}}
-			>
-				<button
-					type="button"
-					class="theme-select"
-					bind:this={pickerTrigger}
-					aria-label="Diagram type"
-					aria-haspopup="listbox"
-					aria-expanded={pickerOpen}
-					aria-controls="diagram-kind-list"
-					disabled={!hydrated}
-					onclick={togglePicker}
-					onkeydown={(event) => {
-						if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-							event.preventDefault();
-							if (!pickerOpen) {
-								togglePicker();
-								if (event.key === 'ArrowUp') chooseDiagram(pickerKinds.length - 1);
-							}
-						}
-					}}
-				>
-					Diagram type <span aria-hidden="true">▾</span>
-				</button>
-				{#if pickerOpen}
-					<div
-						id="diagram-kind-list"
-						class="diagram-kind-list"
-						role="listbox"
-						aria-label="Diagram types"
-						tabindex="0"
-						bind:this={pickerList}
-						aria-activedescendant={`diagram-kind-${pickerKinds[pickerIndex].id}`}
-						onkeydown={pickerKeydown}
-					>
-						{#each diagramKindGroups as group (group.group)}
-							<div role="group" aria-label={group.group}>
-								<div class="diagram-kind-group" aria-hidden="true">{group.group}</div>
-								{#each group.kinds as kind (kind.id)}
-									<button
-										type="button"
-										role="option"
-										tabindex="-1"
-										id={`diagram-kind-${kind.id}`}
-										aria-selected={pickerKinds[pickerIndex].id === kind.id}
-										onmousedown={(event) => event.preventDefault()}
-										onclick={() => {
-											chooseDiagram(pickerKinds.findIndex((item) => item.id === kind.id));
-											pickerList?.focus();
-										}}>{kind.label}</button
-									>
-								{/each}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
 		</div>
 		<div class="top-end" inert={pickerOpen}>
 			{#if diagramPath.length > 0}
@@ -2101,8 +2042,76 @@
 	</header>
 	{#if actionMessage}<p class="toast" role="status">{actionMessage}</p>{/if}
 
-	<div class="layout" inert={pickerOpen}>
+	<div class="layout">
 		<aside class="sidebar" id="diagram-explorer">
+			<section aria-label="Diagram type picker">
+				<div
+					class="diagram-picker"
+					bind:this={pickerWrapper}
+					onfocusout={(event) => {
+						if (
+							!(event.relatedTarget instanceof Node) ||
+							!pickerWrapper?.contains(event.relatedTarget)
+						)
+							pickerOpen = false;
+					}}
+				>
+					<button
+						type="button"
+						class="theme-select"
+						bind:this={pickerTrigger}
+						aria-label="Diagram type"
+						aria-haspopup="listbox"
+						aria-expanded={pickerOpen}
+						aria-controls="diagram-kind-list"
+						disabled={!hydrated}
+						onclick={togglePicker}
+						onkeydown={(event) => {
+							if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+								event.preventDefault();
+								if (!pickerOpen) {
+									togglePicker();
+									if (event.key === 'ArrowUp') chooseDiagram(pickerKinds.length - 1);
+								}
+							}
+						}}
+					>
+						Diagram type <span aria-hidden="true">▾</span>
+					</button>
+					{#if pickerOpen}
+						<div
+							id="diagram-kind-list"
+							class="diagram-kind-list"
+							role="listbox"
+							aria-label="Diagram types"
+							tabindex="0"
+							bind:this={pickerList}
+							aria-activedescendant={`diagram-kind-${pickerKinds[pickerIndex].id}`}
+							onkeydown={pickerKeydown}
+						>
+							{#each diagramKindGroups as group (group.group)}
+								<div role="group" aria-label={group.group}>
+									<div class="diagram-kind-group" aria-hidden="true">{group.group}</div>
+									{#each group.kinds as kind (kind.id)}
+										<button
+											type="button"
+											role="option"
+											tabindex="-1"
+											id={`diagram-kind-${kind.id}`}
+											aria-selected={pickerKinds[pickerIndex].id === kind.id}
+											onmousedown={(event) => event.preventDefault()}
+											onclick={() => {
+												chooseDiagram(pickerKinds.findIndex((item) => item.id === kind.id));
+												pickerList?.focus();
+											}}>{kind.label}</button
+										>
+									{/each}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</section>
 			<section class="search-section">
 				<h2>Explore canvas</h2>
 				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
@@ -2471,6 +2480,7 @@
 							<Button size="sm" variant="outline" onclick={closeNodeView}>Map</Button>
 						</div>
 						{#if viewError}<p class="help">{viewError}</p>{/if}
+						{#if viewLoading}<p class="help" role="status">Loading diagram preview…</p>{/if}
 						<div class="view-canvas" bind:this={viewHost}></div>
 					</div>
 				{/if}

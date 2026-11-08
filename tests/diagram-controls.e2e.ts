@@ -212,7 +212,7 @@ test('diagram listbox keeps accessible focus and selected-option semantics', asy
 	expect(result.violations).toEqual([]);
 	await list.press('Tab');
 	await expect(list).toBeHidden();
-	await expect(page.getByLabel('Color theme', { exact: true })).toBeFocused();
+	await expect(page.getByLabel('Search graph', { exact: true })).toBeFocused();
 });
 
 test('all bundled diagram types can be compared with arrows without creating saved views', async ({
@@ -313,4 +313,138 @@ test('every diagram kind compiles from the demo graph and renders a preview', as
 		await list.focus();
 		expect(label, `${label} preview rendered`).toBeTruthy();
 	}
+});
+
+test('diagram type chooser stays in the explorer without covering the diagram', async ({
+	page
+}) => {
+	await ready(page);
+	const trigger = page.getByRole('button', { name: 'Diagram type', exact: true });
+	await expect(
+		page.locator('#diagram-explorer').getByRole('button', { name: 'Diagram type', exact: true })
+	).toBeVisible();
+	await expect(
+		page.locator('.topbar').getByRole('button', { name: 'Diagram type', exact: true })
+	).toHaveCount(0);
+	await trigger.click();
+	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
+	await expect(list).toBeVisible();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
+	const geometry = await page.evaluate(() => {
+		const list = document.querySelector('.diagram-kind-list')!.getBoundingClientRect();
+		const canvas = document.querySelector('.viewport')!.getBoundingClientRect();
+		return {
+			listRight: list.right,
+			listBottom: list.bottom,
+			canvasLeft: canvas.left,
+			canvasTop: canvas.top,
+			scrollWidth: document.documentElement.scrollWidth,
+			viewportWidth: window.innerWidth
+		};
+	});
+	expect(
+		geometry.listRight <= geometry.canvasLeft + 1 || geometry.listBottom <= geometry.canvasTop + 1
+	).toBe(true);
+	expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+	await list.press('Escape');
+	await expect(trigger).toBeFocused();
+});
+
+test('diagram renderer loads on demand when the picker opens', async ({ page }) => {
+	const manifest = JSON.parse(
+		await readFile('.svelte-kit/output/client/.vite/manifest.json', 'utf8')
+	);
+	const entry = manifest['slices/architecture-inventory/lib/diagram-render.ts'];
+	expect(entry?.isDynamicEntry).toBe(true);
+	const requests: string[] = [];
+	page.on('request', (request) => requests.push(new URL(request.url()).pathname));
+	await ready(page);
+	expect(requests.some((path) => path.endsWith(entry.file))).toBe(false);
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
+	expect(requests.some((path) => path.endsWith(entry.file))).toBe(true);
+});
+
+test('diagram preview does not execute or load markup from imported node labels', async ({
+	page
+}) => {
+	await page.addInitScript(() => {
+		(window as Window & { __diagramXss?: boolean }).__diagramXss = false;
+	});
+	const externalRequests: string[] = [];
+	await page.route('https://example.invalid/**', async (route) => {
+		externalRequests.push(route.request().url());
+		await route.abort();
+	});
+	const malicious = fixture();
+	malicious.graph.nodes[0].label =
+		'<img src=https://example.invalid/x onerror=window.__diagramXss=true>';
+	await page.goto('/app');
+	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
+	await page.locator('input[type="file"]').setInputFiles({
+		name: 'unsafe.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify(malicious))
+	});
+	await expect(page.getByRole('status')).toHaveText('Imported unsafe.json.');
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
+	await expect(
+		page.locator(
+			'.view-canvas script, .view-canvas img, .view-canvas [onerror], .view-canvas [onload]'
+		)
+	).toHaveCount(0);
+	expect(externalRequests).toEqual([]);
+	expect(
+		await page.evaluate(() => (window as Window & { __diagramXss?: boolean }).__diagramXss)
+	).toBe(false);
+});
+
+test('diagram type picker stays in flow at tablet width', async ({ page }) => {
+	await page.setViewportSize({ width: 768, height: 1024 });
+	await ready(page);
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
+	const bounds = await page.evaluate(() => {
+		const list = document.querySelector('.diagram-kind-list')!.getBoundingClientRect();
+		const viewport = document.querySelector('.viewport')!.getBoundingClientRect();
+		return {
+			listBottom: list.bottom,
+			viewportTop: viewport.top,
+			scrollWidth: document.documentElement.scrollWidth,
+			width: innerWidth
+		};
+	});
+	expect(bounds.listBottom).toBeLessThanOrEqual(bounds.viewportTop + 1);
+	expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.width + 1);
+});
+
+test('authored diagram source does not inject executable markup', async ({ page }) => {
+	await page.addInitScript(() => {
+		(window as Window & { __diagramXss?: boolean }).__diagramXss = false;
+	});
+	const externalRequests: string[] = [];
+	await page.route('https://example.invalid/**', async (route) => {
+		externalRequests.push(route.request().url());
+		await route.abort();
+	});
+	await ready(page, ['a']);
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Escape');
+	await page.getByRole('button', { name: 'Add to selected node', exact: true }).click();
+	await page
+		.getByLabel('Diagram source', { exact: true })
+		.fill(
+			'```mermaid\nflowchart LR\nA["<img src=https://example.invalid/x onerror=window.__diagramXss=true>"]\n```'
+		);
+	await expect(page.locator('.view-canvas')).toHaveAttribute('aria-busy', 'false');
+	await expect(
+		page.locator(
+			'.view-canvas script, .view-canvas img, .view-canvas [onerror], .view-canvas [onload]'
+		)
+	).toHaveCount(0);
+	expect(externalRequests).toEqual([]);
+	expect(
+		await page.evaluate(() => (window as Window & { __diagramXss?: boolean }).__diagramXss)
+	).toBe(false);
 });
