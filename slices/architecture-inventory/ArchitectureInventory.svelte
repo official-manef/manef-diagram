@@ -177,6 +177,7 @@
 	let viewHost = $state<HTMLDivElement | null>(null);
 	let viewError = $state('');
 	let viewLoading = $state(false);
+	let renderRetry = $state(0);
 	let viewPanel = $state<HTMLDivElement | null>(null);
 	let viewReturnFocus: HTMLElement | null = null;
 	let traceMode = $state<TraceMode>('direct');
@@ -1547,6 +1548,7 @@
 
 	$effect(() => {
 		const view = activeView;
+		void renderRetry;
 		const host = viewHost;
 		const theme = appliedTheme;
 		if (!view || !host) return;
@@ -1556,15 +1558,17 @@
 		host.setAttribute('aria-busy', 'true');
 		viewLoading = true;
 		host.innerHTML = '';
-		void import('./lib/diagram-render')
-			.then(({ renderDiagram }) =>
-				cancel ? null : renderDiagram(view, theme === 'composio-dark' ? 'dark' : 'neutral')
-			)
+		void Promise.all([import('./lib/diagram-render'), import('./lib/diagram-svg')])
+			.then(async ([{ renderDiagram }, { sanitizeDiagramSvg }]) => {
+				if (cancel) return null;
+				const result = await renderDiagram(view, theme === 'composio-dark' ? 'dark' : 'neutral');
+				return cancel ? null : { ...result, fragment: sanitizeDiagramSvg(result.svg) };
+			})
 			.then((result) => {
 				if (cancel || !result) return;
-				const { svg, renderer } = result;
+				const { fragment, renderer } = result;
 				viewLoading = false;
-				host.innerHTML = svg;
+				host.replaceChildren(fragment);
 				host.dataset.viewKind = view.kind;
 				host.dataset.renderer = renderer;
 				host.setAttribute('aria-busy', 'false');
@@ -2479,7 +2483,12 @@
 							<span>{activeView.format === 'md' ? 'Markdown' : 'JSON'}</span>
 							<Button size="sm" variant="outline" onclick={closeNodeView}>Map</Button>
 						</div>
-						{#if viewError}<p class="help">{viewError}</p>{/if}
+						{#if viewError}
+							<p class="help" role="alert">{viewError}</p>
+							<Button size="sm" variant="outline" onclick={() => (renderRetry += 1)}
+								>Retry diagram</Button
+							>
+						{/if}
 						{#if viewLoading}<p class="help" role="status">Loading diagram preview…</p>{/if}
 						<div class="view-canvas" bind:this={viewHost}></div>
 					</div>

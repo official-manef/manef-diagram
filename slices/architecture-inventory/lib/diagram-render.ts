@@ -19,7 +19,10 @@ type PeleModule = typeof import('pele');
 let pelePromise: Promise<PeleModule> | undefined;
 
 function loadPele(): Promise<PeleModule> {
-	pelePromise ??= import('pele');
+	pelePromise ??= import('pele').catch((error: unknown) => {
+		pelePromise = undefined;
+		throw error;
+	});
 	return pelePromise;
 }
 
@@ -33,7 +36,9 @@ async function renderWithMermaid(source: string, theme: DiagramTheme): Promise<s
 		suppressErrorRendering: true,
 		securityLevel: 'strict',
 		theme: theme === 'dark' ? 'dark' : 'neutral',
-		fontFamily: 'inherit'
+		fontFamily: 'inherit',
+		htmlLabels: false,
+		flowchart: { htmlLabels: false }
 	});
 	const drawn = await mermaid.render(`mmd-${crypto.randomUUID()}`, source);
 	return drawn.svg;
@@ -45,15 +50,15 @@ export async function renderDiagram(
 	theme: DiagramTheme = 'neutral'
 ): Promise<{ svg: string; renderer: DiagramRenderer }> {
 	const source = mermaidSource(view);
-	const pele = await loadPele();
-	if (pele.supports(source)) {
-		try {
+	try {
+		const pele = await loadPele();
+		if (pele.supports(source)) {
 			const rendered = pele.render(source, PELE_OPTIONS);
 			return { svg: rendered.svg, renderer: 'pele' };
-		} catch {
-			// Pele could not draw this source (syntax, semantics or limits);
-			// mermaid.js is the compatibility fallback until parity is proven.
 		}
+	} catch {
+		// Chunk-load, parser and renderer failures all use the strict fallback.
+		// A rejected Pele import is not cached, so the next explicit attempt retries.
 	}
 	return { svg: await renderWithMermaid(source, theme), renderer: 'mermaid' };
 }
