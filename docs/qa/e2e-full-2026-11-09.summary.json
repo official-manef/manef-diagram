@@ -1,0 +1,132 @@
+{
+	"schemaVersion": 1,
+	"testedCommit": "21faa585e129c292cf453e4736907a6c0db71935",
+	"branch": "feature/picker-hover-qa",
+	"environment": {
+		"node": "24.22.2",
+		"bun": "1.4.2",
+		"browser": "Chromium",
+		"target": "local production build/preview",
+		"liveProvidersTested": false
+	},
+	"command": "bun run test:e2e -- --reporter=list,json --workers=3 --output=/tmp/manef-full-qa-20261109-results",
+	"startedAt": "2026-11-08T20:09:48.964Z",
+	"durationMs": 125402.214,
+	"total": 444,
+	"passed": 443,
+	"skipped": 1,
+	"failed": 0,
+	"flaky": 0,
+	"reportErrors": 0,
+	"byProject": {
+		"narrow-mobile": {
+			"passed": 148
+		},
+		"mobile": {
+			"passed": 148
+		},
+		"desktop": {
+			"passed": 147,
+			"skipped": 1
+		}
+	},
+	"byFile": {
+		"tests/assistant.e2e.ts": {
+			"passed": 27
+		},
+		"tests/canvas-input.e2e.ts": {
+			"passed": 48
+		},
+		"tests/context-view.e2e.ts": {
+			"passed": 12
+		},
+		"tests/diagram-controls.e2e.ts": {
+			"passed": 71,
+			"skipped": 1
+		},
+		"tests/diagram-demo-forms.e2e.ts": {
+			"passed": 21
+		},
+		"tests/diagram-desktop.e2e.ts": {
+			"passed": 12
+		},
+		"tests/diagram-embed.e2e.ts": {
+			"passed": 9
+		},
+		"tests/diagram-filter-recovery.e2e.ts": {
+			"passed": 27
+		},
+		"tests/diagram-interactions.e2e.ts": {
+			"passed": 24
+		},
+		"tests/diagram-mobile.e2e.ts": {
+			"passed": 12
+		},
+		"tests/diagram-phone-pages.e2e.ts": {
+			"passed": 9
+		},
+		"tests/diagram-render-security.e2e.ts": {
+			"passed": 24
+		},
+		"tests/diagram-theme-ownership.e2e.ts": {
+			"passed": 9
+		},
+		"tests/diagram-workspace-focus.e2e.ts": {
+			"passed": 15
+		},
+		"tests/diagram-workspace-ownership.e2e.ts": {
+			"passed": 15
+		},
+		"tests/document-converters.e2e.ts": {
+			"passed": 15
+		},
+		"tests/dropdown-interactions.e2e.ts": {
+			"passed": 9
+		},
+		"tests/editor-header.e2e.ts": {
+			"passed": 6
+		},
+		"tests/editor-recovery.e2e.ts": {
+			"passed": 30
+		},
+		"tests/portable-agent.e2e.ts": {
+			"passed": 15
+		},
+		"tests/starter.e2e.ts": {
+			"passed": 33
+		}
+	},
+	"failedCases": [],
+	"skippedCases": [
+		{
+			"file": "tests/diagram-controls.e2e.ts",
+			"line": 565,
+			"title": "touch tap requests a preview without requiring hover",
+			"project": "desktop",
+			"status": "skipped",
+			"expectedStatus": "skipped",
+			"attempts": ["skipped"],
+			"reason": "Touch-only test is not applicable to the desktop profile; the same test passed in both mobile profiles."
+		}
+	],
+	"additionalSuites": [
+		{
+			"suite": "notes-isolation",
+			"command": "bun run test:notes -- --workers=1 --output=/tmp/manef-notes-qa-20261109-results",
+			"passed": 8,
+			"failed": 0,
+			"skipped": 0,
+			"durationSeconds": 8.8,
+			"boundary": "Local fixture; not real authenticated backend acceptance."
+		},
+		{
+			"suite": "dev-server",
+			"command": "bun run test:dev -- --workers=1 --output=/tmp/manef-dev-qa-20261109-results",
+			"passed": 2,
+			"failed": 0,
+			"skipped": 0,
+			"durationSeconds": 15.2,
+			"boundary": "Desktop development server smoke and hydration."
+		}
+	]
+}
