@@ -448,3 +448,18 @@ test('authored diagram source does not inject executable markup', async ({ page 
 		await page.evaluate(() => (window as Window & { __diagramXss?: boolean }).__diagramXss)
 	).toBe(false);
 });
+
+test('diagram type list supports first-letter keyboard navigation', async ({ page }) => {
+	await ready(page);
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
+	await expect(list).toHaveAccessibleDescription(
+		'Use arrow keys or type the first letter to find a type.'
+	);
+	await list.press('s');
+	await expect(list).toHaveAttribute('aria-activedescendant', 'diagram-kind-sequence');
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'sequence');
+	await list.press('s');
+	await expect(list).toHaveAttribute('aria-activedescendant', 'diagram-kind-state');
+	await expect(list).toBeFocused();
+});

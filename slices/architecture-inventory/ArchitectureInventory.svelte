@@ -1491,6 +1491,19 @@
 	}
 
 	function pickerKeydown(event: KeyboardEvent) {
+		if (!event.ctrlKey && !event.metaKey && !event.altKey && /^[a-z0-9]$/i.test(event.key)) {
+			const letter = event.key.toLocaleLowerCase();
+			for (let step = 1; step <= pickerKinds.length; step++) {
+				const index = (pickerIndex + step) % pickerKinds.length;
+				if (pickerKinds[index].label.toLocaleLowerCase().startsWith(letter)) {
+					event.preventDefault();
+					event.stopPropagation();
+					chooseDiagram(index);
+					break;
+				}
+			}
+			return;
+		}
 		if (event.key === 'Tab') {
 			event.preventDefault();
 			pickerOpen = false;
@@ -2097,11 +2110,15 @@
 						Diagram type <span aria-hidden="true">▾</span>
 					</button>
 					{#if pickerOpen}
+						<p id="diagram-kind-help" class="help">
+							Use arrow keys or type the first letter to find a type.
+						</p>
 						<div
 							id="diagram-kind-list"
 							class="diagram-kind-list"
 							role="listbox"
 							aria-label="Diagram types"
+							aria-describedby="diagram-kind-help"
 							tabindex="0"
 							bind:this={pickerList}
 							aria-activedescendant={`diagram-kind-${pickerKinds[pickerIndex].id}`}
