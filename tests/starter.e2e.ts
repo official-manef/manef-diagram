@@ -258,3 +258,21 @@ test('invalid registry slug is a real 404', async ({ page }) => {
 	await expect(page.getByRole('heading', { name: 'App not found' })).toBeVisible();
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,nofollow');
 });
+
+test('public MCP guide includes a concrete portable-diagram example', async ({ page }) => {
+	await page.goto('/guide?section=mcp');
+	await expect(
+		page.getByRole('heading', { name: 'Create a portable diagram with an AI agent' })
+	).toBeVisible();
+	const example = JSON.parse(
+		(await page.getByLabel('Example graph_create_portable_view input').textContent())!
+	);
+	expect(example.graph.schemaVersion).toBe(1);
+	expect(example.graph.nodes[0]).toMatchObject({
+		id: 'api',
+		label: 'API',
+		inputs: [],
+		outputs: []
+	});
+	await expect(page.getByText(/not a saved editor record/)).toBeVisible();
+});

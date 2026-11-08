@@ -6,6 +6,17 @@
 	import McpConnection from './mcp-connection.svelte';
 	import { guideSections } from './catalog';
 
+	const portableExample = JSON.stringify(
+		{
+			graph: {
+				schemaVersion: 1,
+				nodes: [{ id: 'api', label: 'API', tags: [], inputs: [], outputs: [] }],
+				edges: []
+			}
+		},
+		null,
+		2
+	);
 	const requestedSection = $derived(page.url.searchParams.get('section'));
 	const section = $derived(
 		guideSections.find((item) => item.id === requestedSection)?.id ?? 'start'
@@ -97,6 +108,28 @@
 			{:else if section === 'mcp'}
 				<h1>Connect to the Diagram MCP server</h1>
 				<McpConnection />
+				<h2>Create a portable diagram with an AI agent</h2>
+				<ol class="mapping-steps">
+					<li>
+						Connect an MCP client using the private server token. Discover the tools, then call <code
+							>graph_status</code
+						> with an empty object.
+					</li>
+					<li>
+						Call <code>graph_create_portable_view</code> with the graph below. Add nodes, ports and edges
+						as needed; every edge must reference existing ports.
+					</li>
+					<li>
+						Open the returned URL to inspect the diagram. The URL carries the graph and anyone with
+						it can read that data; never put secrets in it.
+					</li>
+				</ol>
+				<pre aria-label="Example graph_create_portable_view input"><code>{portableExample}</code
+					></pre>
+				<p>
+					The MCP tool creates a portable view, not a saved editor record. Export a document to
+					retain edits.
+				</p>
 				<h2>Troubleshooting</h2>
 				<p>
 					401 means the server token is missing or invalid. 404 means the server is disabled on that
@@ -144,6 +177,13 @@
 </PublicFrame>
 
 <style>
+	pre {
+		max-width: 100%;
+		overflow-x: auto;
+		padding: 1rem;
+		border: 1px solid var(--border);
+		border-radius: 0.5rem;
+	}
 	.mapping-steps {
 		list-style: decimal;
 		padding-left: 1.4rem;
