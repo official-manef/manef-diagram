@@ -477,19 +477,54 @@ test('large graph preview warns when compiled diagram may omit items', async ({ 
 		})),
 		edges: []
 	};
-	await page
-		.locator('input[type="file"]')
-		.setInputFiles({
-			name: 'large.json',
-			mimeType: 'application/json',
-			buffer: Buffer.from(
-				JSON.stringify({ format: 'manef-diagram', schemaVersion: 1, title: 'Large', graph })
-			)
-		});
+	await page.locator('input[type="file"]').setInputFiles({
+		name: 'large.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(
+			JSON.stringify({ format: 'manef-diagram', schemaVersion: 1, title: 'Large', graph })
+		)
+	});
 	await expect(page.getByRole('status')).toHaveText('Imported large.json.');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
 	await expect(
 		page.getByText(/Large diagram preview is limited to the first 80 nodes/)
 	).toBeVisible();
 	await expect(page.getByText(/The original graph is unchanged/)).toBeVisible();
+});
+
+test('oversized compiled preview reports an error without replacing the graph', async ({
+	page
+}) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await page.goto('/app');
+	const graph = {
+		schemaVersion: 1,
+		nodes: Array.from({ length: 80 }, (_, i) => ({
+			id: `n${i}`,
+			label: `Node ${i} ` + 'x'.repeat(300),
+			tags: [],
+			inputs: [],
+			outputs: []
+		})),
+		edges: []
+	};
+	await page
+		.locator('input[type="file"]')
+		.setInputFiles({
+			name: 'oversized-preview.json',
+			mimeType: 'application/json',
+			buffer: Buffer.from(
+				JSON.stringify({ format: 'manef-diagram', schemaVersion: 1, title: 'Large', graph })
+			)
+		});
+	await expect(page.getByRole('status')).toHaveText('Imported oversized-preview.json.');
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await expect(page.getByRole('status')).toContainText(
+		'Compiled view exceeds the source size limit.'
+	);
+	await expect(page.getByRole('listbox', { name: 'Diagram types', exact: true })).toBeFocused();
+	await expect(page.locator('.mermaid-view')).toHaveCount(0);
+	await expect(page.locator('.sidebar .metric').first()).toContainText('80');
+	expect(errors).toEqual([]);
 });

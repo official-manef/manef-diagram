@@ -1463,8 +1463,19 @@
 		const kind = pickerKinds[pickerIndex];
 		stopSettle();
 		openView = null;
-		diagramPreview = compileNodeView(graph, kind.id, selectedNode?.label ?? importedDocument.title);
-		viewError = '';
+		try {
+			diagramPreview = compileNodeView(
+				graph,
+				kind.id,
+				selectedNode?.label ?? importedDocument.title
+			);
+			viewError = '';
+		} catch (error) {
+			diagramPreview = null;
+			viewError = '';
+			actionMessage =
+				error instanceof Error ? error.message : 'Could not compile this diagram preview.';
+		}
 		void tick()
 			.then(() =>
 				document.getElementById(`diagram-kind-${kind.id}`)?.scrollIntoView({ block: 'nearest' })
