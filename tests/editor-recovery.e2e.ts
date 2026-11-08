@@ -180,3 +180,45 @@ test('unrelated interactive nodes keep text and focus at full opacity when traci
 		await page.locator('.dot.dim').evaluate((element) => getComputedStyle(element).opacity)
 	).toBe('1');
 });
+
+test('a slow older file import cannot replace a newer import', async ({ page }) => {
+	await page.addInitScript(() => {
+		const original = File.prototype.text;
+		File.prototype.text = async function () {
+			const text = await original.call(this);
+			if (this.name === 'slow.json')
+				await new Promise<void>((resolve) => {
+					(window as Window & { releaseSlowImport?: () => void }).releaseSlowImport = resolve;
+				});
+			return text;
+		};
+	});
+	await page.goto('/app');
+	await expect(page.getByRole('button', { name: 'Graph', exact: true })).toBeEnabled();
+	const input = page.locator('input[type="file"]');
+	const older = fixture();
+	older.graph.nodes[0].label = 'Old import';
+	const newer = fixture();
+	newer.graph.nodes[0].label = 'New import';
+	await input.setInputFiles({
+		name: 'slow.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify(older))
+	});
+	await page.waitForFunction(
+		() =>
+			typeof (window as Window & { releaseSlowImport?: () => void }).releaseSlowImport ===
+			'function'
+	);
+	await input.setInputFiles({
+		name: 'new.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify(newer))
+	});
+	await expect(page.getByRole('status')).toHaveText('Imported new.json.');
+	await page.evaluate(() =>
+		(window as Window & { releaseSlowImport: () => void }).releaseSlowImport()
+	);
+	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('New import');
+	await expect(page.getByRole('status')).toHaveText('Imported new.json.');
+});

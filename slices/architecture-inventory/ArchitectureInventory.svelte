@@ -271,6 +271,7 @@
 	} | null>(null);
 	let viewport = $state<HTMLDivElement | null>(null);
 	let fileInput = $state<HTMLInputElement | null>(null);
+	let importGeneration = 0;
 	let settleVelocity: Record<string, Point> = {};
 	let simAlpha = 1;
 	let fitWhenCool = false;
@@ -1175,9 +1176,11 @@
 		const file = input.files?.[0];
 		input.value = '';
 		if (!file) return;
+		const generation = ++importGeneration;
 		try {
 			if (file.size > 20_000_000) throw new Error('Import file exceeds 20 MB.');
 			const source = await file.text();
+			if (generation !== importGeneration) return;
 			const markdown =
 				/\.md(?:own)?$/i.test(file.name) ||
 				file.type === 'text/markdown' ||
@@ -1190,6 +1193,7 @@
 			applyImported(next);
 			actionMessage = `Imported ${file.name}.`;
 		} catch (error) {
+			if (generation !== importGeneration) return;
 			actionMessage = error instanceof Error ? error.message : 'Import failed.';
 			jsonMessage = actionMessage;
 		}
