@@ -144,3 +144,17 @@ describe('diagram compilers', () => {
 		expect(diagramKind('nonsense')).toBeUndefined();
 	});
 });
+
+describe('untrusted identifier fallback', () => {
+	it('does not inject Mermaid syntax through an ID when labels clean to empty', () => {
+		const graph = graphWith(['"|`', 'Safe']);
+		const injected = 'bad"\nclick n0 "https://example.invalid"';
+		graph.nodes[0].id = injected;
+		graph.edges[0].source = injected;
+		for (const kind of DIAGRAM_KINDS) {
+			const source = compileGraphSource(graph, kind.id, 'Safe');
+			expect(source, kind.id).not.toContain('https://example.invalid');
+			expect(source, kind.id).not.toContain('\nclick n0');
+		}
+	});
+});

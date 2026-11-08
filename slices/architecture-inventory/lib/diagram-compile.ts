@@ -35,6 +35,11 @@ function plain(label: string): string {
 		.trim();
 }
 
+/** An imported ID may contain Mermaid syntax; never emit it raw as a label fallback. */
+function fallbackLabel(node: Node): string {
+	return node.id.replace(/[^A-Za-z0-9_]/g, '_') || 'node';
+}
+
 function csvField(label: string): string {
 	const value = clean(label);
 	return /[",]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -84,7 +89,7 @@ function parentMap({ nodes, edges }: CompileContext): Map<string, string> {
 function hierarchyLines(
 	context: CompileContext,
 	rootLine: string,
-	format: (node: Node) => string = (node) => plain(node.label) || node.id
+	format: (node: Node) => string = (node) => plain(node.label) || fallbackLabel(node)
 ): string[] {
 	const parents = parentMap(context);
 	const lines: string[] = [rootLine];
@@ -134,7 +139,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 	flowchart: ({ nodes, edges, ids }) => {
 		const lines = ['flowchart LR'];
 		for (const node of nodes) {
-			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || fallbackLabel(node)}"]`);
 		}
 		for (const edge of edges) {
 			const label = clean(edge.label ?? '');
@@ -154,7 +159,9 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 	sequence: ({ nodes, edges, ids }) => {
 		const lines = ['sequenceDiagram'];
 		for (const node of nodes) {
-			lines.push(`  participant ${ids.get(node.id)} as ${plain(node.label) || node.id}`);
+			lines.push(
+				`  participant ${ids.get(node.id)} as ${plain(node.label) || fallbackLabel(node)}`
+			);
 		}
 		for (const edge of edges) {
 			lines.push(
@@ -166,7 +173,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 	state: ({ nodes, edges, ids }) => {
 		const lines = ['stateDiagram-v2'];
 		for (const node of nodes) {
-			lines.push(`  state "${plain(node.label) || node.id}" as ${ids.get(node.id)}`);
+			lines.push(`  state "${plain(node.label) || fallbackLabel(node)}" as ${ids.get(node.id)}`);
 		}
 		const first = nodes.find((node) => level(node) === 0) ?? nodes[0];
 		if (first) lines.push(`  [*] --> ${ids.get(first.id)}`);
@@ -191,7 +198,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 			lines.push(`  section ${stage}`);
 			for (const node of nodes) {
 				const score = STATUS_SCORE[node.status ?? 'active'] ?? 4;
-				lines.push(`    ${plain(node.label) || node.id}: ${score}: Editor`);
+				lines.push(`    ${plain(node.label) || fallbackLabel(node)}: ${score}: Editor`);
 			}
 		}
 		return lines.join('\n');
@@ -244,7 +251,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		for (const node of nodes) {
 			const call = node.tags.includes('person') ? 'Person' : 'System';
 			lines.push(
-				`  ${call}(${ids.get(node.id)}, "${clean(node.label) || node.id}", "${clean(node.subtitle ?? '')}")`
+				`  ${call}(${ids.get(node.id)}, "${clean(node.label) || fallbackLabel(node)}", "${clean(node.subtitle ?? '')}")`
 			);
 		}
 		for (const edge of edges) {
@@ -258,7 +265,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		const columns = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(nodes.length))));
 		const lines = ['block-beta', `  columns ${columns}`];
 		for (const node of nodes) {
-			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || fallbackLabel(node)}"]`);
 		}
 		for (const edge of edges) {
 			lines.push(`  ${ids.get(edge.source)} --> ${ids.get(edge.target)}`);
@@ -276,7 +283,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 				lines.push(`  group ${name}(cloud)[Stage ${key + 1}]`);
 			}
 			lines.push(
-				`  service ${ids.get(node.id)!.toLowerCase()}(server)["${clean(node.label) || node.id}"] in ${groups.get(key)}`
+				`  service ${ids.get(node.id)!.toLowerCase()}(server)["${clean(node.label) || fallbackLabel(node)}"] in ${groups.get(key)}`
 			);
 		}
 		for (const edge of edges) {
@@ -299,7 +306,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		const root = context.nodes.find((node) => level(node) === 0);
 		const rest = context.nodes.filter((node) => node.id !== root?.id);
 		const rootLabel = root
-			? `root((${plain(root.label) || root.id}))`
+			? `root((${plain(root.label) || fallbackLabel(root)}))`
 			: `root((${plain(context.title) || 'Diagram'}))`;
 		return ['mindmap', ...hierarchyLines({ ...context, nodes: rest }, rootLabel)].join('\n');
 	},
@@ -315,7 +322,9 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 			const risk = STATUS_RISK[node.status ?? 'active'] ?? 'low';
 			lines.push(`  requirement ${ids.get(node.id)}_req {`);
 			lines.push(`    id: "${index + 1}"`);
-			lines.push(`    text: "${clean(node.subtitle ?? '') || clean(node.label) || node.id}"`);
+			lines.push(
+				`    text: "${clean(node.subtitle ?? '') || clean(node.label) || fallbackLabel(node)}"`
+			);
 			lines.push(`    risk: ${risk}`);
 			lines.push('    verifymethod: analysis');
 			lines.push('  }');
@@ -342,8 +351,8 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 				const token = `t${index++}`;
 				lines.push(
 					previous
-						? `    ${plain(node.label) || node.id} :${token}, after ${previous}, 7d`
-						: `    ${plain(node.label) || node.id} :${token}, 2026-01-01, 7d`
+						? `    ${plain(node.label) || fallbackLabel(node)} :${token}, after ${previous}, 7d`
+						: `    ${plain(node.label) || fallbackLabel(node)} :${token}, 2026-01-01, 7d`
 				);
 				previous = token;
 			}
@@ -353,25 +362,27 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 	timeline: (context) => {
 		const lines = ['timeline', `  title ${plain(context.title) || 'Timeline'}`];
 		for (const { stage, nodes } of levelStages(context)) {
-			lines.push(`  ${stage}${nodes.map((node) => ` : ${plain(node.label) || node.id}`).join('')}`);
+			lines.push(
+				`  ${stage}${nodes.map((node) => ` : ${plain(node.label) || fallbackLabel(node)}`).join('')}`
+			);
 		}
 		return lines.join('\n');
 	},
 	git: ({ nodes, ids }) => {
 		const lines = ['gitGraph'];
 		for (const node of nodes.filter((item) => level(item) === 0)) {
-			lines.push(`  commit id: "${plain(node.label) || node.id}"`);
+			lines.push(`  commit id: "${plain(node.label) || fallbackLabel(node)}"`);
 		}
 		for (const node of nodes.filter((item) => level(item) === 1).slice(0, 6)) {
 			const branch = ids.get(node.id)!.toLowerCase();
 			lines.push(`  branch ${branch}`);
 			lines.push(`  checkout ${branch}`);
-			lines.push(`  commit id: "${plain(node.label) || node.id}"`);
+			lines.push(`  commit id: "${plain(node.label) || fallbackLabel(node)}"`);
 			lines.push('  checkout main');
 			lines.push(`  merge ${branch}`);
 		}
 		for (const node of nodes.filter((item) => level(item) >= 2)) {
-			lines.push(`  commit id: "${plain(node.label) || node.id}"`);
+			lines.push(`  commit id: "${plain(node.label) || fallbackLabel(node)}"`);
 		}
 		return lines.join('\n');
 	},
@@ -385,7 +396,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		for (const node of nodes) {
 			const column =
 				node.status === 'proposed' ? 'Proposed' : node.status === 'private' ? 'Private' : 'Active';
-			columns.get(column)!.push(plain(node.label) || node.id);
+			columns.get(column)!.push(plain(node.label) || fallbackLabel(node));
 		}
 		for (const [column, cards] of columns) {
 			if (cards.length === 0) continue;
@@ -399,7 +410,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		const lines = [`pie title ${plain(context.title) || 'Connections'}`];
 		for (const node of context.nodes) {
 			const value = counts.get(node.id)!;
-			if (value > 0) lines.push(`  "${clean(node.label) || node.id}" : ${value}`);
+			if (value > 0) lines.push(`  "${clean(node.label) || fallbackLabel(node)}" : ${value}`);
 		}
 		if (lines.length === 1) {
 			for (const { stage, nodes } of levelStages(context)) {
@@ -471,7 +482,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 			...hierarchyLines(
 				context,
 				`"${plain(context.title) || 'Map'}"`,
-				(node) => `"${plain(node.label) || node.id}": 1`
+				(node) => `"${plain(node.label) || fallbackLabel(node)}": 1`
 			)
 		].join('\n');
 	},
@@ -492,7 +503,9 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		for (const { stage, nodes } of levelStages(context)) {
 			lines.push(`  subgraph ${stage}`);
 			for (const node of nodes) {
-				lines.push(`    ${context.ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+				lines.push(
+					`    ${context.ids.get(node.id)}["${clean(node.label) || fallbackLabel(node)}"]`
+				);
 			}
 			lines.push('  end');
 		}
@@ -506,7 +519,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		// Each item becomes a numbered time frame chained to the next one. Names are
 		// identifier-like because the grammar does not accept free text labels.
 		const identifier = (node: Node): string => {
-			const raw = (plain(node.label) || node.id).replace(/[^A-Za-z0-9_.]/g, '');
+			const raw = (plain(node.label) || fallbackLabel(node)).replace(/[^A-Za-z0-9_.]/g, '');
 			return /^[0-9]/.test(raw) ? `n${raw}` : raw || context.ids.get(node.id)!;
 		};
 		const commands = context.nodes.filter((node) =>
@@ -533,7 +546,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 	agentflow: ({ nodes, edges, ids }) => {
 		const lines = ['agentflow-beta LR'];
 		for (const node of nodes) {
-			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+			lines.push(`  ${ids.get(node.id)}["${clean(node.label) || fallbackLabel(node)}"]`);
 		}
 		for (const edge of edges) {
 			const label = plain(edge.label ?? '');
@@ -553,7 +566,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 			lines.push(`  actor ${ids.get(actor.id)}`);
 		}
 		for (const node of cases.slice(0, 24)) {
-			lines.push(`  ${ids.get(node.id)}(${plain(node.label) || node.id})`);
+			lines.push(`  ${ids.get(node.id)}(${plain(node.label) || fallbackLabel(node)})`);
 		}
 		for (const edge of edges) {
 			lines.push(`  ${ids.get(edge.source)} --> ${ids.get(edge.target)}`);
@@ -568,7 +581,9 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 				.map((edge) => nodes.find((item) => item.id === edge.target))
 				.filter((child): child is Node => Boolean(child));
 			if (children.length === 0) continue;
-			const terms = children.map((child) => `terminal("${plain(child.label) || child.id}")`);
+			const terms = children.map(
+				(child) => `terminal("${plain(child.label) || fallbackLabel(child)}")`
+			);
 			lines.push(
 				`  ${ids.get(node.id)} = ${terms.length === 1 ? terms[0] : `sequence(${terms.join(', ')})`} ;`
 			);
@@ -585,7 +600,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		const sets = context.nodes.slice(0, 3);
 		const lines: string[] = ['venn-beta', `title ${plain(context.title) || 'Shared context'}`];
 		for (const node of sets) {
-			lines.push(`set ${context.ids.get(node.id)}["${clean(node.label) || node.id}"]`);
+			lines.push(`set ${context.ids.get(node.id)}["${clean(node.label) || fallbackLabel(node)}"]`);
 		}
 		for (const edge of context.edges) {
 			const source = context.ids.get(edge.source)!;
@@ -605,14 +620,16 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		for (const node of context.nodes.slice(0, 30)) {
 			const x = Math.min(0.95, 0.2 + level(node) * 0.25);
 			const y = Math.min(0.95, maxLevel === 0 ? 0.5 : 1 - level(node) / (maxLevel + 1));
-			lines.push(`component "${plain(node.label) || node.id}" [${x.toFixed(2)}, ${y.toFixed(2)}]`);
+			lines.push(
+				`component "${plain(node.label) || fallbackLabel(node)}" [${x.toFixed(2)}, ${y.toFixed(2)}]`
+			);
 		}
 		for (const edge of context.edges.slice(0, 60)) {
 			const source = context.nodes.find((node) => node.id === edge.source);
 			const target = context.nodes.find((node) => node.id === edge.target);
 			if (source && target)
 				lines.push(
-					`"${plain(source.label) || source.id}" -> "${plain(target.label) || target.id}"`
+					`"${plain(source.label) || fallbackLabel(source)}" -> "${plain(target.label) || fallbackLabel(target)}"`
 				);
 		}
 		return lines.join('\n');
@@ -629,7 +646,7 @@ const compilers: Record<DiagramKind, (context: CompileContext) => string> = {
 		for (const node of context.nodes) {
 			const domain = level(node) <= 2 ? level(node) : 3;
 			if (!buckets.has(domain)) buckets.set(domain, []);
-			buckets.get(domain)!.push(`"${plain(node.label) || node.id}"`);
+			buckets.get(domain)!.push(`"${plain(node.label) || fallbackLabel(node)}"`);
 		}
 		for (const [key, items] of [...buckets.entries()].sort(([a], [b]) => a - b)) {
 			lines.push(domainNames[key]);
