@@ -271,3 +271,11 @@ test('share control explains the privacy of portable diagram links', async ({ pa
 	);
 	await expect(page.locator('#share-privacy-note')).toBeVisible();
 });
+
+test('editor links to the creation guide without replacing the current work', async ({ page }) => {
+	await page.goto('/app');
+	const guide = page.getByRole('link', { name: /How to create a diagram/ });
+	await expect(guide).toHaveAttribute('href', '/guide');
+	await expect(guide).toHaveAttribute('target', '_blank');
+	await expect(guide).toHaveAttribute('rel', 'noopener noreferrer');
+});

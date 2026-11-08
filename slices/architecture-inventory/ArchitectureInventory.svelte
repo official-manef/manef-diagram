@@ -2155,6 +2155,9 @@
 			</section>
 			<section class="search-section">
 				<h2>Explore canvas</h2>
+				<a class="help" href={resolve('/guide')} target="_blank" rel="noopener noreferrer"
+					>How to create a diagram ↗</a
+				>
 				<Input aria-label="Search graph" placeholder="Search graph…" bind:value={search} />
 				<a class="mobile-inspect" href="#diagram-map">Open map ↓</a>
 			</section>
