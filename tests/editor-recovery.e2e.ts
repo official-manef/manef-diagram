@@ -222,3 +222,44 @@ test('a slow older file import cannot replace a newer import', async ({ page }) 
 	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('New import');
 	await expect(page.getByRole('status')).toHaveText('Imported new.json.');
 });
+
+test('a delayed file import asks before replacing newer canvas edits', async ({ page }) => {
+	await page.addInitScript(() => {
+		const original = File.prototype.text;
+		File.prototype.text = async function () {
+			const text = await original.call(this);
+			if (this.name === 'waiting.json')
+				await new Promise<void>((resolve) => {
+					(window as Window & { releaseWaitingImport?: () => void }).releaseWaitingImport = resolve;
+				});
+			return text;
+		};
+	});
+	await ready(page);
+	await page
+		.locator('input[type="file"]')
+		.setInputFiles({
+			name: 'waiting.json',
+			mimeType: 'application/json',
+			buffer: Buffer.from(JSON.stringify(fixture()))
+		});
+	await page.waitForFunction(
+		() =>
+			typeof (window as Window & { releaseWaitingImport?: () => void }).releaseWaitingImport ===
+			'function'
+	);
+	await page.getByRole('textbox', { name: 'Label', exact: true }).fill('Newer edit');
+	let confirmation = '';
+	page.once('dialog', async (dialog) => {
+		confirmation = dialog.message();
+		await dialog.dismiss();
+	});
+	await page.evaluate(() =>
+		(window as Window & { releaseWaitingImport: () => void }).releaseWaitingImport()
+	);
+	await expect(page.getByRole('status')).toHaveText(
+		'Import cancelled. Newer diagram edits are unchanged.'
+	);
+	expect(confirmation).toContain('changed while this file was loading');
+	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('Newer edit');
+});

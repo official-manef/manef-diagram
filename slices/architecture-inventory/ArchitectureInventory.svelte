@@ -1177,6 +1177,7 @@
 		input.value = '';
 		if (!file) return;
 		const generation = ++importGeneration;
+		const revisionAtSelection = contentRevision;
 		try {
 			if (file.size > 20_000_000) throw new Error('Import file exceeds 20 MB.');
 			const source = await file.text();
@@ -1186,6 +1187,15 @@
 				file.type === 'text/markdown' ||
 				!source.trimStart().startsWith('{');
 			const next = parseInput(source, markdown);
+			if (
+				revisionAtSelection !== contentRevision &&
+				!window.confirm(
+					'The diagram changed while this file was loading. Replace those newer edits? Undo remains available.'
+				)
+			) {
+				actionMessage = 'Import cancelled. Newer diagram edits are unchanged.';
+				return;
+			}
 			if (!confirmDraftReplacement()) {
 				actionMessage = 'Import cancelled. The unapplied source draft is unchanged.';
 				return;
