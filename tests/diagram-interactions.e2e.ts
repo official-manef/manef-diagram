@@ -277,3 +277,32 @@ test('rejected retarget restores the select, shows feedback and leaves exported 
 	await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
 	await expect(page.getByRole('alert')).toBeHidden();
 });
+
+test('successful connection retarget survives export and supports undo and redo', async ({
+	page
+}) => {
+	await importFixture(page, []);
+	await page
+		.locator(page.viewportSize()!.width < 1024 ? '.mobile-edge' : '.edge-strip button')
+		.first()
+		.click();
+	await page.getByLabel('Target node', { exact: true }).selectOption('other');
+	await expect(page.getByLabel('Target node', { exact: true })).toHaveValue('other');
+	expect((await exportDocument(page)).graph.edges[0]).toMatchObject({
+		source: 'source',
+		target: 'other',
+		targetPort: 'in'
+	});
+	await page.getByRole('button', { name: 'Undo', exact: true }).click();
+	expect((await exportDocument(page)).graph.edges[0]).toMatchObject({
+		source: 'source',
+		target: 'target',
+		targetPort: 'in'
+	});
+	await page.getByRole('button', { name: 'Redo', exact: true }).click();
+	expect((await exportDocument(page)).graph.edges[0]).toMatchObject({
+		source: 'source',
+		target: 'other',
+		targetPort: 'in'
+	});
+});

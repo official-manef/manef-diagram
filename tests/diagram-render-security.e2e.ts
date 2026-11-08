@@ -25,6 +25,7 @@ for (const engine of ['pele', 'mermaid'] as const) {
 		await page.goto('/app');
 		await expect(page.getByRole('button', { name: 'Diagram type', exact: true })).toBeEnabled();
 		await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+		await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 		await expect(page.locator('.view-canvas')).toHaveAttribute('data-renderer', engine);
 		await page.getByRole('listbox', { name: 'Diagram types' }).press('Escape');
 		// Load an explicitly authored view rather than relying on compiler escaping.
@@ -128,6 +129,7 @@ test('failed renderer chunk exposes retry and recovers after the network returns
 	await page.route('**' + renderer, (route) => (blocked ? route.abort() : route.continue()));
 	await page.goto('/app');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await expect(page.getByRole('button', { name: 'Retry diagram', exact: true })).toBeVisible();
 	blocked = false;
 	await page.getByRole('button', { name: 'Retry diagram', exact: true }).click();
@@ -145,6 +147,7 @@ test('Pele import failure falls back and the next preview retries Pele', async (
 	});
 	await page.goto('/app');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await expect(page.locator('.view-canvas')).toHaveAttribute('data-renderer', 'mermaid');
 	blocked = false;
 	await page.getByRole('listbox', { name: 'Diagram types' }).press('ArrowDown');

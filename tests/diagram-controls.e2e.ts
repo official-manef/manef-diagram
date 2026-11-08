@@ -221,6 +221,7 @@ test('all bundled diagram types can be compared with arrows without creating sav
 	test.setTimeout(90_000);
 	await ready(page);
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
 	const kinds = await list
 		.getByRole('option')
@@ -327,6 +328,7 @@ test('diagram type chooser stays in the explorer without covering the diagram', 
 		page.locator('.topbar').getByRole('button', { name: 'Diagram type', exact: true })
 	).toHaveCount(0);
 	await trigger.click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
 	await expect(list).toBeVisible();
 	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
@@ -350,7 +352,7 @@ test('diagram type chooser stays in the explorer without covering the diagram', 
 	await expect(trigger).toBeFocused();
 });
 
-test('diagram renderer loads on demand when the picker opens', async ({ page }) => {
+test('diagram renderer loads only after a preview is requested', async ({ page }) => {
 	const manifest = JSON.parse(
 		await readFile('.svelte-kit/output/client/.vite/manifest.json', 'utf8')
 	);
@@ -361,6 +363,8 @@ test('diagram renderer loads on demand when the picker opens', async ({ page }) 
 	await ready(page);
 	expect(requests.some((path) => path.endsWith(entry.file))).toBe(false);
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	expect(requests.some((path) => path.endsWith(entry.file))).toBe(false);
+	await page.getByRole('option', { name: 'Flowchart', exact: true }).hover();
 	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
 	expect(requests.some((path) => path.endsWith(entry.file))).toBe(true);
 });
@@ -388,6 +392,7 @@ test('diagram preview does not execute or load markup from imported node labels'
 	});
 	await expect(page.getByRole('status')).toHaveText('Imported unsafe.json.');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
 	await expect(
 		page.locator(
@@ -404,6 +409,7 @@ test('diagram type picker stays in flow at tablet width', async ({ page }) => {
 	await page.setViewportSize({ width: 768, height: 1024 });
 	await ready(page);
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
 	const bounds = await page.evaluate(() => {
 		const list = document.querySelector('.diagram-kind-list')!.getBoundingClientRect();
@@ -430,6 +436,7 @@ test('authored diagram source does not inject executable markup', async ({ page 
 	});
 	await ready(page, ['a']);
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Escape');
 	await page.getByRole('button', { name: 'Add to selected node', exact: true }).click();
 	await page
@@ -454,7 +461,7 @@ test('diagram type list supports first-letter keyboard navigation', async ({ pag
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
 	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
 	await expect(list).toHaveAccessibleDescription(
-		'Use arrow keys or type the first letter to find a type.'
+		'Hover, tap, or use arrow keys to preview. Add to a node to save.'
 	);
 	await list.press('s');
 	await expect(list).toHaveAttribute('aria-activedescendant', 'diagram-kind-sequence');
@@ -486,6 +493,7 @@ test('large graph preview warns when compiled diagram may omit items', async ({ 
 	});
 	await expect(page.getByRole('status')).toHaveText('Imported large.json.');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await expect(
 		page.getByText(/Large diagram preview is limited to the first 80 nodes/)
 	).toBeVisible();
@@ -518,6 +526,7 @@ test('oversized compiled preview reports an error without replacing the graph', 
 	});
 	await expect(page.getByRole('status')).toHaveText('Imported oversized-preview.json.');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	await page.getByRole('listbox', { name: 'Diagram types', exact: true }).press('Home');
 	await expect(page.getByRole('status')).toContainText(
 		'Compiled view exceeds the source size limit.'
 	);
@@ -525,4 +534,94 @@ test('oversized compiled preview reports an error without replacing the graph', 
 	await expect(page.locator('.mermaid-view')).toHaveCount(0);
 	await expect(page.locator('.sidebar .metric').first()).toContainText('80');
 	expect(errors).toEqual([]);
+});
+
+test('mouse hover previews only the latest option without stealing keyboard focus or saving', async ({
+	page
+}) => {
+	await ready(page);
+	const before = (await exported(page)).graph;
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
+	await expect(list).toBeFocused();
+	await expect(page.locator('.mermaid-view')).toHaveCount(0);
+	await list.getByRole('option', { name: 'Sequence', exact: true }).hover();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'sequence');
+	await expect(list).toHaveAttribute('aria-activedescendant', 'diagram-kind-sequence');
+	await expect(list).toBeFocused();
+	await list.getByRole('option', { name: 'Flowchart', exact: true }).hover();
+	await list.getByRole('option', { name: 'State', exact: true }).hover();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'state');
+	await expect(list.getByRole('option', { name: 'State', exact: true })).toHaveAttribute(
+		'aria-selected',
+		'true'
+	);
+	await list.press('ArrowUp');
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'sequence');
+	await list.press('Escape');
+	expect((await exported(page)).graph).toEqual(before);
+});
+
+test('touch tap requests a preview without requiring hover', async ({ page, isMobile }) => {
+	test.skip(!isMobile, 'This check uses a touch-enabled mobile project.');
+	await ready(page);
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).tap();
+	await expect(page.locator('.mermaid-view')).toHaveCount(0);
+	await page.getByRole('option', { name: 'Sequence', exact: true }).tap();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'sequence');
+	await expect(page.getByRole('listbox', { name: 'Diagram types' })).toHaveAttribute(
+		'aria-activedescendant',
+		'diagram-kind-sequence'
+	);
+});
+
+test('short phone screen keeps the type list compact and touch targets usable', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 320, height: 400 });
+	await page.goto('/app');
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
+	await expect(list).toBeVisible();
+	const metrics = await list.evaluate((element) => ({
+		height: element.getBoundingClientRect().height,
+		max: innerHeight * 0.4,
+		width: document.documentElement.scrollWidth,
+		viewport: innerWidth,
+		target: element.querySelector('[role="option"]')!.getBoundingClientRect().height
+	}));
+	expect(metrics.height).toBeLessThanOrEqual(metrics.max + 2);
+	expect(metrics.width).toBeLessThanOrEqual(metrics.viewport + 1);
+	expect(metrics.target).toBeGreaterThanOrEqual(44);
+	await list.press('End');
+	await expect(list).toHaveAttribute('aria-activedescendant', 'diagram-kind-cynefin');
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'cynefin');
+	await list.press('Escape');
+});
+
+test('keyboard Enter previews the active option and Escape preserves the map', async ({ page }) => {
+	await ready(page);
+	const trigger = page.getByRole('button', { name: 'Diagram type', exact: true });
+	await trigger.click();
+	const list = page.getByRole('listbox', { name: 'Diagram types', exact: true });
+	await expect(page.locator('.mermaid-view')).toHaveCount(0);
+	await list.press('Enter');
+	await expect(list).toBeHidden();
+	await expect(trigger).toBeFocused();
+	await expect(page.locator('.view-canvas')).toHaveAttribute('data-view-kind', 'flowchart');
+	await page.getByRole('button', { name: 'Map', exact: true }).click();
+	await trigger.click();
+	await list.press('Escape');
+	await expect(page.locator('.mermaid-view')).toHaveCount(0);
+	await expect(trigger).toBeFocused();
+});
+
+test('leaving an option before hover delay does not start a preview', async ({ page }) => {
+	await ready(page);
+	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
+	const option = page.getByRole('option', { name: 'Sequence', exact: true });
+	await option.dispatchEvent('pointerenter', { pointerType: 'mouse' });
+	await option.dispatchEvent('pointerleave', { pointerType: 'mouse' });
+	await page.waitForTimeout(250);
+	await expect(page.locator('.mermaid-view')).toHaveCount(0);
 });

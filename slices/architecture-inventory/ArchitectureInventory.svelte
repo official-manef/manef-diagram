@@ -170,6 +170,7 @@
 	let diagramPreview = $state<NodeView | null>(null);
 	let pickerOpen = $state(false);
 	let pickerIndex = $state(0);
+	let hoverPreviewTimer: ReturnType<typeof setTimeout> | undefined;
 	let pickerTrigger = $state<HTMLButtonElement | null>(null);
 	let pickerList = $state<HTMLDivElement | null>(null);
 	let pickerWrapper = $state<HTMLDivElement | null>(null);
@@ -299,6 +300,7 @@
 	}
 
 	onDestroy(() => {
+		clearTimeout(hoverPreviewTimer);
 		stopSettle();
 	});
 
@@ -1457,7 +1459,8 @@
 		);
 	}
 
-	function chooseDiagram(index: number) {
+	function chooseDiagram(index: number, scroll = true) {
+		clearTimeout(hoverPreviewTimer);
 		pickerIndex = Math.max(0, Math.min(pickerKinds.length - 1, index));
 		viewReturnFocus = pickerTrigger;
 		const kind = pickerKinds[pickerIndex];
@@ -1476,14 +1479,16 @@
 			actionMessage =
 				error instanceof Error ? error.message : 'Could not compile this diagram preview.';
 		}
-		void tick()
-			.then(() =>
-				document.getElementById(`diagram-kind-${kind.id}`)?.scrollIntoView({ block: 'nearest' })
-			)
-			.catch(() => undefined);
+		if (scroll)
+			void tick()
+				.then(() =>
+					document.getElementById(`diagram-kind-${kind.id}`)?.scrollIntoView({ block: 'nearest' })
+				)
+				.catch(() => undefined);
 	}
 
 	function closePicker() {
+		clearTimeout(hoverPreviewTimer);
 		pickerOpen = false;
 		pickerTrigger?.focus();
 	}
@@ -1495,13 +1500,13 @@
 		}
 		filtersOpen = false;
 		pickerOpen = true;
-		chooseDiagram(pickerIndex);
 		void tick()
 			.then(() => pickerList?.focus())
 			.catch(() => undefined);
 	}
 
 	function pickerKeydown(event: KeyboardEvent) {
+		clearTimeout(hoverPreviewTimer);
 		if (!event.ctrlKey && !event.metaKey && !event.altKey && /^[a-z0-9]$/i.test(event.key)) {
 			const letter = event.key.toLocaleLowerCase();
 			for (let step = 1; step <= pickerKinds.length; step++) {
@@ -1526,7 +1531,7 @@
 				.catch(() => undefined);
 			return;
 		}
-		if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', 'Escape'].includes(event.key)) {
+		if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' ', 'Escape'].includes(event.key)) {
 			event.preventDefault();
 			event.stopPropagation();
 			if (event.key === 'ArrowDown') chooseDiagram((pickerIndex + 1) % pickerKinds.length);
@@ -1534,7 +1539,10 @@
 				chooseDiagram((pickerIndex - 1 + pickerKinds.length) % pickerKinds.length);
 			else if (event.key === 'Home') chooseDiagram(0);
 			else if (event.key === 'End') chooseDiagram(pickerKinds.length - 1);
-			else closePicker();
+			else if (event.key === 'Enter' || event.key === ' ') {
+				chooseDiagram(pickerIndex);
+				closePicker();
+			} else closePicker();
 		}
 	}
 
@@ -1958,8 +1966,10 @@
 
 <svelte:window
 	onpointerdown={(event) => {
-		if (pickerOpen && event.target instanceof Node && !pickerWrapper?.contains(event.target))
+		if (pickerOpen && event.target instanceof Node && !pickerWrapper?.contains(event.target)) {
+			clearTimeout(hoverPreviewTimer);
 			pickerOpen = false;
+		}
 	}}
 	onpointerup={stopNodeDrag}
 	onpointercancel={stopNodeDrag}
@@ -1993,7 +2003,7 @@
 	data-flow-direction={flowDirection}
 >
 	<header class="topbar">
-		<div class="brand" inert={pickerOpen}>
+		<div class="brand">
 			<a class="logo" href={resolve('/')} aria-label="Manef Diagram home">M</a>
 			<div>
 				<h1>MANEF Architecture</h1>
@@ -2005,7 +2015,7 @@
 			</div>
 		</div>
 		<div class="mode-center">
-			<div class="segmented" aria-label="Diagram mode" inert={pickerOpen}>
+			<div class="segmented" aria-label="Diagram mode">
 				<Button
 					data-interactive
 					variant={diagramMode === 'flow' && !activeView ? 'default' : 'ghost'}
@@ -2024,7 +2034,7 @@
 				>
 			</div>
 		</div>
-		<div class="top-end" inert={pickerOpen}>
+		<div class="top-end">
 			{#if diagramPath.length > 0}
 				<nav class="diagram-path" aria-label="Diagram level">
 					{#each crumbs as crumb (crumb.depth)}
@@ -2081,7 +2091,7 @@
 					onclick={shareView}>Share view</Button
 				>
 				{#if claimReady}
-					<div class="claim-slot" inert={pickerOpen}>
+					<div class="claim-slot">
 						<ClaimBar {graph} title={importedDocument.title} {onClaimed} />
 					</div>
 				{/if}
@@ -2100,8 +2110,10 @@
 						if (
 							!(event.relatedTarget instanceof Node) ||
 							!pickerWrapper?.contains(event.relatedTarget)
-						)
+						) {
+							clearTimeout(hoverPreviewTimer);
 							pickerOpen = false;
+						}
 					}}
 				>
 					<button
@@ -2119,7 +2131,7 @@
 								event.preventDefault();
 								if (!pickerOpen) {
 									togglePicker();
-									if (event.key === 'ArrowUp') chooseDiagram(pickerKinds.length - 1);
+									chooseDiagram(event.key === 'ArrowUp' ? pickerKinds.length - 1 : pickerIndex);
 								}
 							}
 						}}
@@ -2128,7 +2140,7 @@
 					</button>
 					{#if pickerOpen}
 						<p id="diagram-kind-help" class="help">
-							Use arrow keys or type the first letter to find a type.
+							Hover, tap, or use arrow keys to preview. Add to a node to save.
 						</p>
 						<div
 							id="diagram-kind-list"
@@ -2150,7 +2162,17 @@
 											role="option"
 											tabindex="-1"
 											id={`diagram-kind-${kind.id}`}
-											aria-selected={pickerKinds[pickerIndex].id === kind.id}
+											aria-selected={diagramPreview?.kind === kind.id}
+											onpointerenter={(event) => {
+												if (event.pointerType !== 'mouse') return;
+												clearTimeout(hoverPreviewTimer);
+												const index = pickerKinds.findIndex((item) => item.id === kind.id);
+												if (diagramPreview?.kind !== kind.id)
+													hoverPreviewTimer = setTimeout(() => {
+														if (pickerOpen) chooseDiagram(index, false);
+													}, 120);
+											}}
+											onpointerleave={() => clearTimeout(hoverPreviewTimer)}
 											onmousedown={(event) => event.preventDefault()}
 											onclick={() => {
 												chooseDiagram(pickerKinds.findIndex((item) => item.id === kind.id));
@@ -2345,7 +2367,7 @@
 					</p>
 				</details>
 				{#if claimedPanelReady}
-					<div class="claim-panel-slot" inert={pickerOpen}>
+					<div class="claim-panel-slot">
 						<ClaimedDiagrams onOpen={openClaimed} />
 					</div>
 				{/if}
