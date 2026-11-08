@@ -40,8 +40,8 @@
 			{#if section === 'converters'}
 				<h1>One document, multiple formats.</h1>
 				<p>
-					Export a JSON or Markdown document to keep the full map, nested diagrams, all 24 diagram
-					kinds, original view sources, inventory, metadata and layout together.
+					Export a JSON or Markdown document to keep the full map, nested diagrams, all supported
+					diagram kinds, original view sources, inventory, metadata and layout together.
 				</p>
 				<p>
 					Markdown contains a readable preview and one authoritative <code>manef-diagram-json</code> block.

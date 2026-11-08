@@ -276,3 +276,9 @@ test('public MCP guide includes a concrete portable-diagram example', async ({ p
 	});
 	await expect(page.getByText(/not a saved editor record/)).toBeVisible();
 });
+
+test('converter guide avoids an outdated fixed diagram-type count', async ({ page }) => {
+	await page.goto('/guide?section=converters');
+	await expect(page.getByText(/all supported\s+diagram kinds/)).toBeVisible();
+	await expect(page.getByText(/all 24 diagram kinds/)).toHaveCount(0);
+});
