@@ -509,15 +509,13 @@ test('oversized compiled preview reports an error without replacing the graph', 
 		})),
 		edges: []
 	};
-	await page
-		.locator('input[type="file"]')
-		.setInputFiles({
-			name: 'oversized-preview.json',
-			mimeType: 'application/json',
-			buffer: Buffer.from(
-				JSON.stringify({ format: 'manef-diagram', schemaVersion: 1, title: 'Large', graph })
-			)
-		});
+	await page.locator('input[type="file"]').setInputFiles({
+		name: 'oversized-preview.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(
+			JSON.stringify({ format: 'manef-diagram', schemaVersion: 1, title: 'Large', graph })
+		)
+	});
 	await expect(page.getByRole('status')).toHaveText('Imported oversized-preview.json.');
 	await page.getByRole('button', { name: 'Diagram type', exact: true }).click();
 	await expect(page.getByRole('status')).toContainText(
