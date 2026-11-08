@@ -68,6 +68,17 @@ for (const engine of ['pele', 'mermaid'] as const) {
 		await page.getByRole('button', { name: 'Unsafe view', exact: true }).click();
 		await expect(page.locator('.view-canvas')).toHaveAttribute('data-renderer', engine);
 		await expect(page.locator('.view-canvas svg')).toBeVisible();
+		if (engine === 'mermaid') {
+			const presentation = await page
+				.locator('.view-canvas .node rect')
+				.first()
+				.evaluate((node) => ({
+					fill: (node as SVGElement).style.fill,
+					stroke: (node as SVGElement).style.stroke
+				}));
+			expect(presentation.fill).not.toBe('');
+			expect(presentation.stroke).not.toBe('');
+		}
 		await expect(
 			page.locator(
 				'.view-canvas script, .view-canvas image, .view-canvas img, .view-canvas foreignObject, .view-canvas [onerror], .view-canvas [onload], .view-canvas style'
@@ -159,4 +170,59 @@ test('SVG sanitizer fails closed for invalid and excessive output', async ({ pag
 		);
 	}, path);
 	expect(failures).toEqual([true, true, true]);
+});
+
+test('SVG CSS retains safe rules alongside keyframes and respects cascade priorities', async ({
+	page
+}) => {
+	await page.goto('/app');
+	const path = await chunk('slices/architecture-inventory/lib/diagram-svg.ts');
+	const result = await page.evaluate(async (path) => {
+		const { sanitizeDiagramSvg } = await import(/* @vite-ignore */ path);
+		const fragment = sanitizeDiagramSvg(
+			`<svg xmlns="http://www.w3.org/2000/svg"><style>@keyframes harmless {from{opacity:0}to{opacity:1}} #n{fill:red}text{fill:blue} .important{fill:orange!important} #later{stroke:red} #later{stroke:green} :is(#choice,.unused){fill:purple} .choice{fill:yellow}</style><text id="n">N</text><text class="important" style="fill:green">Important</text><text id="inline" class="important" style="fill:pink!important">Inline</text><text id="later">Later</text><text id="choice" class="choice">Choice</text></svg>`
+		);
+		const svg = fragment.firstElementChild!;
+		const fill = (selector: string) => (svg.querySelector(selector) as SVGElement).style.fill;
+		return {
+			id: fill('#n'),
+			important: fill('.important'),
+			inline: fill('#inline'),
+			later: (svg.querySelector('#later') as SVGElement).style.stroke,
+			choice: fill('#choice'),
+			styleCount: svg.querySelectorAll('style').length
+		};
+	}, path);
+	expect(result).toEqual({
+		id: 'red',
+		important: 'orange',
+		inline: 'pink',
+		later: 'green',
+		choice: 'purple',
+		styleCount: 0
+	});
+});
+
+test('SVG CSS processing budgets apply across stylesheets', async ({ page }) => {
+	await page.goto('/app');
+	const path = await chunk('slices/architecture-inventory/lib/diagram-svg.ts');
+	const result = await page.evaluate(async (path) => {
+		const { sanitizeDiagramSvg } = await import(/* @vite-ignore */ path);
+		const cases = [
+			`<svg><style>${' '.repeat(60_000)}</style><style>${' '.repeat(60_000)}</style></svg>`,
+			`<svg><style>${'text{fill:red}'.repeat(1_100)}</style><style>${'text{fill:blue}'.repeat(1_100)}</style></svg>`,
+			`<svg><style>${'text{fill:red}'.repeat(500)}</style>${'<text>X</text>'.repeat(5_000)}</svg>`
+		];
+		return cases.map((payload) => {
+			try {
+				sanitizeDiagramSvg(payload);
+				return '';
+			} catch (error) {
+				return String(error);
+			}
+		});
+	}, path);
+	expect(result[0]).toContain('total stylesheet budget');
+	expect(result[1]).toContain('total CSS rule budget');
+	expect(result[2]).toMatch(/style processing budget|selector processing budget/);
 });

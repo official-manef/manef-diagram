@@ -107,6 +107,7 @@
 		"mermaid": "^12.2.0",
 		"openid-client": "6.8.8",
 		"pele": "1.13.0",
+		"specificity": "1.0.0",
 		"tailwind-merge": "^3.7.0",
 		"zod": "4.6.7"
 	},

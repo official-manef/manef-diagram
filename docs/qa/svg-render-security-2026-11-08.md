@@ -11,8 +11,8 @@ Local changes only. No push, merge, deployment, provider operations or productio
 - The browser sanitizes a detached SVG fragment before inserting it with `replaceChildren`.
 - Embedded HTML, scripts, navigation, image/remote-resource elements and SVG animation are forbidden.
 - Event attributes and non-fragment href/resource references are removed.
-- Renderer stylesheets are converted to allowlisted inline SVG presentation properties on detached nodes and removed. CSS cannot remain as a stylesheet affecting the surrounding page. Unsafe resource values, escapes, imports and comments are rejected.
-- Output is bounded to 2,000,000 characters, 10,000 elements, 100,000 characters per stylesheet and 2,000 rules per stylesheet. Invalid/non-single-SVG output fails closed.
+- Renderer stylesheets are converted to allowlisted inline SVG presentation properties on detached nodes and removed. CSS cannot remain as a stylesheet affecting the surrounding page. Unsafe declaration values are rejected; non-style at-rules are skipped while safe sibling style rules are retained. CSS selector specificity, importance, inline precedence and source order are resolved before materialization.
+- Output is bounded to 2,000,000 input characters, 10,000 elements, 100,000 cumulative stylesheet characters, 2,000 cumulative CSS rules, 2,000,000 estimated selector-element checks, 100,000 declaration candidates and 2,000,000 output style characters. Individual selectors are limited to 1,000 characters. Invalid/non-single-SVG output fails closed.
 - Pele retains disabled links/images; Mermaid remains strict and uses SVG labels instead of embedded HTML labels.
 - Rejected Pele load promises are cleared and load failures reach the Mermaid fallback. A Retry diagram button restarts rendering after errors. Existing stale-render cancellation remains in place.
 
@@ -47,3 +47,9 @@ Result: **6 passed (13.7s)**, exit 0.
 ## Limits
 
 Tests use Chromium, Bun 1.4.2 and Node 26.7.0. Node is outside the declared supported 22/24 range; rerun on supported runtime in CI before release. Existing SvelteKit alias-deprecation and large-chunk warnings remain. No complete cross-browser suite, penetration test, exhaustive renderer fuzzing, theme screenshot comparison or production acceptance was performed. Mermaid's representative forced-fallback flowchart is tested; all 33 Mermaid fallback types are not claimed. Strict display-only sanitization deliberately discards interactive/HTML/image features and unsupported CSS, which may alter some authored diagram styling.
+
+## Independent review follow-up
+
+Review identified CSS-only correctness and resource-budget issues, not a demonstrated XSS bypass. The follow-up fixes retain safe Mermaid rules alongside keyframes, resolve conflicting declarations using the pinned specificity 1.0.0 parser, and apply aggregate budgets across the SVG. Animations and other at-rules remain intentionally unsupported.
+
+Rerun of the complete security/recovery file: **8 passed (14.4s)**, exit 0. Added assertions verify actual Mermaid node fill/stroke, selector specificity, important versus normal/inline declarations, source-order ties, :is() specificity, retained rules beside keyframes and aggregate multi-stylesheet limits. Prettier/ESLint/Svelte guard and static checks pass; the 33-type preview browser regression also passes after the follow-up (12.0s). This is a supported display-only CSS subset, not an implementation of every CSS feature (e.g. cascade layers and media queries are discarded).

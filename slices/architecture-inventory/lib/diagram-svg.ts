@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { calculate } from 'specificity';
 
 // SVG is display-only: no embedded HTML, scripts, animation, navigation or remote assets.
 const FORBIDDEN_TAGS = [
@@ -26,12 +27,39 @@ function safeValue(value: string): boolean {
 	);
 }
 
-function copyStyle(target: SVGElement, source: CSSStyleDeclaration, original?: Set<string>) {
-	for (const name of Array.from(source)) {
-		const value = source.getPropertyValue(name);
-		if (PRESENTATION.test(name) && safeValue(value) && !original?.has(name))
-			target.style.setProperty(name, value);
+type Weight = [number, number, number, number, number];
+type Declaration = { value: string; weight: Weight; order: number };
+
+function outranks(next: Declaration, previous: Declaration): boolean {
+	for (let index = 0; index < next.weight.length; index++) {
+		if (next.weight[index] !== previous.weight[index])
+			return next.weight[index] > previous.weight[index];
 	}
+	return next.order >= previous.order;
+}
+
+/** Split selector lists without splitting commas inside :is(), :not() or attributes. */
+function selectors(text: string): string[] {
+	const result: string[] = [];
+	let start = 0;
+	let depth = 0;
+	let quote = '';
+	for (let index = 0; index < text.length; index++) {
+		const char = text[index];
+		if (quote) {
+			if (char === quote) quote = '';
+			continue;
+		}
+		if (char === '"' || char === "'") quote = char;
+		else if (char === '(' || char === '[') depth++;
+		else if (char === ')' || char === ']') depth--;
+		else if (char === ',' && depth === 0) {
+			result.push(text.slice(start, index));
+			start = index + 1;
+		}
+	}
+	result.push(text.slice(start));
+	return result;
 }
 
 /** Browser-only, fail-closed final boundary for BOTH renderer outputs. */
@@ -47,7 +75,30 @@ export function sanitizeDiagramSvg(markup: string): DocumentFragment {
 		throw new Error('Renderer did not return a single SVG diagram.');
 	const elements = [svg, ...svg.querySelectorAll('*')];
 	if (elements.length > 10_000) throw new Error('Rendered diagram exceeds the SVG element limit.');
-	const originals = new Map<SVGElement, Set<string>>();
+	const winners = new Map<SVGElement, Map<string, Declaration>>();
+	let order = 0;
+	let candidates = 0;
+	let outputBytes = 0;
+	let cssBytes = 0;
+	let rules = 0;
+	let matchingWork = 0;
+	function collect(target: SVGElement, source: CSSStyleDeclaration, base: Weight) {
+		let properties = winners.get(target);
+		if (!properties) {
+			properties = new Map();
+			winners.set(target, properties);
+		}
+		for (const name of Array.from(source)) {
+			if (++candidates > 100_000) throw new Error('SVG style processing budget exceeded.');
+			const value = source.getPropertyValue(name);
+			if (!PRESENTATION.test(name) || !safeValue(value)) continue;
+			const weight: Weight = [...base];
+			weight[0] = source.getPropertyPriority(name) === 'important' ? 1 : 0;
+			const candidate = { value, weight, order: order++ };
+			const previous = properties.get(name);
+			if (!previous || outranks(candidate, previous)) properties.set(name, candidate);
+		}
+	}
 	for (const element of elements) {
 		for (const attribute of Array.from(element.attributes)) {
 			if (attribute.name === 'style') continue;
@@ -63,8 +114,7 @@ export function sanitizeDiagramSvg(markup: string): DocumentFragment {
 			element.removeAttribute('style');
 			const declarations = document.createElement('span').style;
 			declarations.cssText = style;
-			copyStyle(element, declarations);
-			originals.set(element, new Set(Array.from(element.style)));
+			collect(element, declarations, [0, 1, 0, 0, 0]);
 		}
 	}
 	// Mermaid emits stylesheets. Materialize approved presentation declarations on
@@ -72,20 +122,40 @@ export function sanitizeDiagramSvg(markup: string): DocumentFragment {
 	for (const style of Array.from(svg.querySelectorAll('style'))) {
 		const css = style.textContent ?? '';
 		style.remove();
-		if (css.length > 100_000 || /[\\@<>]|\/\*/.test(css)) continue;
+		cssBytes += css.length;
+		if (cssBytes > 100_000) throw new Error('SVG total stylesheet budget exceeded.');
+		// Constructed sheets are detached; @import is ignored by replaceSync.
+		// Skip all at-rules (including keyframes), not their safe sibling rules.
 		const sheet = new CSSStyleSheet();
 		sheet.replaceSync(css);
-		if (sheet.cssRules.length > 2_000) throw new Error('Rendered diagram has too many CSS rules.');
+		rules += sheet.cssRules.length;
+		if (rules > 2_000) throw new Error('SVG total CSS rule budget exceeded.');
 		for (const rule of Array.from(sheet.cssRules)) {
 			if (!(rule instanceof CSSStyleRule)) continue;
-			try {
-				const matches = [...svg.querySelectorAll(rule.selectorText)];
-				if (svg.matches(rule.selectorText)) matches.push(svg);
+			for (const selector of selectors(rule.selectorText)) {
+				matchingWork += elements.length;
+				if (selector.length > 1_000 || matchingWork > 2_000_000)
+					throw new Error('SVG selector processing budget exceeded.');
+				let matches: Element[];
+				let specificity: ReturnType<typeof calculate>;
+				try {
+					specificity = calculate(selector);
+					matches = [...svg.querySelectorAll(selector)];
+					if (svg.matches(selector)) matches.push(svg);
+				} catch {
+					continue;
+				}
 				for (const element of matches)
-					if (element instanceof SVGElement) copyStyle(element, rule.style, originals.get(element));
-			} catch {
-				/* Ignore invalid selectors; never reinterpret CSS as markup. */
+					if (element instanceof SVGElement)
+						collect(element, rule.style, [0, 0, specificity.A, specificity.B, specificity.C]);
 			}
+		}
+	}
+	for (const [element, properties] of winners) {
+		for (const [name, declaration] of properties) {
+			outputBytes += name.length + declaration.value.length;
+			if (outputBytes > 2_000_000) throw new Error('SVG inline style output budget exceeded.');
+			element.style.setProperty(name, declaration.value, declaration.weight[0] ? 'important' : '');
 		}
 	}
 	return fragment;
