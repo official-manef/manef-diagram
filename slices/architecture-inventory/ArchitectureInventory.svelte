@@ -2062,7 +2062,13 @@
 					hidden
 					onchange={importFile}
 				/>
-				<Button data-interactive variant="outline" size="sm" onclick={shareView}>Share view</Button>
+				<Button
+					data-interactive
+					variant="outline"
+					size="sm"
+					aria-describedby="share-privacy-note"
+					onclick={shareView}>Share view</Button
+				>
 				{#if claimReady}
 					<div class="claim-slot" inert={pickerOpen}>
 						<ClaimBar {graph} title={importedDocument.title} {onClaimed} />
@@ -2348,6 +2354,10 @@
 					</ul>
 				</details>
 				<p class="help">Edits are in this tab only. Export a document to keep your work.</p>
+				<p class="help" id="share-privacy-note">
+					Shared links can contain diagram data. Anyone with the link can read it; do not include
+					secrets.
+				</p>
 			</section>
 		</aside>
 

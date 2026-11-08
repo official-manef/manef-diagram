@@ -236,13 +236,11 @@ test('a delayed file import asks before replacing newer canvas edits', async ({ 
 		};
 	});
 	await ready(page);
-	await page
-		.locator('input[type="file"]')
-		.setInputFiles({
-			name: 'waiting.json',
-			mimeType: 'application/json',
-			buffer: Buffer.from(JSON.stringify(fixture()))
-		});
+	await page.locator('input[type="file"]').setInputFiles({
+		name: 'waiting.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(JSON.stringify(fixture()))
+	});
 	await page.waitForFunction(
 		() =>
 			typeof (window as Window & { releaseWaitingImport?: () => void }).releaseWaitingImport ===
@@ -262,4 +260,14 @@ test('a delayed file import asks before replacing newer canvas edits', async ({ 
 	);
 	expect(confirmation).toContain('changed while this file was loading');
 	await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('Newer edit');
+});
+
+test('share control explains the privacy of portable diagram links', async ({ page }) => {
+	await page.goto('/app');
+	await expect(
+		page.getByRole('button', { name: 'Share view', exact: true })
+	).toHaveAccessibleDescription(
+		'Shared links can contain diagram data. Anyone with the link can read it; do not include secrets.'
+	);
+	await expect(page.locator('#share-privacy-note')).toBeVisible();
 });
